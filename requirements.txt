@@ -1,0 +1,4 @@
+flask
+python-dotenv
+smartsheet-python-sdk
+truststore
