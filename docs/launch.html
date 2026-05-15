@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELT Risk Heatmap — Setup</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #1a1a2e; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .card { background: #fff; border-radius: 16px; padding: 48px 56px; max-width: 580px; width: 100%; box-shadow: 0 4px 32px rgba(0,0,0,0.10); text-align: center; }
+    .logo { font-size: 48px; margin-bottom: 16px; }
+    h1 { font-size: 26px; font-weight: 700; margin-bottom: 8px; color: #0d1b2a; }
+    .subtitle { font-size: 15px; color: #555; margin-bottom: 36px; line-height: 1.5; }
+    .step { background: #f8f9fc; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; text-align: left; display: flex; gap: 16px; align-items: flex-start; }
+    .step-num { background: #2D5BE3; color: #fff; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; margin-top: 2px; }
+    .step-text { font-size: 14px; line-height: 1.6; color: #333; }
+    .step-text strong { color: #0d1b2a; }
+    .bookmarklet-wrap { margin: 28px 0; }
+    .bookmarklet-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #2D5BE3, #1a3db5);
+      color: #fff !important;
+      text-decoration: none;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: grab;
+      box-shadow: 0 4px 16px rgba(45,91,227,0.35);
+      transition: transform 0.1s, box-shadow 0.1s;
+      user-select: none;
+    }
+    .bookmarklet-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(45,91,227,0.4); }
+    .bookmarklet-btn:active { cursor: grabbing; }
+    .drag-hint { font-size: 13px; color: #888; margin-top: 10px; }
+    .divider { border: none; border-top: 1px solid #eee; margin: 24px 0; }
+    .usage { font-size: 14px; color: #555; background: #f0f4ff; border-radius: 10px; padding: 16px 20px; text-align: left; line-height: 1.7; }
+    .usage strong { color: #2D5BE3; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">📊</div>
+  <h1>ELT Risk Heatmap</h1>
+  <p class="subtitle">One-time setup — adds a bookmark to your browser bar so you can load the live heatmap on the SmartSheet dashboard with a single click.</p>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-text">Make sure your <strong>bookmarks bar is visible</strong> in Chrome: press <strong>Ctrl+Shift+B</strong> to toggle it on.</div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-text"><strong>Drag the button below</strong> up to your bookmarks bar and drop it there. It will appear as a bookmark called "ELT Heatmap".</div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-text">You're done. <strong>Open the SmartSheet ELT dashboard</strong>, then click that bookmark once — the live heatmap will replace the video widget instantly.</div>
+  </div>
+
+  <div class="bookmarklet-wrap">
+    <a class="bookmarklet-btn"
+       href="javascript:(function(){var n=0;function s(){document.querySelectorAll('iframe').forEach(function(f){if(f.src&&f.src.includes('youtube.com')&&!f.dataset.hs){f.src='https://delicate-florentine-c73974.netlify.app';f.dataset.hs='1';n++;}});}s();if(!n){var t=setInterval(function(){s();if(n)clearInterval(t);},500);setTimeout(function(){clearInterval(t);},10000);}})();"
+       onclick="return false;">
+      📊 ELT Heatmap
+    </a>
+    <div class="drag-hint">⬆ Drag this button to your bookmarks bar</div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="usage">
+    <strong>Every time you visit the dashboard:</strong><br>
+    Open the SmartSheet ELT dashboard → click <strong>📊 ELT Heatmap</strong> in your bookmarks bar → done.
+    <br><br>
+    <strong>Can't drag?</strong> Right-click the button → "Bookmark this link" → save to Bookmarks Bar.
+  </div>
+</div>
+</body>
+</html>
