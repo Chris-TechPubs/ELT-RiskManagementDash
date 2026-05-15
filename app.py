@@ -16,7 +16,7 @@ def allow_embedding(response):
     """Allow this app to be embedded in iframes (e.g. SmartSheet dashboards).
     X-Frame-Options is intentionally removed — its absence allows all embedding.
     CSP frame-ancestors * explicitly permits any origin to frame this content."""
-    response.headers.discard('X-Frame-Options')  # remove entirely; ALLOWALL is non-standard
+    response.headers.remove('X-Frame-Options')    # remove entirely; absence = allow all origins
     response.headers['Content-Security-Policy'] = "frame-ancestors *"
     return response
 
