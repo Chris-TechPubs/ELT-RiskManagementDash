@@ -13,11 +13,11 @@ app.jinja_env.auto_reload = True
 
 @app.after_request
 def allow_embedding(response):
-    """Allow this app to be embedded in iframes (e.g. SmartSheet dashboards).
-    X-Frame-Options is intentionally removed — its absence allows all embedding.
-    CSP frame-ancestors * explicitly permits any origin to frame this content."""
-    response.headers.remove('X-Frame-Options')    # remove entirely; absence = allow all origins
+    """Allow embedding and cross-origin fetching from any origin.
+    Needed for Looker Studio community viz to fetch and write our HTML directly."""
+    response.headers.remove('X-Frame-Options')
     response.headers['Content-Security-Policy'] = "frame-ancestors *"
+    response.headers['Access-Control-Allow-Origin'] = '*'
     return response
 
 _cache: dict = {"data": None, "ts": 0.0}

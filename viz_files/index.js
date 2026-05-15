@@ -1,15 +1,19 @@
 (function() {
-  document.documentElement.style.cssText = 'height:100%;margin:0;padding:0;';
-  document.body.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;';
-
-  var f = document.createElement('iframe');
-  f.src = 'https://elt-riskmanagementdash.onrender.com/heatmap';
-  f.style.cssText = 'border:none;width:100%;height:100vh;display:block;';
-  f.setAttribute('frameborder', '0');
-  f.setAttribute('scrolling', 'no');
-  document.body.appendChild(f);
-
-  // Required Looker Studio subscription — data is unused, heatmap fetches its own
+  // Register with Looker Studio first (required by the SDK)
   function drawViz(data) {}
-  dscc.subscribeToData(drawViz, {transform: dscc.objectTransform});
+  try { dscc.subscribeToData(drawViz, {transform: dscc.objectTransform}); } catch(e) {}
+
+  // Fetch the full heatmap HTML and write it directly into this viz iframe's document.
+  // This avoids nested iframe sandbox restrictions imposed by Looker Studio.
+  fetch('https://elt-riskmanagementdash.onrender.com/heatmap', {mode: 'cors'})
+    .then(function(r) { return r.text(); })
+    .then(function(html) {
+      document.open('text/html', 'replace');
+      document.write(html);
+      document.close();
+    })
+    .catch(function(err) {
+      document.body.style.cssText = 'font-family:sans-serif;padding:20px;color:red;';
+      document.body.innerHTML = '<h3>Could not load heatmap</h3><p>' + err.message + '</p>';
+    });
 })();
