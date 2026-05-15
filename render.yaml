@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: elt-riskmanagementdash
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    headers:
+      - path: /*
+        name: Content-Security-Policy
+        value: "frame-ancestors *"
+      - path: /*
+        name: X-Frame-Options
+        value: ""

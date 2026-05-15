@@ -13,8 +13,10 @@ app.jinja_env.auto_reload = True
 
 @app.after_request
 def allow_embedding(response):
-    """Allow this app to be embedded in iframes (e.g. SmartSheet dashboards)."""
-    response.headers['X-Frame-Options'] = 'ALLOWALL'
+    """Allow this app to be embedded in iframes (e.g. SmartSheet dashboards).
+    X-Frame-Options is intentionally removed — its absence allows all embedding.
+    CSP frame-ancestors * explicitly permits any origin to frame this content."""
+    response.headers.discard('X-Frame-Options')  # remove entirely; ALLOWALL is non-standard
     response.headers['Content-Security-Policy'] = "frame-ancestors *"
     return response
 
