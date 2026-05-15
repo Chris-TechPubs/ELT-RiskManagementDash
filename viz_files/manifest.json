@@ -7,7 +7,7 @@
   "package": {
     "componentsVersion": "3",
     "devMode": true,
-    "jsUrl": "https://cdn.jsdelivr.net/gh/Chris-TechPubs/ELT-RiskManagementDash@main/viz_files/index.js",
-    "cssUrl": "https://cdn.jsdelivr.net/gh/Chris-TechPubs/ELT-RiskManagementDash@main/viz_files/index.css"
+    "jsUrl": "https://cdn.jsdelivr.net/gh/Chris-TechPubs/ELT-RiskManagementDash@master/viz_files/index.js",
+    "cssUrl": "https://cdn.jsdelivr.net/gh/Chris-TechPubs/ELT-RiskManagementDash@master/viz_files/index.css"
   }
 }
