@@ -60,5 +60,14 @@ def health():
     return jsonify({"status": "ok", "risks": len(_cache["data"] or [])})
 
 
+@app.route("/api/risks")
+def api_risks():
+    """JSON endpoint for client-side rendering (CORS-enabled)."""
+    risks = _cached_risks()
+    response = jsonify(risks)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
+
+
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=5001)
