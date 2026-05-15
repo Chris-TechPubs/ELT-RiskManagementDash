@@ -69,5 +69,57 @@ def api_risks():
     return response
 
 
+# ── Looker Studio Community Visualization ─────────────────────────────────────
+# The viz is a minimal iframe wrapper around the full heatmap.
+# Looker Studio (on SmartSheet's approved list) hosts it; our heatmap renders inside.
+
+def _cors(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
+
+@app.route("/viz/manifest.json")
+def viz_manifest():
+    from flask import Response
+    import json
+    manifest = {
+        "name": "ELT Risk Heatmap",
+        "organization": "Allegion",
+        "description": "Interactive ELT Risk Management Heatmap",
+        "logoUrl": "https://fonts.gstatic.com/s/i/googlematerialicons/analytics/v12/gm_grey-24dp/1x/gm_analytics_gm_grey_24dp.png",
+        "organizationUrl": "https://allegion.com",
+        "package": {
+            "componentsVersion": "3",
+            "devMode": True,
+            "jsUrl": "https://elt-riskmanagementdash.onrender.com/viz/index.js",
+            "cssUrl": "https://elt-riskmanagementdash.onrender.com/viz/index.css"
+        }
+    }
+    return _cors(Response(json.dumps(manifest, indent=2), mimetype='application/json'))
+
+@app.route("/viz/index.js")
+def viz_js():
+    from flask import Response
+    js = r"""
+(function() {
+  document.documentElement.style.cssText = 'height:100%;margin:0;padding:0;';
+  document.body.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;';
+  var f = document.createElement('iframe');
+  f.src = 'https://elt-riskmanagementdash.onrender.com/heatmap';
+  f.style.cssText = 'border:none;width:100%;height:100vh;display:block;';
+  document.body.appendChild(f);
+  // Required Looker Studio subscription (data from Looker Studio is unused —
+  // the heatmap fetches directly from the SmartSheet API via our backend)
+  function drawViz(data) {}
+  dscc.subscribeToData(drawViz, {transform: dscc.objectTransform});
+})();
+"""
+    return _cors(Response(js, mimetype='application/javascript'))
+
+@app.route("/viz/index.css")
+def viz_css():
+    from flask import Response
+    return _cors(Response('html,body{margin:0;padding:0;height:100%;overflow:hidden;}', mimetype='text/css'))
+
+
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=5001)
