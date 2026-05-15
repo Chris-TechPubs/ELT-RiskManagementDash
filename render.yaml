@@ -8,9 +8,7 @@ services:
       - path: /*
         name: Content-Security-Policy
         value: "frame-ancestors *; default-src * 'unsafe-inline' 'unsafe-eval' data: blob:"
-      - path: /*
-        name: X-Frame-Options
-        value: "ALLOWALL"
+
       - path: /*
         name: Access-Control-Allow-Origin
         value: "*"
