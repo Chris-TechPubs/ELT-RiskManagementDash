@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Risk Heat Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: #fff; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; }
+    #wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 6px; }
+    svg { width: 100%; height: 100%; }
+    .risk-group { cursor: pointer; }
+    .risk-group:hover .r-dot { opacity: 0.7; }
+    /* ── Allegion grey — solid, no transparency ─────────────────────────────── */
+    :root { --allegion-grey: #2D2D2E; --allegion-border: #3F3F40; --allegion-text: #E8EAED; --allegion-muted: #A8A8AA; }
+
+    /* ── Tooltip (2× size for iframe legibility) ───────────────────────────── */
+    #tooltip {
+      position: fixed; display: none; z-index: 999; pointer-events: none;
+      background: var(--allegion-grey); color: var(--allegion-text);
+      padding: 20px 28px; border-radius: 14px; font-size: 26px;
+      max-width: 580px; line-height: 1.6;
+      border: 2px solid var(--allegion-border); box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    }
+    .tt-row { display: flex; gap: 12px; align-items: baseline; }
+    .tt-id  { font-weight: 700; color: #fff; font-size: 26px; white-space: nowrap; }
+    .tt-nm  { color: #a8c0ff; font-size: 23px; }
+    .tt-div { margin: 10px 0 8px; border-top: 2px solid var(--allegion-border); }
+    .tt-stat { font-size: 22px; color: #ccd6ff; }
+    .tt-val  { color: #ffd060; font-weight: 600; }
+
+    /* ── Dot spin animation ─────────────────────────────────────────────────── */
+    @keyframes dotSpin {
+      0%   { transform: rotate(0deg);   }
+      62%  { transform: rotate(360deg); }  /* spin with ease */
+      100% { transform: rotate(360deg); }  /* hold ~1s */
+    }
+    .dot-spin { transform-box: fill-box; transform-origin: center; }
+    .dot-hover:hover .dot-spin {
+      animation: dotSpin 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+    }
+
+    /* ── Risk detail modal ──────────────────────────────────────────────────── */
+    #risk-modal {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    #risk-modal.open { display: flex; }
+    #risk-modal-overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.55); cursor: pointer;
+    }
+    #risk-modal-box {
+      position: relative; z-index: 1; background: var(--allegion-grey);
+      color: var(--allegion-text); border: 2px solid var(--allegion-border);
+      border-radius: 16px; padding: 36px 44px; max-width: 700px; width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7); font-family: 'Roboto', sans-serif;
+    }
+    #risk-modal-close {
+      position: absolute; top: 16px; right: 20px; background: none; border: none;
+      color: var(--allegion-muted); font-size: 28px; cursor: pointer; line-height: 1;
+    }
+    #risk-modal-close:hover { color: #fff; }
+    #risk-modal-id   { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    #risk-modal-name { font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 26px; }
+    .modal-field { margin-bottom: 20px; }
+    .modal-label { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+                   color: var(--allegion-muted); margin-bottom: 5px; }
+    .modal-value { font-size: 20px; color: var(--allegion-text); line-height: 1.55; }
+    /* Tabs */
+    #risk-modal-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 22px;
+                       border-bottom: 2px solid var(--allegion-border); padding-bottom: 0; }
+    .modal-tab {
+      padding: 8px 18px; border: 2px solid transparent; border-bottom: none;
+      border-radius: 8px 8px 0 0; background: transparent;
+      cursor: pointer; font-size: 16px; font-weight: 700; margin-bottom: -2px;
+      transition: filter 0.15s, box-shadow 0.15s;
+    }
+    .modal-tab:hover { filter: brightness(1.2); }
+    .modal-tab.active {
+      color: #000 !important;
+      box-shadow: 0 -4px 14px rgba(0,0,0,0.55), -2px -2px 6px rgba(0,0,0,0.3);
+      border-bottom-color: transparent;
+    }
+
+    /* ── Label toggle — hide label boxes + connectors, keep dots ────────────── */
+    .labels-off .label-box,
+    .labels-off .label-text,
+    .labels-off .conn-line { display: none; }
+
+    /* ── Controls ───────────────────────────────────────────────────────────── */
+    #zoom-ctrl {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 5px; z-index: 200;
+      background: rgba(255,255,255,0.92); padding: 4px 8px; border-radius: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+    }
+    #zoom-ctrl button {
+      height: 28px; border: 1px solid #ccc; border-radius: 14px;
+      background: #fff; cursor: pointer; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      color: #333; padding: 0 10px; font-size: 13px; white-space: nowrap;
+    }
+    #zoom-ctrl button.icon-btn { width: 28px; padding: 0; font-size: 17px; border-radius: 50%; }
+    #zoom-ctrl button:hover { background: #f0f4ff; border-color: #999; }
+    #zoom-ctrl button.active { background: #e8f0ff; border-color: #6699cc; color: #2255aa; }
+    #hm { cursor: grab; }
+    #hm.panning { cursor: grabbing; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <svg id="hm" viewBox="0 0 1300 780" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- Gradient uses userSpaceOnUse so JS can anchor it to data coords (0,0)→(5,5).
+           When zoomed/panned, updateGradientCoords() moves the anchor points so the
+           green/yellow/red colours always correspond to the correct risk levels. -->
+      <linearGradient id="gDiag" gradientUnits="userSpaceOnUse"
+                      x1="130" y1="700" x2="730" y2="20">
+        <stop offset="0%"   stop-color="#8BC34A"/>
+        <stop offset="25%"  stop-color="#8BC34A"/>
+        <stop offset="46%"  stop-color="#FFEE58"/>
+        <stop offset="61%"  stop-color="#FF9800"/>
+        <stop offset="100%" stop-color="#E53935"/>
+      </linearGradient>
+    <clipPath id="chartClip">
+      <!-- Clip to the exact plot area (P.x=130, P.y=20, P.w=600, P.h=680) -->
+      <rect x="130" y="20" width="600" height="680"/>
+    </clipPath>
+    </defs>
+    <g id="chart-inner">
+      <g id="static-layer"></g>
+      <!-- Clip wrapper never transforms — keeps clip fixed in plot space -->
+      <g clip-path="url(#chartClip)">
+        <g id="risks-layer"></g>
+      </g>
+    </g>
+    <g id="legend-layer"></g>
+  </svg>
+</div>
+<div id="zoom-ctrl">
+  <button class="icon-btn" onclick="doZoom(1.3)" title="Zoom in">+</button>
+  <button class="icon-btn" onclick="resetView()" title="Reset view" style="font-size:12px">&#8962;</button>
+  <button class="icon-btn" onclick="doZoom(0.77)" title="Zoom out">&minus;</button>
+  <button id="label-toggle" onclick="toggleLabels()" title="Toggle labels">Labels</button>
+</div>
+<div id="risk-modal">
+  <div id="risk-modal-overlay" onclick="closeModal()"></div>
+  <div id="risk-modal-box">
+    <button id="risk-modal-close" onclick="closeModal()">&#215;</button>
+    <div id="risk-modal-tabs"></div>
+    <div id="risk-modal-id"></div>
+    <div id="risk-modal-name"></div>
+    <div class="modal-field"><div class="modal-label">Definition</div><div id="modal-definition" class="modal-value"></div></div>
+    <div class="modal-field"><div class="modal-label">Risk Status</div><div id="modal-status" class="modal-value"></div></div>
+    <div class="modal-field"><div class="modal-label">Risk Owner</div><div id="modal-owner" class="modal-value"></div></div>
+    <div class="modal-field"><div class="modal-label">Manager(s)</div><div id="modal-managers" class="modal-value"></div></div>
+  </div>
+</div>
+<div id="tooltip"></div>
+
+<script>
+let RISKS = [];
+
+// ── Layout ────────────────────────────────────────────────────────────────────
+const P    = { x: 130, y: 20, w: 600, h: 680 };
+const MAX       = 5;
+const FONT      = 'Roboto, Segoe UI, Arial, sans-serif';
+const AXIS_FONT = 'Antenna, Roboto, Segoe UI, Arial, sans-serif';
+const LB        = { xMin: P.x + 2, yMin: P.y + 2, xMax: P.x + P.w - 2, yMax: P.y + P.h - 2 };
+
+const LEG_X = P.x + P.w + 30;
+
+// Data view range — changes on zoom/pan; svgX/svgY map data into the fixed plot square
+let VR = { xMin: 0, xMax: 5, yMin: 0, yMax: 5 };
+
+function svgX(v) { return P.x + (v - VR.xMin) / (VR.xMax - VR.xMin) * P.w; }
+function svgY(v) { return P.y + (1 - (v - VR.yMin) / (VR.yMax - VR.yMin)) * P.h; }
+function dataX(sx) { return VR.xMin + (sx - P.x) / P.w * (VR.xMax - VR.xMin); }
+function dataY(sy) { return VR.yMin + (1 - (sy - P.y) / P.h) * (VR.yMax - VR.yMin); }
+
+// ── SVG helpers ───────────────────────────────────────────────────────────────
+const NS = 'http://www.w3.org/2000/svg';
+function mk(tag, a, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(a)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function mktxt(content, a, parent) {
+  const e = mk('text', a, parent);
+  e.textContent = content;
+  return e;
+}
+
+// ── Category colour system ────────────────────────────────────────────
+// All colours verified WCAG AA (>=4.5:1 contrast with black text), which also
+// guarantees they are bright enough to read clearly against the black dot fill.
+// Hues spread ~50 degrees apart around the full colour wheel for maximum
+// perceptual distance: Coral(16) Amber(49) Lime(76) Emerald(151) Teal(171) Periwinkle(218) Pink(337)
+const CAT_MAP = {
+  'strategic':                '#FF6B35',  // coral-orange  contrast 7.9:1
+  'operational':              '#00BFA5',  // vivid teal    contrast 9.1:1
+  'technology/cybersecurity': '#C6FF00',  // electric lime contrast 17.8:1
+  'technology':               '#C6FF00',
+  'human capital':            '#00E676',  // emerald green contrast 12.7:1
+  'governance/compliance':    '#FF80AB',  // bright pink   contrast 9.3:1
+  'governance':               '#FF80AB',
+  'environmental/external':   '#82B1FF',  // periwinkle    contrast 10.1:1
+  'environmental':            '#82B1FF',
+  'financial':                '#FFD740',  // warm amber    contrast 15.1:1
+};
+
+const CAT_LABELS = [
+  ['Strategic Risks',                '#FF6B35'],
+  ['Operational Risks',              '#00BFA5'],
+  ['Technology/Cybersecurity Risks', '#C6FF00'],
+  ['Human Capital Risks',            '#00E676'],
+  ['Governance / Compliance Risks',  '#FF80AB'],
+  ['Environmental / External Risks', '#82B1FF'],
+  ['Financial Risks',                '#FFD740'],
+
+];
+
+function catColor(cat) {
+  if (!cat) return '#555';
+  const k = cat.toLowerCase().trim().replace(/\s*risks?\s*$/, '').trim();
+  return CAT_MAP[k] || '#555';
+}
+
+// Lookup: risk id → category
+const ID_TO_CAT = {};
+RISKS.forEach(r => { ID_TO_CAT[r.id] = r.category || ''; });
+
+// ── Grouping / label sizing ───────────────────────────────────────────────────
+function snap(v) { return Math.round(v * 2) / 2; }
+
+function groupRisks(risks) {
+  const map = new Map();
+  risks.forEach(r => {
+    const sl = snap(r.likelihood), ss = snap(r.severity);
+    if (sl < VR.xMin-0.26 || sl > VR.xMax+0.26) return;
+    if (ss < VR.yMin-0.26 || ss > VR.yMax+0.26) return;
+    const key = sl+','+ss;
+    if (!map.has(key)) map.set(key, { risks: [], likelihood: sl, severity: ss });
+    map.get(key).risks.push(r);
+  });
+  return [...map.values()];
+}
+
+const MAX_PER_ROW = 3, CHAR_W = 6, ROW_H = 14, PAD_X = 4, PAD_Y = 3;
+
+function getLabelLayout(ids) {
+  const rows = [];
+  for (let i = 0; i < ids.length; i += MAX_PER_ROW)
+    rows.push(ids.slice(i, i + MAX_PER_ROW));
+  const maxChars = Math.max(...rows.map(r => r.join('  ').length));
+  return { rows, w: Math.max(32, maxChars * CHAR_W + PAD_X * 2), h: rows.length * ROW_H + PAD_Y * 2 };
+}
+
+// ── clearY: bubble label past blocking dots ───────────────────────────────────
+const DOT_R = 10, VGAP = 11;
+
+// ── Multi-colour pie-chart dot stroke ─────────────────────────────────────────
+// Draws the black dot with arc-segments around it, one per category colour.
+// Uses stroke-dasharray so each arc covers 1/N of the circumference.
+function drawPieDot(cx, cy, categories, parent) {
+  const R  = DOT_R;
+  const SW = 3;                          // stroke width
+  const C  = 2 * Math.PI * (R + SW / 2); // circumference at stroke mid-point
+  const unique = [...new Set(categories.map(c => catColor(c || '')))];
+  const N  = unique.length;
+  const seg = C / N;
+
+  // Thin black outer border drawn FIRST (behind everything).
+  // SW+2 makes it 1px wider each side than the coloured ring, so exactly 1px
+  // of black peeks outside the colours while the inner part is covered by them.
+  mk('circle', { cx, cy, r: R, fill: 'none', stroke: '#000', 'stroke-width': SW + 2 }, parent);
+
+  // Black filled centre
+  mk('circle', { cx, cy, r: R, fill: '#111827' }, parent);
+
+  // White base ring so colours show clearly
+  mk('circle', { cx, cy, r: R, fill: 'none', stroke: 'rgba(255,255,255,0.25)', 'stroke-width': SW }, parent);
+
+  // One arc per colour, rotated so first arc starts at 12 o'clock
+  unique.forEach((col, i) => {
+    mk('circle', {
+      cx, cy, r: R,
+      fill: 'none',
+      stroke: col,
+      'stroke-width': SW,
+      'stroke-dasharray': `${seg.toFixed(2)} ${(C - seg).toFixed(2)}`,
+      'stroke-dashoffset': (C / 4 - i * seg).toFixed(2),
+    }, parent);
+  });
+}
+
+function buildItems(groups) {
+  const allDots = groups.map(g => ({ cx: svgX(g.likelihood), cy: svgY(g.severity) }));
+  const GAP = 5;  // minimum gap between any two elements
+  const placedRects = [];
+
+  // ── Exact collision checks ─────────────────────────────────────────────────
+
+  // Rect-rect overlap
+  function rectsOverlap(a, b) {
+    return Math.min(a.x+a.w, b.x+b.w) - Math.max(a.x, b.x) > GAP &&
+           Math.min(a.y+a.h, b.y+b.h) - Math.max(a.y, b.y) > GAP;
+  }
+
+  // Circle-rect overlap (nearest point on rect to circle centre)
+  function circleRectOverlap(dcx, dcy, r, rect) {
+    const nx = Math.max(rect.x, Math.min(rect.x+rect.w, dcx));
+    const ny = Math.max(rect.y, Math.min(rect.y+rect.h, dcy));
+    return (nx-dcx)**2 + (ny-dcy)**2 < (r+GAP)**2;
+  }
+
+  // Vertical line (at x=cx, y from y1 to y2) crossing a rect
+  function lineRectCross(cx, y1, y2, rect) {
+    const yLo = Math.min(y1,y2)+2, yHi = Math.max(y1,y2)-2;
+    return cx > rect.x-1 && cx < rect.x+rect.w+1 && yHi > rect.y && yLo < rect.y+rect.h;
+  }
+
+  // Vertical line passing within DOT_R of a dot circle
+  function lineDotCross(cx, y1, y2, dcx, dcy) {
+    if (Math.abs(dcx-cx) >= DOT_R+GAP) return false;
+    const yLo = Math.min(y1,y2)+2, yHi = Math.max(y1,y2)-2;
+    return yHi > dcy-DOT_R && yLo < dcy+DOT_R;
+  }
+
+  // Is this rect position fully valid? (no label, no dot, connector clear)
+  function isValid(rect, cx, cy) {
+    // 1. label-label
+    for (const r of placedRects) {
+      if (rectsOverlap(rect, r)) return false;
+    }
+    // 2. label-dot (other dots only, using exact circle-rect check)
+    for (const { cx: dcx, cy: dcy } of allDots) {
+      if (dcx===cx && dcy===cy) continue;
+      if (circleRectOverlap(dcx, dcy, DOT_R, rect)) return false;
+    }
+    // 3. connector clearance (straight vertical line at x=cx)
+    const above  = rect.y + rect.h <= cy;
+    const dotEdge   = above ? cy - DOT_R : cy + DOT_R;
+    const labelEdge = above ? rect.y + rect.h : rect.y;
+    const yMin = Math.min(dotEdge, labelEdge)+2, yMax = Math.max(dotEdge, labelEdge)-2;
+    if (yMin < yMax) {
+      for (const r of placedRects) {
+        if (lineRectCross(cx, yMin, yMax, r)) return false;
+      }
+      for (const { cx: dcx, cy: dcy } of allDots) {
+        if (dcx===cx && dcy===cy) continue;
+        if (lineDotCross(cx, yMin, yMax, dcx, dcy)) return false;
+      }
+    }
+    return true;
+  }
+
+  // Scan outward from dot in one direction until a valid position is found.
+  // Step size = lh so we check one label-height slot at a time.
+  function findValidY(cx, lw, lh, cy, dir) {
+    const lx    = Math.max(LB.xMin, Math.min(LB.xMax-lw, cx-lw/2));
+    const start = dir==='below' ? cy+DOT_R+VGAP : cy-DOT_R-VGAP-lh;
+    const limit = dir==='below' ? LB.yMax-lh    : LB.yMin;
+    const step  = dir==='below' ? 1 : -1;
+    let   y     = start;
+    let   iters = 0;
+    while ((dir==='below' ? y<=limit : y>=limit) && iters++ < 800) {
+      const rect = { x:lx, y, w:lw, h:lh };
+      if (isValid(rect, cx, cy)) return y;
+      // Jump past the nearest conflicting blocker in this direction
+      let jump = lh + GAP;
+      for (const r of placedRects) {
+        if (Math.min(lx+lw, r.x+r.w) - Math.max(lx, r.x) <= GAP) continue;
+        if (dir==='below' && r.y >= y && r.y < y+lh+GAP)
+          jump = Math.min(jump, r.y+r.h+GAP - y);
+        if (dir==='above' && r.y+r.h <= y+lh && r.y+r.h > y-GAP)
+          jump = Math.min(jump, (y+lh) - r.y + GAP);
+      }
+      for (const { cx: dcx, cy: dcy } of allDots) {
+        if (dcx===cx && dcy===cy) continue;
+        if (Math.min(lx+lw, dcx+DOT_R+GAP) - Math.max(lx, dcx-DOT_R-GAP) <= 0) continue;
+        if (dir==='below' && dcy >= y-DOT_R-GAP && dcy < y+lh+DOT_R+GAP)
+          jump = Math.min(jump, dcy+DOT_R+GAP - y);
+        if (dir==='above' && dcy+DOT_R+GAP >= y && dcy-DOT_R-GAP < y+lh)
+          jump = Math.min(jump, (y+lh) - (dcy-DOT_R-GAP));
+      }
+      y += step * Math.max(1, Math.ceil(jump));
+    }
+    return null;
+  }
+
+  // Process highest severity first (most constrained labels place early)
+  const ordered = [...groups].sort((a,b) => b.severity - a.severity);
+
+  const placed = ordered.map(({ risks, likelihood, severity }) => {
+    const cx  = svgX(likelihood), cy = svgY(severity);
+    const ids = risks.map(r => r.id);
+    const { rows, w: lw, h: lh } = getLabelLayout(ids);
+    const lx  = Math.max(LB.xMin, Math.min(LB.xMax-lw, cx-lw/2));
+
+    const yA = findValidY(cx, lw, lh, cy, 'above');
+    const yB = findValidY(cx, lw, lh, cy, 'below');
+
+    let ly;
+    if (yA !== null && yB !== null) {
+      ly = Math.abs(yA+lh/2-cy) <= Math.abs(yB+lh/2-cy) ? yA : yB;
+    } else {
+      ly = yA ?? yB ?? Math.max(LB.yMin, cy-DOT_R-VGAP-lh);
+    }
+
+    const rect = { x:lx, y:ly, w:lw, h:lh };
+    placedRects.push(rect);
+    return { groups:[{risks,cx,cy}], rows, rect };
+  });
+
+  return groups.map(g =>
+    placed.find(it => it.groups[0].cx===svgX(g.likelihood) && it.groups[0].cy===svgY(g.severity))
+  );
+}
+
+// ── Force resolution ──────────────────────────────────────────────────────────
+function resolveCollisions(items) {
+  const GAP = 5, MAX_ITER = 500;
+  for (let iter = 0; iter < MAX_ITER; iter++) {
+    let moved = false;
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i].rect, b = items[j].rect;
+        const ox = Math.min(a.x+a.w, b.x+b.w) - Math.max(a.x, b.x) + GAP;
+        const oy = Math.min(a.y+a.h, b.y+b.h) - Math.max(a.y, b.y) + GAP;
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        if (ox <= oy) {
+          const p = ox/2;
+          if (a.x+a.w/2 < b.x+b.w/2) { a.x -= p; b.x += p; } else { a.x += p; b.x -= p; }
+        } else {
+          const p = oy/2;
+          if (a.y+a.h/2 < b.y+b.h/2) { a.y -= p; b.y += p; } else { a.y += p; b.y -= p; }
+        }
+        for (const r of [a, b]) {
+          r.x = Math.max(LB.xMin, Math.min(LB.xMax - r.w, r.x));
+          r.y = Math.max(LB.yMin, Math.min(LB.yMax - r.h, r.y));
+        }
+      }
+    }
+    if (!moved) break;
+  }
+  // Horizontal dot clearance
+  const DEXCL = DOT_R + 4;
+  for (const item of items) {
+    const r = item.rect;
+    for (const other of items) {
+      if (other === item) continue;
+      for (const { cx: dcx, cy: dcy } of other.groups) {
+        if (!(dcy+DEXCL > r.y && dcy-DEXCL < r.y+r.h)) continue;
+        if (!(dcx+DEXCL > r.x && dcx-DEXCL < r.x+r.w)) continue;
+        r.x = r.x+r.w/2 < dcx ? dcx-DEXCL-r.w : dcx+DEXCL;
+        r.x = Math.max(LB.xMin, Math.min(LB.xMax-r.w, r.x));
+      }
+    }
+  }
+}
+
+// ── Proximity merge ───────────────────────────────────────────────────────────
+// Only merge pairs of adjacent labels (gap < MERGE_DIST) where the combined
+// risk count stays ≤ MAX_MERGE_IDS. This prevents runaway cluster growth.
+function mergeClose(items) {
+  const MERGE_DIST    = 4;   // gap between label boxes to trigger merge
+  const MAX_MERGE_IDS = 6;  // cap merged label at 6 risk IDs
+  // Dots at different 0.5-unit snap positions are at least 60px apart (horizontal)
+  // or 68px apart (vertical). Diagonal adjacent = ~91px. Cap below that so only
+  // labels for horizontally or vertically adjacent dots (not diagonal) can merge.
+  const MAX_DOT_DIST  = 80;
+
+  function gap(a, b) {
+    const gx = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x+a.w, b.x+b.w));
+    const gy = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y+a.h, b.y+b.h));
+    return Math.sqrt(gx*gx + gy*gy);
+  }
+
+  function countIds(item) {
+    return item.groups.reduce((n, g) => n + g.risks.length, 0);
+  }
+
+  function buildMerged(a, b) {
+    const allGroups = [...a.groups, ...b.groups];
+    const allRisks  = allGroups.flatMap(g => g.risks);
+    const { rows, w: lw, h: lh } = getLabelLayout(allRisks.map(r => r.id));
+    const avgX = (a.rect.x + a.rect.w/2 + b.rect.x + b.rect.w/2) / 2;
+    const avgY = (a.rect.y + a.rect.h/2 + b.rect.y + b.rect.h/2) / 2;
+    const lx   = Math.max(LB.xMin, Math.min(LB.xMax-lw, avgX - lw/2));
+    const ly   = Math.max(LB.yMin, Math.min(LB.yMax-lh, avgY - lh/2));
+    return { groups: allGroups, rows, rect: { x: lx, y: ly, w: lw, h: lh } };
+  }
+
+  // Single pass: for each unmerged item, check if it can merge with the
+  // next unmerged item that is close enough and within the ID cap.
+  let current = [...items];
+  let changed  = true;
+  while (changed) {
+    changed = false;
+    const next = [];
+    const used = new Set();
+    for (let i = 0; i < current.length; i++) {
+      if (used.has(i)) continue;
+      let merged = false;
+      for (let j = i + 1; j < current.length; j++) {
+        if (used.has(j)) continue;
+        if (gap(current[i].rect, current[j].rect) < MERGE_DIST &&
+            countIds(current[i]) + countIds(current[j]) <= MAX_MERGE_IDS &&
+            current[i].groups.every(ga => current[j].groups.every(gb => {
+              const dx = ga.cx - gb.cx, dy = ga.cy - gb.cy;
+              return Math.sqrt(dx*dx + dy*dy) <= MAX_DOT_DIST;
+            }))) {
+          next.push(buildMerged(current[i], current[j]));
+          used.add(i); used.add(j);
+          merged = true; changed = true;
+          break;
+        }
+      }
+      if (!merged) next.push(current[i]);
+    }
+    current = next;
+  }
+  return current;
+}
+
+// Nearest label-edge point to a dot
+function connAnchor(cx, cy, rect) {
+  const { x: lx, y: ly, w: lw, h: lh } = rect;
+  const dx = (lx+lw/2) - cx, dy = (ly+lh/2) - cy;
+  if (Math.abs(dy) >= Math.abs(dx))
+    return dy > 0 ? { x: Math.max(lx, Math.min(lx+lw,cx)), y: ly }
+                  : { x: Math.max(lx, Math.min(lx+lw,cx)), y: ly+lh };
+  return dx > 0 ? { x: lx,    y: Math.max(ly, Math.min(ly+lh,cy)) }
+                : { x: lx+lw, y: Math.max(ly, Math.min(ly+lh,cy)) };
+}
+
+// ── Gradient coords (anchored to data space so zoom/pan moves the colours) ────
+function updateGradientCoords() {
+  const g = document.getElementById('gDiag');
+  // Anchor green at data(0,0) and red at data(5,5) in SVG pixel space
+  g.setAttribute('x1', svgX(0).toFixed(1));
+  g.setAttribute('y1', svgY(0).toFixed(1));
+  g.setAttribute('x2', svgX(5).toFixed(1));
+  g.setAttribute('y2', svgY(5).toFixed(1));
+}
+
+// Lite render — dots only, no label recalculation. Used during drag for
+// smooth 60fps pan without the expensive buildItems/resolveCollisions pass.
+function liteRender() {
+  updateGradientCoords();
+  const layer = document.getElementById('risks-layer');
+  while (layer.firstChild) layer.removeChild(layer.firstChild);
+  groupRisks(RISKS).forEach(({ risks, likelihood, severity }) => {
+    const cx = svgX(likelihood), cy = svgY(severity);
+    const dotG = mk('g', {}, layer);
+    drawPieDot(cx, cy, risks.map(r => r.category || ''), dotG);
+  });
+}
+
+// ── Static chart ──────────────────────────────────────────────────────────────
+function renderStatic() {
+  updateGradientCoords();
+  const layer = document.getElementById('static-layer');
+  const { x, y, w, h } = P;
+  mk('rect', { x, y, width: w, height: h, fill: 'url(#gDiag)' }, layer);
+  // Dynamic grid lines and labels for current VR (data view range)
+  const STEP = 0.5;
+  function rangeTicks(lo, hi) {
+    const out = [], s = Math.ceil(lo/STEP)*STEP;
+    for (let v=s; v<=hi+0.001; v+=STEP) out.push(parseFloat(v.toFixed(2)));
+    return out;
+  }
+  const gcol = 'rgba(255,255,255,0.5)';
+  rangeTicks(VR.xMin, VR.xMax).forEach(v => {
+    const sx = svgX(v);
+    if (sx < x-1 || sx > x+w+1) return;
+    mk('line',{x1:sx,y1:y,x2:sx,y2:y+h,stroke:gcol,'stroke-width':v===Math.round(v)?1.0:0.4},layer);
+    mktxt(v.toFixed(1),{x:sx,y:y+h+16,'text-anchor':'middle','font-size':10,fill:'#444','font-family':AXIS_FONT},layer);
+  });
+  rangeTicks(VR.yMin, VR.yMax).forEach(v => {
+    const sy = svgY(v);
+    if (sy < y-1 || sy > y+h+1) return;
+    mk('line',{x1:x,y1:sy,x2:x+w,y2:sy,stroke:gcol,'stroke-width':v===Math.round(v)?1.0:0.4},layer);
+    mktxt(v.toFixed(1),{x:x-8,y:sy+4,'text-anchor':'end','font-size':10,fill:'#444','font-family':AXIS_FONT},layer);
+  });
+  if (VR.xMin<=2.5 && VR.xMax>=2.5)
+    mk('line',{x1:svgX(2.5),y1:y,x2:svgX(2.5),y2:y+h,stroke:'rgba(0,0,0,0.45)','stroke-width':2},layer);
+  if (VR.yMin<=2.5 && VR.yMax>=2.5)
+    mk('line',{x1:x,y1:svgY(2.5),x2:x+w,y2:svgY(2.5),stroke:'rgba(0,0,0,0.45)','stroke-width':2},layer);
+  mk('rect',{x,y,width:w,height:h,fill:'none',stroke:'rgba(0,0,0,0.55)','stroke-width':1.5},layer);
+  mktxt('Likelihood',{x:x+w/2,y:y+h+34,'text-anchor':'middle','font-size':13,'font-weight':600,fill:'#333','font-family':AXIS_FONT},layer);
+  const sev=mktxt('Severity',{'text-anchor':'middle','font-size':13,'font-weight':600,fill:'#333','font-family':AXIS_FONT,transform:`rotate(-90,${x-44},${y+h/2})`},layer);
+  sev.setAttribute('x',x-44); sev.setAttribute('y',y+h/2);
+}
+
+// ── Render risks ──────────────────────────────────────────────────────────────
+function renderRisks() {
+  const layer  = document.getElementById('risks-layer');
+  const groups = groupRisks(RISKS);
+  let items    = buildItems(groups);
+  resolveCollisions(items);
+  items = mergeClose(items);
+
+  items.forEach(({ groups: grps, rows, rect }) => {
+    const { x: lx, y: ly, w: lw, h: lh } = rect;
+
+    // Dominant category for border colour (most common in this label)
+    const cats = grps.flatMap(g => g.risks.map(r => r.category || ''));
+    const freq = {}; cats.forEach(c => { freq[c] = (freq[c]||0)+1; });
+    const domCat = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0]?.[0] || '';
+    const borderCol = catColor(domCat);
+
+    const g = mk('g', { class: 'risk-group' }, layer);
+
+    // Label box (drawn first so connectors and dots appear on top)
+    mk('rect', { class: 'label-box', x: lx, y: ly, width: lw, height: lh, rx: 3,
+                 fill: '#2D2D2E', stroke: borderCol, 'stroke-width': 1.5 }, g);
+
+    // Text: each ID coloured by its category using tspan elements
+    const allIds = grps.flatMap(gr => gr.risks.map(r => r.id));
+    const layout = getLabelLayout(allIds);
+    layout.rows.forEach((row, i) => {
+      const textEl = mk('text', {
+        class: 'label-text',
+        x: lx + lw / 2, y: ly + PAD_Y + (i + 0.82) * ROW_H,
+        'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, 'font-family': FONT
+      }, g);
+      row.forEach((id, idx) => {
+        const span = document.createElementNS(NS, 'tspan');
+        span.textContent = id;
+        span.setAttribute('fill', catColor(ID_TO_CAT[id] || ''));
+        textEl.appendChild(span);
+        if (idx < row.length - 1) {
+          const sep = document.createElementNS(NS, 'tspan');
+          sep.textContent = '  '; sep.setAttribute('fill', '#aaa');
+          textEl.appendChild(sep);
+        }
+      });
+    });
+
+    // Per-dot: connector + dot + individual tooltip (only that dot's risks)
+    grps.forEach(({ risks: grpRisks, cx, cy }) => {
+      const col    = catColor(grpRisks[0]?.category || '');
+      const anchor = connAnchor(cx, cy, rect);
+      const dotG   = mk('g', { class: 'dot-hover' }, g);
+
+      // Thicker, more visible connector with category colour
+      // Bezier connector when dot sits exactly on the 2.5 quadrant line
+      // (straight connector would fuse visually with the thick axis)
+      if (Math.abs(cx - svgX(2.5)) < 3) {
+        const mid = { x: cx + 32, y: (cy + anchor.y) / 2 };
+        mk('path', {
+          class: 'conn-line',
+          d: 'M '+cx+' '+cy+' Q '+mid.x+' '+mid.y+' '+anchor.x+' '+anchor.y,
+          stroke: col, 'stroke-width': 1.8, fill: 'none', opacity: 0.85
+        }, dotG);
+      } else {
+        mk('line', { class: 'conn-line', x1: cx, y1: cy, x2: anchor.x, y2: anchor.y,
+                     stroke: col, 'stroke-width': 1.8, opacity: 0.85 }, dotG);
+      }
+
+      // Spin wrapper — CSS animation rotates this on hover
+      const spinG = mk('g', { class: 'dot-spin' }, dotG);
+      drawPieDot(cx, cy, grpRisks.map(r => r.category || ''), spinG);
+
+      // Hover tooltip
+      dotG.addEventListener('mouseenter', e => showTip(e, grpRisks));
+      dotG.addEventListener('mousemove',  moveTip);
+      dotG.addEventListener('mouseleave', hideTip);
+      // Click → detail modal
+      dotG.addEventListener('click', e => { e.stopPropagation(); openModal(grpRisks); });
+    });
+  });
+}
+
+// ── Legend ────────────────────────────────────────────────────────────────────
+function renderLegend() {
+  const layer = document.getElementById('legend-layer');
+  const lx    = LEG_X;
+
+  const sorted = [...RISKS].sort((a,b) =>
+    parseInt(a.id.replace(/\D/g,''),10) - parseInt(b.id.replace(/\D/g,''),10)
+  );
+
+  // Card sizing — fills from graph-top to graph-bottom
+  const CARD_PADX = 10;
+  const CARD_TPAD = 20;  // air above header
+  const CARD_BPAD = 8;   // snug below last row
+  const CARD_W    = 293;
+  const HDR_H     = 16;
+  const RISK_H    = (P.h - CARD_TPAD - HDR_H - CARD_BPAD) / sorted.length;
+  const fontSize  = Math.min(11, Math.max(8.5, RISK_H * 0.78));
+  const cardListH = CARD_TPAD + HDR_H + (sorted.length - 1) * RISK_H + fontSize + CARD_BPAD;
+
+  // Backer card — top edge aligned with graph square top (P.y)
+  mk('rect', {
+    x: lx - CARD_PADX, y: P.y,
+    width: CARD_W,      height: cardListH,
+    rx: 10, ry: 10,     fill: '#2D2D2E'
+  }, layer);
+
+  // Risk list inside card
+  let y = P.y + CARD_TPAD;
+  mktxt('Risk #',    {x:lx,    y,'font-size':10,'font-weight':700,fill:'#E8EAED','font-family':FONT}, layer);
+  mktxt('Risk Name', {x:lx+38, y,'font-size':10,'font-weight':700,fill:'#E8EAED','font-family':FONT}, layer);
+  y += HDR_H;
+
+  sorted.forEach(r => {
+    const col  = catColor(r.category || '');
+    const name = r.name.length > 44 ? r.name.slice(0,42)+'…' : r.name;
+    mktxt(r.id,  {x:lx,    y,'font-size':fontSize,'font-weight':700,fill:col,'font-family':FONT}, layer);
+    mktxt(name,  {x:lx+38, y,'font-size':fontSize,'font-weight':600,fill:col,'font-family':FONT}, layer);
+    y += RISK_H;
+  });
+
+  // Category colour key — backer card + circular swatches to the right of the list card
+  const CAT_ROW_H  = 26;
+  const CAT_R      = 7;   // swatch circle radius
+  const LEG_PAD_X  = 12;
+  const LEG_PAD_Y  = 12;
+  const LEG_TEXT_X = CAT_R * 2 + 8;  // text starts after circle + gap
+  const legX = lx - CARD_PADX + CARD_W + 16;
+  const legCardW = LEG_TEXT_X + 175 + LEG_PAD_X;
+  const legCardH = CAT_LABELS.length * CAT_ROW_H + LEG_PAD_Y * 2 - (CAT_ROW_H - CAT_R * 2);
+
+  // Card top = P.y to align with the risk-list card and the graph square
+  const legCardHFit = LEG_PAD_Y + CAT_R + (CAT_LABELS.length - 1) * CAT_ROW_H + CAT_R + LEG_PAD_Y;
+  mk('rect', {
+    x: legX - LEG_PAD_X, y: P.y,
+    width: legCardW,      height: legCardHFit,
+    rx: 10, ry: 10,       fill: '#2D2D2E'
+  }, layer);
+
+  let cy = P.y + LEG_PAD_Y + CAT_R;
+  CAT_LABELS.forEach(([label, col]) => {
+    mk('circle', { cx: legX + CAT_R, cy, r: CAT_R, fill: col }, layer);
+    mktxt(label, {
+      x: legX + LEG_TEXT_X, y: cy + 4,
+      'font-size': 9, 'font-weight': 600, fill: '#ffffff', 'font-family': FONT
+    }, layer);
+    cy += CAT_ROW_H;
+  });
+}
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+const TIP = document.getElementById('tooltip');
+function showTip(e, risks) {
+  const l = risks[0]?.likelihood ?? 0;
+  const s = risks[0]?.severity   ?? 0;
+  TIP.innerHTML = risks.map(r =>
+    `<div class="tt-row"><span class="tt-id" style="color:${catColor(r.category||'')}">${r.id}</span><span class="tt-nm">${r.name}</span></div>`
+  ).join('') + `<div class="tt-div"></div>
+  <div class="tt-stat">Likelihood: <span class="tt-val">${snap(l).toFixed(1)}</span>
+    &nbsp;|&nbsp; Severity: <span class="tt-val">${snap(s).toFixed(1)}</span></div>
+  <div class="tt-stat">Risk Score: <span class="tt-val">${(snap(l)*snap(s)).toFixed(2)}</span></div>`;
+  TIP.style.display = 'block'; moveTip(e);
+}
+function moveTip(e) {
+  const tw=TIP.offsetWidth,th=TIP.offsetHeight;
+  let tx=e.clientX+16,ty=e.clientY-10;
+  if(tx+tw>window.innerWidth-8)  tx=e.clientX-tw-16;
+  if(ty+th>window.innerHeight-8) ty=e.clientY-th-4;
+  TIP.style.left=tx+'px'; TIP.style.top=ty+'px';
+}
+function hideTip() { TIP.style.display='none'; }
+
+// ── Risk detail modal with tabs ───────────────────────────────────────────────
+function hexToRgba(hex, a) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+let _modalRisks = [];  // risks currently shown in the modal
+
+function openModal(risks) {
+  hideTip();
+  _modalRisks = risks.map(r => RISKS.find(fr => fr.id === r.id) || r);
+
+  // Build tabs — one per risk ID
+  const tabsEl = document.getElementById('risk-modal-tabs');
+  tabsEl.innerHTML = '';
+  if (_modalRisks.length > 1) {
+    _modalRisks.forEach((r, idx) => {
+      const btn = document.createElement('button');
+      const col = catColor(r.category || '') || '#666';
+      btn.className   = 'modal-tab' + (idx === 0 ? ' active' : '');
+      btn.textContent = r.id;
+      // Inactive: subtle category tint; active styling applied in switchModalTab
+      btn.style.backgroundColor = hexToRgba(col, 0.22);
+      btn.style.color            = col;
+      btn.style.borderColor      = hexToRgba(col, 0.5);
+      btn.dataset.col            = col;  // store for later updates
+      btn.onclick = () => switchModalTab(idx);
+      tabsEl.appendChild(btn);
+    });
+    tabsEl.style.display = 'flex';
+  } else {
+    tabsEl.style.display = 'none';
+  }
+
+  switchModalTab(0);
+  document.getElementById('risk-modal').classList.add('open');
+}
+
+function switchModalTab(idx) {
+  document.querySelectorAll('.modal-tab').forEach((t, i) => {
+    const col = t.dataset.col || '#666';
+    if (i === idx) {
+      t.classList.add('active');
+      t.style.backgroundColor = hexToRgba(col, 0.85);
+      t.style.borderColor     = col;
+      t.style.color           = '#000';  // black text on bright category colour
+    } else {
+      t.classList.remove('active');
+      t.style.backgroundColor = hexToRgba(col, 0.22);
+      t.style.borderColor     = hexToRgba(col, 0.5);
+      t.style.color           = '#000';  // black text on subtle tint also
+    }
+  });
+
+  const r = _modalRisks[idx] || {};
+  const idEl = document.getElementById('risk-modal-id');
+  idEl.textContent  = r.id   || '';
+  idEl.style.color  = catColor(r.category || '');
+  document.getElementById('risk-modal-name').textContent      = r.name       || '';
+  document.getElementById('modal-definition').textContent     = r.definition || '—';
+  document.getElementById('modal-status').textContent         = r.status     || '—';
+  document.getElementById('modal-owner').textContent          = r.owner      || '—';
+  document.getElementById('modal-managers').textContent       = r.managers   || '—';
+}
+
+function closeModal() {
+  document.getElementById('risk-modal').classList.remove('open');
+}
+
+// Keyboard: Escape closes, Left/Right arrows switch tabs
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('risk-modal').classList.contains('open')) return;
+  if (e.key === 'Escape') { closeModal(); return; }
+  const tabs = document.querySelectorAll('.modal-tab');
+  if (!tabs.length) return;
+  const cur = [...tabs].findIndex(t => t.classList.contains('active'));
+  if (e.key === 'ArrowRight') switchModalTab((cur + 1) % _modalRisks.length);
+  if (e.key === 'ArrowLeft')  switchModalTab((cur - 1 + _modalRisks.length) % _modalRisks.length);
+});
+
+fetch('https://elt-riskmanagementdash.onrender.com/api/risks', { mode: 'cors' })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    RISKS = data;
+    RISKS.forEach(function(r) { ID_TO_CAT[r.id] = r.category || ''; });
+    renderStatic();
+    renderRisks();
+    renderLegend();
+  })
+  .catch(function(err) {
+    document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;color:#c00"><h2>Could not load risk data</h2><p>' + err.message + '</p></div>';
+  });
+
+// ── Label toggle ──────────────────────────────────────────────────────────────
+let labelsVisible = true;
+function toggleLabels() {
+  labelsVisible = !labelsVisible;
+  document.getElementById('risks-layer').classList.toggle('labels-off', !labelsVisible);
+  const btn = document.getElementById('label-toggle');
+  btn.textContent = labelsVisible ? 'Labels' : 'Labels Off';
+  btn.classList.toggle('active', !labelsVisible);
+}
+
+// ── Data-range Zoom / Pan ────────────────────────────────────────────────────
+// The plot square stays fixed in size. Zoom changes VR (the visible data range).
+// svgX/svgY automatically map the new range into the same plot pixels.
+// Re-rendering updates axis ticks, dots, and labels.
+const hm = document.getElementById('hm');
+
+function rerender() {
+  ['static-layer','risks-layer'].forEach(id => {
+    const el = document.getElementById(id);
+    while (el.firstChild) el.removeChild(el.firstChild);
+  });
+  renderStatic();
+  renderRisks();
+}
+
+function doZoom(factor, pivDX, pivDY) {
+  const cx = (pivDX != null) ? pivDX : (VR.xMin + VR.xMax) / 2;
+  const cy = (pivDY != null) ? pivDY : (VR.yMin + VR.yMax) / 2;
+  const nxMin = cx - (cx - VR.xMin) / factor;
+  const nxMax = cx + (VR.xMax - cx) / factor;
+  const nyMin = cy - (cy - VR.yMin) / factor;
+  const nyMax = cy + (VR.yMax - cy) / factor;
+  // Don't zoom out beyond the original 0–5 × 0–5 range
+  if (nxMax - nxMin > 5.001 || nyMax - nyMin > 5.001) return;
+  VR.xMin = nxMin; VR.xMax = nxMax;
+  VR.yMin = nyMin; VR.yMax = nyMax;
+  rerender();
+}
+
+function resetView() { VR = {xMin:0,xMax:5,yMin:0,yMax:5}; rerender(); }
+
+function screenToData(clientX, clientY) {
+  const r = hm.getBoundingClientRect();
+  const sx = (clientX - r.left) / r.width  * 1300;
+  const sy = (clientY - r.top)  / r.height * 780;
+  return { x: dataX(sx), y: dataY(sy) };
+}
+
+hm.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = hm.getBoundingClientRect();
+  const sx = (e.clientX - r.left) / r.width * 1300;
+  if (sx < P.x || sx > P.x + P.w) return;
+  const pt = screenToData(e.clientX, e.clientY);
+  doZoom(e.deltaY < 0 ? 1.25 : 0.8, pt.x, pt.y);
+}, { passive: false });
+
+// Pan: update VR on mousemove but throttle rerender to ~20fps so the data
+// inside the chart square updates smoothly without flickering label recalc.
+let panState    = null;
+let panThrottle = null;
+
+hm.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const r = hm.getBoundingClientRect();
+  const sx = (e.clientX - r.left) / r.width * 1300;
+  if (sx < P.x || sx > P.x + P.w) return;
+  panState = { clientX: e.clientX, clientY: e.clientY, vr: {...VR}, moved: false };
+  hm.classList.add('panning');
+  e.preventDefault();
+});
+
+const risksLayer = document.getElementById('risks-layer');
+
+window.addEventListener('mousemove', e => {
+  if (!panState) return;
+  const r = hm.getBoundingClientRect();
+  // Data-space delta
+  const dDataX = -(e.clientX - panState.clientX) / r.width  * (panState.vr.xMax - panState.vr.xMin);
+  const dDataY =  (e.clientY - panState.clientY) / r.height * (panState.vr.yMax - panState.vr.yMin);
+  // Update VR
+  VR.xMin = panState.vr.xMin + dDataX;
+  VR.xMax = panState.vr.xMax + dDataX;
+  VR.yMin = panState.vr.yMin + dDataY;
+  VR.yMax = panState.vr.yMax + dDataY;
+  panState.moved = true;  // track that user actually dragged (not just clicked)
+
+  // SVG-pixel offset: how far the data layer should visually move
+  const dxSVG = -dDataX / (panState.vr.xMax - panState.vr.xMin) * P.w;
+  const dySVG =  dDataY / (panState.vr.yMax - panState.vr.yMin) * P.h;
+
+  if (!panThrottle) {
+    panThrottle = requestAnimationFrame(() => {
+      // Static layer re-renders (fast: gradient + grid + axis ticks update to new VR)
+      const sl = document.getElementById('static-layer');
+      while (sl.firstChild) sl.removeChild(sl.firstChild);
+      renderStatic();
+      // Risks layer just gets a translate — zero label recalculation, zero flicker
+      risksLayer.setAttribute('transform',
+        'translate('+dxSVG.toFixed(2)+','+dySVG.toFixed(2)+')');
+      panThrottle = null;
+    });
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (!panState) return;
+  if (panThrottle) { cancelAnimationFrame(panThrottle); panThrottle = null; }
+  risksLayer.setAttribute('transform', '');  // clear visual offset
+  const wasDrag = panState.moved;
+  panState = null;
+  hm.classList.remove('panning');
+  // Only rerender if user actually dragged — a plain click must NOT destroy
+  // dot elements before the click event fires on the dot group.
+  if (wasDrag) rerender();
+});
+</script>
+</body>
+</html>
