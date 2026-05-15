@@ -10,6 +10,14 @@ app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.jinja_env.auto_reload = True
 
+
+@app.after_request
+def allow_embedding(response):
+    """Allow this app to be embedded in iframes (e.g. SmartSheet dashboards)."""
+    response.headers['X-Frame-Options'] = 'ALLOWALL'
+    response.headers['Content-Security-Policy'] = "frame-ancestors *"
+    return response
+
 _cache: dict = {"data": None, "ts": 0.0}
 CACHE_TTL = 300  # 5 minutes — avoids hammering the SmartSheet API
 
@@ -24,6 +32,13 @@ def _cached_risks() -> list[dict]:
 @app.route("/")
 def index():
     return redirect(url_for("heatmap"))
+
+
+@app.route("/test")
+def test_page():
+    import os
+    from flask import send_file
+    return send_file(os.path.join(os.path.dirname(__file__), 'test_smartsheet.html'))
 
 
 @app.route("/heatmap")

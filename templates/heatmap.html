@@ -15,7 +15,7 @@
     .risk-group { cursor: pointer; }
     .risk-group:hover .r-dot { opacity: 0.7; }
     /* ── Allegion grey — solid, no transparency ─────────────────────────────── */
-    :root { --allegion-grey: #404041; --allegion-border: #5A5A5C; --allegion-text: #E8EAED; --allegion-muted: #A8A8AA; }
+    :root { --allegion-grey: #2D2D2E; --allegion-border: #3F3F40; --allegion-text: #E8EAED; --allegion-muted: #A8A8AA; }
 
     /* ── Tooltip (2× size for iframe legibility) ───────────────────────────── */
     #tooltip {
@@ -80,7 +80,7 @@
     }
     .modal-tab:hover { filter: brightness(1.2); }
     .modal-tab.active {
-      color: #fff !important;
+      color: #000 !important;
       box-shadow: 0 -4px 14px rgba(0,0,0,0.55), -2px -2px 6px rgba(0,0,0,0.3);
       border-bottom-color: transparent;
     }
@@ -195,28 +195,33 @@ function mktxt(content, a, parent) {
   return e;
 }
 
-// ── Category colour system — matched to original chart ────────────────────────
+// ── Category colour system ────────────────────────────────────────────
+// All colours verified WCAG AA (>=4.5:1 contrast with black text), which also
+// guarantees they are bright enough to read clearly against the black dot fill.
+// Hues spread ~50 degrees apart around the full colour wheel for maximum
+// perceptual distance: Coral(16) Amber(49) Lime(76) Emerald(151) Teal(171) Periwinkle(218) Pink(337)
 const CAT_MAP = {
-  'strategic':                '#e07020',  // orange
-  'operational':              '#007A8A',  // rich teal-cyan — green-leaning, reads teal not blue
-  'technology/cybersecurity': '#7a5c00',  // olive/gold
-  'technology':               '#7a5c00',
-  'human capital':            '#1a7a1a',  // green
-  'governance/compliance':    '#c0208c',  // magenta
-  'governance':               '#c0208c',
-  'environmental/external':   '#74B8F5',  // light sky-blue — much lighter, periwinkle feel
-  'environmental':            '#74B8F5',
-  'financial':                '#1E3AAA',  // medium navy — clearly blue, clearly not black
+  'strategic':                '#FF6B35',  // coral-orange  contrast 7.9:1
+  'operational':              '#00BFA5',  // vivid teal    contrast 9.1:1
+  'technology/cybersecurity': '#C6FF00',  // electric lime contrast 17.8:1
+  'technology':               '#C6FF00',
+  'human capital':            '#00E676',  // emerald green contrast 12.7:1
+  'governance/compliance':    '#FF80AB',  // bright pink   contrast 9.3:1
+  'governance':               '#FF80AB',
+  'environmental/external':   '#82B1FF',  // periwinkle    contrast 10.1:1
+  'environmental':            '#82B1FF',
+  'financial':                '#FFD740',  // warm amber    contrast 15.1:1
 };
 
 const CAT_LABELS = [
-  ['Strategic Risks',                '#e07020'],
-  ['Operational Risks',              '#007A8A'],
-  ['Technology/Cybersecurity Risks', '#7a5c00'],
-  ['Human Capital Risks',            '#1a7a1a'],
-  ['Governance / Compliance Risks',  '#c0208c'],
-  ['Environmental / External Risks', '#74B8F5'],
-  ['Financial Risks',                '#1E3AAA'],
+  ['Strategic Risks',                '#FF6B35'],
+  ['Operational Risks',              '#00BFA5'],
+  ['Technology/Cybersecurity Risks', '#C6FF00'],
+  ['Human Capital Risks',            '#00E676'],
+  ['Governance / Compliance Risks',  '#FF80AB'],
+  ['Environmental / External Risks', '#82B1FF'],
+  ['Financial Risks',                '#FFD740'],
+
 ];
 
 function catColor(cat) {
@@ -268,6 +273,11 @@ function drawPieDot(cx, cy, categories, parent) {
   const unique = [...new Set(categories.map(c => catColor(c || '')))];
   const N  = unique.length;
   const seg = C / N;
+
+  // Thin black outer border drawn FIRST (behind everything).
+  // SW+2 makes it 1px wider each side than the coloured ring, so exactly 1px
+  // of black peeks outside the colours while the inner part is covered by them.
+  mk('circle', { cx, cy, r: R, fill: 'none', stroke: '#000', 'stroke-width': SW + 2 }, parent);
 
   // Black filled centre
   mk('circle', { cx, cy, r: R, fill: '#111827' }, parent);
@@ -610,7 +620,7 @@ function renderRisks() {
 
     // Label box (drawn first so connectors and dots appear on top)
     mk('rect', { class: 'label-box', x: lx, y: ly, width: lw, height: lh, rx: 3,
-                 fill: 'rgba(255,255,255,0.95)', stroke: borderCol, 'stroke-width': 1.5 }, g);
+                 fill: '#2D2D2E', stroke: borderCol, 'stroke-width': 1.5 }, g);
 
     // Text: each ID coloured by its category using tspan elements
     const allIds = grps.flatMap(gr => gr.risks.map(r => r.id));
@@ -670,33 +680,35 @@ function renderRisks() {
 }
 
 // ── Legend ────────────────────────────────────────────────────────────────────
-// Scale so the bottom edge of the last category square aligns with P.y + P.h
 function renderLegend() {
-  const layer  = document.getElementById('legend-layer');
-  const lx     = LEG_X;
-  const chartBottom = P.y + P.h;
+  const layer = document.getElementById('legend-layer');
+  const lx    = LEG_X;
 
   const sorted = [...RISKS].sort((a,b) =>
     parseInt(a.id.replace(/\D/g,''),10) - parseInt(b.id.replace(/\D/g,''),10)
   );
 
-  // Category key: fixed row height, placed so bottom edge aligns with chart bottom
-  const CAT_ROW_H = 20;
-  const catRows   = Math.ceil(CAT_LABELS.length / 2);
-  const catH      = catRows * CAT_ROW_H;
-  const GAP       = 10;
-  const catStart  = chartBottom - catH;
-
-  // Risk list: starts exactly at P.y, row height scales to fill available space
+  // Card sizing — fills from graph-top to graph-bottom
+  const CARD_PADX = 10;
+  const CARD_TPAD = 20;  // air above header
+  const CARD_BPAD = 8;   // snug below last row
+  const CARD_W    = 293;
   const HDR_H     = 16;
-  const available = catStart - GAP - P.y - HDR_H;
-  const RISK_H    = available / sorted.length;
+  const RISK_H    = (P.h - CARD_TPAD - HDR_H - CARD_BPAD) / sorted.length;
   const fontSize  = Math.min(11, Math.max(8.5, RISK_H * 0.78));
+  const cardListH = CARD_TPAD + HDR_H + (sorted.length - 1) * RISK_H + fontSize + CARD_BPAD;
 
-  // ── Risk list ─────────────────────────────────────────────────────────────
-  let y = P.y;
-  mktxt('Risk #',    {x:lx,    y,'font-size':10,'font-weight':700,fill:'#333','font-family':FONT}, layer);
-  mktxt('Risk Name', {x:lx+38, y,'font-size':10,'font-weight':700,fill:'#333','font-family':FONT}, layer);
+  // Backer card — top edge aligned with graph square top (P.y)
+  mk('rect', {
+    x: lx - CARD_PADX, y: P.y,
+    width: CARD_W,      height: cardListH,
+    rx: 10, ry: 10,     fill: '#2D2D2E'
+  }, layer);
+
+  // Risk list inside card
+  let y = P.y + CARD_TPAD;
+  mktxt('Risk #',    {x:lx,    y,'font-size':10,'font-weight':700,fill:'#E8EAED','font-family':FONT}, layer);
+  mktxt('Risk Name', {x:lx+38, y,'font-size':10,'font-weight':700,fill:'#E8EAED','font-family':FONT}, layer);
   y += HDR_H;
 
   sorted.forEach(r => {
@@ -707,13 +719,32 @@ function renderLegend() {
     y += RISK_H;
   });
 
-  // ── Category colour key ───────────────────────────────────────────────────
-  y = catStart;
-  CAT_LABELS.forEach(([label, col], i) => {
-    const kx = i % 2 === 0 ? lx : lx + 230;
-    const ky = y + Math.floor(i / 2) * CAT_ROW_H;
-    mk('rect', {x:kx, y:ky, width:11, height:11, rx:2, fill:col}, layer);
-    mktxt(label, {x:kx+15, y:ky+9,'font-size':9,'font-weight':600,fill:'#333','font-family':FONT}, layer);
+  // Category colour key — backer card + circular swatches to the right of the list card
+  const CAT_ROW_H  = 26;
+  const CAT_R      = 7;   // swatch circle radius
+  const LEG_PAD_X  = 12;
+  const LEG_PAD_Y  = 12;
+  const LEG_TEXT_X = CAT_R * 2 + 8;  // text starts after circle + gap
+  const legX = lx - CARD_PADX + CARD_W + 16;
+  const legCardW = LEG_TEXT_X + 175 + LEG_PAD_X;
+  const legCardH = CAT_LABELS.length * CAT_ROW_H + LEG_PAD_Y * 2 - (CAT_ROW_H - CAT_R * 2);
+
+  // Card top = P.y to align with the risk-list card and the graph square
+  const legCardHFit = LEG_PAD_Y + CAT_R + (CAT_LABELS.length - 1) * CAT_ROW_H + CAT_R + LEG_PAD_Y;
+  mk('rect', {
+    x: legX - LEG_PAD_X, y: P.y,
+    width: legCardW,      height: legCardHFit,
+    rx: 10, ry: 10,       fill: '#2D2D2E'
+  }, layer);
+
+  let cy = P.y + LEG_PAD_Y + CAT_R;
+  CAT_LABELS.forEach(([label, col]) => {
+    mk('circle', { cx: legX + CAT_R, cy, r: CAT_R, fill: col }, layer);
+    mktxt(label, {
+      x: legX + LEG_TEXT_X, y: cy + 4,
+      'font-size': 9, 'font-weight': 600, fill: '#ffffff', 'font-family': FONT
+    }, layer);
+    cy += CAT_ROW_H;
   });
 }
 
@@ -781,16 +812,14 @@ function switchModalTab(idx) {
     const col = t.dataset.col || '#666';
     if (i === idx) {
       t.classList.add('active');
-      // Active: solid category-colour background, white text, border on 3 sides
       t.style.backgroundColor = hexToRgba(col, 0.85);
       t.style.borderColor     = col;
-      t.style.color           = '#fff';
+      t.style.color           = '#000';  // black text on bright category colour
     } else {
       t.classList.remove('active');
-      // Inactive: subtle tint, category-colour text
       t.style.backgroundColor = hexToRgba(col, 0.22);
       t.style.borderColor     = hexToRgba(col, 0.5);
-      t.style.color           = col;
+      t.style.color           = '#000';  // black text on subtle tint also
     }
   });
 
