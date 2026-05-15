@@ -1,0 +1,13 @@
+{
+  "name": "ELT Risk Heatmap",
+  "organization": "Allegion",
+  "description": "Interactive ELT Risk Management Heatmap",
+  "logoUrl": "https://fonts.gstatic.com/s/i/googlematerialicons/analytics/v12/gm_grey-24dp/1x/gm_analytics_gm_grey_24dp.png",
+  "organizationUrl": "https://allegion.com",
+  "package": {
+    "componentsVersion": "3",
+    "devMode": true,
+    "jsUrl": "https://storage.googleapis.com/allegion-elt-6c36a.appspot.com/index.js",
+    "cssUrl": "https://storage.googleapis.com/allegion-elt-6c36a.appspot.com/index.css"
+  }
+}
