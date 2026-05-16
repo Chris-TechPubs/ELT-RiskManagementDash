@@ -61,7 +61,7 @@
 
   <div class="bookmarklet-wrap">
     <a class="bookmarklet-btn"
-       href="javascript:(function(){var n=0;function s(){document.querySelectorAll('iframe').forEach(function(f){if(f.src&&f.src.includes('youtube.com')&&!f.dataset.hs){f.src='https://delicate-florentine-c73974.netlify.app';f.dataset.hs='1';n++;}});}s();if(!n){var t=setInterval(function(){s();if(n)clearInterval(t);},500);setTimeout(function(){clearInterval(t);},10000);}})();"
+       href="javascript:(function(){var t=setInterval(function(){var f=Array.from(document.querySelectorAll('iframe')).find(function(f){return f.src&&f.src.includes('b/form');});if(!f||!f.contentDocument||!f.contentDocument.body)return;clearInterval(t);if(f.contentDocument.getElementById('hm-injected'))return;var d=f.contentDocument.createElement('div');d.id='hm-injected';d.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:%23fff';var i=f.contentDocument.createElement('iframe');i.src='https://delicate-florentine-c73974.netlify.app';i.style.cssText='width:100%;height:100%;border:none';d.appendChild(i);f.contentDocument.body.appendChild(d);},300);setTimeout(function(){clearInterval(t);},15000);})();"
 ">
       📊 ELT Heatmap
     </a>
