@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; background: #fff; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; }
+    html, body { width: 100%; height: 100%; background: #dde9f5; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; }
     #wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 6px; }
     svg { width: 100%; height: 100%; }
     .risk-group { cursor: pointer; }
@@ -39,9 +39,32 @@
       100% { transform: rotate(360deg); }  /* hold ~1s */
     }
     .dot-spin { transform-box: fill-box; transform-origin: center; }
-    .dot-hover:hover .dot-spin {
+    .dot-hover:hover .dot-spin,
+    .dot-force-highlight .dot-spin {
       animation: dotSpin 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
     }
+    .dot-scale-wrapper { transform-box: fill-box; transform-origin: center; transition: transform 0.15s; }
+    .dot-hover:hover .dot-scale-wrapper,
+    .dot-force-highlight .dot-scale-wrapper { transform: scale(1.5); }
+
+    /* ── Category filter key card ───────────────────────────────────────────── */
+    .cat-filter-btn { cursor: pointer; transition: opacity 0.15s; }
+    .cat-filter-btn:hover { filter: brightness(1.18); }
+    .cat-filter-off { opacity: 0.32; }
+    .legend-row-cat-off { opacity: 0.25 !important; pointer-events: none; }
+    /* Eye icon open/close animation */
+    .eye-open  { transition: opacity 0.28s; opacity: 1; }
+    .eye-closed { transition: opacity 0.28s; opacity: 0; }
+    .cat-filter-off .eye-open  { opacity: 0; }
+    .cat-filter-off .eye-closed { opacity: 1; }
+
+    /* ── Legend row hover ───────────────────────────────────────────────────── */
+    .legend-row { cursor: pointer; transition: opacity 0.15s, transform 0.15s; transform-box: fill-box; transform-origin: left center; }
+    .legend-row-hl { transform: scale(1.08); }
+    .legend-dimmed .legend-row:not(.legend-row-hl) { opacity: 0.25; }
+    /* Chevron indicator */
+    .legend-chevron { transform-box: fill-box; transform-origin: center; transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1); }
+    .legend-row-hl .legend-chevron { transform: rotate(180deg); }
 
     /* ── Risk detail modal ──────────────────────────────────────────────────── */
     #risk-modal {
@@ -163,6 +186,78 @@
 
 <script>
 const RISKS = {{ risks | tojson }};
+const dotGroupByRiskId   = {};
+const legendRowByRiskId  = {};
+const dotRisksGroupById  = {};
+let _dimCount = 0;
+function dimLegend(on) {
+  _dimCount = Math.max(0, _dimCount + (on ? 1 : -1));
+  document.getElementById('legend-layer').classList.toggle('legend-dimmed', _dimCount > 0);
+}
+
+// Tracks which risk IDs have their legend row currently hovered (survives rerenders)
+const _activeLegendRows = new Set();
+const _hiddenCatColors  = new Set(); // hex colors of toggled-off categories
+const catKeyElByColor   = {};        // color → category key card <g> element
+let   _panDelay         = null;      // setTimeout ID for 1-second pan delay
+
+function updateCatFilter() {
+  Object.entries(catKeyElByColor).forEach(([col, el]) =>
+    el.classList.toggle('cat-filter-off', _hiddenCatColors.has(col)));
+  RISKS.forEach(r => {
+    const row = legendRowByRiskId[r.id];
+    if (row) row.classList.toggle('legend-row-cat-off', _hiddenCatColors.has(catColor(r.category || '')));
+  });
+  rerender();
+}
+
+function _reapplyLegendHighlights() {
+  if (!_activeLegendRows.size) return;
+  if (_dimCount === 0) { _dimCount = 1; document.getElementById('legend-layer').classList.add('legend-dimmed'); }
+  _activeLegendRows.forEach(id => {
+    const row = legendRowByRiskId[id];
+    if (!row || row.classList.contains('legend-row-cat-off')) return;
+    row.classList.add('legend-row-hl');
+    const dg = dotGroupByRiskId[id]; if (dg) dg.classList.add('dot-force-highlight');
+  });
+}
+
+// Animated pan — fast dot-only render during frames, full rerender at end
+let _panAnim = null;
+function _fastRerender() {
+  updateGradientCoords();
+  const sl = document.getElementById('static-layer');
+  while (sl.firstChild) sl.removeChild(sl.firstChild);
+  renderStatic();
+  const rl = document.getElementById('risks-layer');
+  while (rl.firstChild) rl.removeChild(rl.firstChild);
+  groupRisks(RISKS).forEach(({ risks, likelihood, severity }) => {
+    const cx = svgX(likelihood), cy = svgY(severity);
+    drawPieDot(cx, cy, risks.map(r => r.category || ''), mk('g', {}, rl));
+  });
+}
+function panToRisk(risk) {
+  const tx = snap(risk.likelihood), ty = snap(risk.severity);
+  const pad = 0.15;
+  if (tx > VR.xMin + pad && tx < VR.xMax - pad && ty > VR.yMin + pad && ty < VR.yMax - pad) return;
+  const rW = VR.xMax - VR.xMin, rH = VR.yMax - VR.yMin;
+  const tXMin = Math.max(0.25, Math.min(5 - rW, tx - rW / 2));
+  const tYMin = Math.max(0.25, Math.min(5 - rH, ty - rH / 2));
+  const tXMax = tXMin + rW, tYMax = tYMin + rH;
+  if (Math.abs(tXMin - VR.xMin) < 0.01 && Math.abs(tYMin - VR.yMin) < 0.01) return;
+  const sXMin = VR.xMin, sXMax = VR.xMax, sYMin = VR.yMin, sYMax = VR.yMax;
+  const dur = 380, t0 = performance.now();
+  if (_panAnim) { cancelAnimationFrame(_panAnim); _panAnim = null; }
+  function step(now) {
+    const p = Math.min(1, (now - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);
+    VR.xMin = sXMin + (tXMin - sXMin) * e;  VR.xMax = sXMax + (tXMax - sXMax) * e;
+    VR.yMin = sYMin + (tYMin - sYMin) * e;  VR.yMax = sYMax + (tYMax - sYMax) * e;
+    if (p < 1) { _fastRerender(); _panAnim = requestAnimationFrame(step); }
+    else { VR.xMin=tXMin; VR.xMax=tXMax; VR.yMin=tYMin; VR.yMax=tYMax; rerender(); _panAnim=null; }
+  }
+  _panAnim = requestAnimationFrame(step);
+}
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 const P    = { x: 130, y: 20, w: 600, h: 680 };
@@ -171,10 +266,10 @@ const FONT      = 'Roboto, Segoe UI, Arial, sans-serif';
 const AXIS_FONT = 'Antenna, Roboto, Segoe UI, Arial, sans-serif';
 const LB        = { xMin: P.x + 2, yMin: P.y + 2, xMax: P.x + P.w - 2, yMax: P.y + P.h - 2 };
 
-const LEG_X = P.x + P.w + 30;
+const LEG_X = P.x + P.w + 48;
 
 // Data view range — changes on zoom/pan; svgX/svgY map data into the fixed plot square
-let VR = { xMin: 0, xMax: 5, yMin: 0, yMax: 5 };
+let VR = { xMin: 0.25, xMax: 5, yMin: 0.25, yMax: 5 };
 
 function svgX(v) { return P.x + (v - VR.xMin) / (VR.xMax - VR.xMin) * P.w; }
 function svgY(v) { return P.y + (1 - (v - VR.yMin) / (VR.yMax - VR.yMin)) * P.h; }
@@ -240,6 +335,7 @@ function snap(v) { return Math.round(v * 2) / 2; }
 function groupRisks(risks) {
   const map = new Map();
   risks.forEach(r => {
+    if (_hiddenCatColors.has(catColor(r.category || ''))) return;
     const sl = snap(r.likelihood), ss = snap(r.severity);
     if (sl < VR.xMin-0.26 || sl > VR.xMax+0.26) return;
     if (ss < VR.yMin-0.26 || ss > VR.yMax+0.26) return;
@@ -581,13 +677,15 @@ function renderStatic() {
     const sx = svgX(v);
     if (sx < x-1 || sx > x+w+1) return;
     mk('line',{x1:sx,y1:y,x2:sx,y2:y+h,stroke:gcol,'stroke-width':v===Math.round(v)?1.0:0.4},layer);
-    mktxt(v.toFixed(1),{x:sx,y:y+h+16,'text-anchor':'middle','font-size':10,fill:'#444','font-family':AXIS_FONT},layer);
+    if (v >= 0.99)
+      mktxt(v.toFixed(1),{x:sx,y:y+h+16,'text-anchor':'middle','font-size':10,fill:'#444','font-family':AXIS_FONT},layer);
   });
   rangeTicks(VR.yMin, VR.yMax).forEach(v => {
     const sy = svgY(v);
     if (sy < y-1 || sy > y+h+1) return;
     mk('line',{x1:x,y1:sy,x2:x+w,y2:sy,stroke:gcol,'stroke-width':v===Math.round(v)?1.0:0.4},layer);
-    mktxt(v.toFixed(1),{x:x-8,y:sy+4,'text-anchor':'end','font-size':10,fill:'#444','font-family':AXIS_FONT},layer);
+    if (v >= 0.99)
+      mktxt(v.toFixed(1),{x:x-8,y:sy+4,'text-anchor':'end','font-size':10,fill:'#444','font-family':AXIS_FONT},layer);
   });
   if (VR.xMin<=2.5 && VR.xMax>=2.5)
     mk('line',{x1:svgX(2.5),y1:y,x2:svgX(2.5),y2:y+h,stroke:'rgba(0,0,0,0.45)','stroke-width':2},layer);
@@ -601,6 +699,11 @@ function renderStatic() {
 
 // ── Render risks ──────────────────────────────────────────────────────────────
 function renderRisks() {
+  // Reset dim state — old dotG elements are about to be destroyed so mouseleave won't fire
+  _dimCount = 0;
+  document.getElementById('legend-layer').classList.remove('legend-dimmed');
+  Object.keys(dotGroupByRiskId).forEach(k => delete dotGroupByRiskId[k]);
+  Object.keys(dotRisksGroupById).forEach(k => delete dotRisksGroupById[k]);
   const layer  = document.getElementById('risks-layer');
   const groups = groupRisks(RISKS);
   let items    = buildItems(groups);
@@ -650,6 +753,8 @@ function renderRisks() {
       const anchor = connAnchor(cx, cy, rect);
       const dotG   = mk('g', { class: 'dot-hover' }, g);
 
+      grpRisks.forEach(r => { dotGroupByRiskId[r.id] = dotG; dotRisksGroupById[r.id] = grpRisks; });
+
       // Thicker, more visible connector with category colour
       // Bezier connector when dot sits exactly on the 2.5 quadrant line
       // (straight connector would fuse visually with the thick axis)
@@ -665,15 +770,27 @@ function renderRisks() {
                      stroke: col, 'stroke-width': 1.8, opacity: 0.85 }, dotG);
       }
 
-      // Spin wrapper — CSS animation rotates this on hover
-      const spinG = mk('g', { class: 'dot-spin' }, dotG);
+      const scaleG = mk('g', { class: 'dot-scale-wrapper' }, dotG);
+      const spinG = mk('g', { class: 'dot-spin' }, scaleG);
       drawPieDot(cx, cy, grpRisks.map(r => r.category || ''), spinG);
 
-      // Hover tooltip
-      dotG.addEventListener('mouseenter', e => showTip(e, grpRisks));
+      dotG.addEventListener('mouseenter', e => {
+        showTip(e, grpRisks);
+        grpRisks.forEach(r => {
+          const row = legendRowByRiskId[r.id];
+          if (row) row.classList.add('legend-row-hl');
+        });
+        dimLegend(true);
+      });
       dotG.addEventListener('mousemove',  moveTip);
-      dotG.addEventListener('mouseleave', hideTip);
-      // Click → detail modal
+      dotG.addEventListener('mouseleave', () => {
+        hideTip();
+        grpRisks.forEach(r => {
+          const row = legendRowByRiskId[r.id];
+          if (row) row.classList.remove('legend-row-hl');
+        });
+        dimLegend(false);
+      });
       dotG.addEventListener('click', e => { e.stopPropagation(); openModal(grpRisks); });
     });
   });
@@ -689,7 +806,7 @@ function renderLegend() {
   );
 
   // Card sizing — fills from graph-top to graph-bottom
-  const CARD_PADX = 10;
+  const CARD_PADX = 40;
   const CARD_TPAD = 20;  // air above header
   const CARD_BPAD = 8;   // snug below last row
   const CARD_W    = 293;
@@ -705,6 +822,15 @@ function renderLegend() {
     rx: 10, ry: 10,     fill: '#2D2D2E'
   }, layer);
 
+  // Clip path so scaled rows can't overflow the card right edge
+  const defs = document.querySelector('#hm defs');
+  const existingClip = document.getElementById('risk-list-clip');
+  if (existingClip) existingClip.remove();
+  const clipEl = mk('clipPath', { id: 'risk-list-clip' }, defs);
+  mk('rect', { x: lx - CARD_PADX, y: P.y, width: CARD_W, height: cardListH }, clipEl);
+  // Wrapper: clip-path on parent so row scale transforms don't carry the clip with them
+  const listWrap = mk('g', { 'clip-path': 'url(#risk-list-clip)' }, layer);
+
   // Risk list inside card
   let y = P.y + CARD_TPAD;
   mktxt('Risk #',    {x:lx,    y,'font-size':10,'font-weight':700,fill:'#E8EAED','font-family':FONT}, layer);
@@ -714,36 +840,108 @@ function renderLegend() {
   sorted.forEach(r => {
     const col  = catColor(r.category || '');
     const name = r.name.length > 44 ? r.name.slice(0,42)+'…' : r.name;
-    mktxt(r.id,  {x:lx,    y,'font-size':fontSize,'font-weight':700,fill:col,'font-family':FONT}, layer);
-    mktxt(name,  {x:lx+38, y,'font-size':fontSize,'font-weight':600,fill:col,'font-family':FONT}, layer);
+    const rowG = mk('g', { class: 'legend-row' }, listWrap);
+    legendRowByRiskId[r.id] = rowG;
+    const chevR = Math.max(5, Math.round(fontSize * 0.62));
+    const chevX = lx - CARD_PADX + chevR + 5;
+    const chevCy = y - Math.round(fontSize * 0.3);
+    const chevG = mk('g', { class: 'legend-chevron' }, rowG);
+    mk('circle', { cx: chevX, cy: chevCy, r: chevR, fill: col }, chevG);
+    // SVG path chevron — immune to font metric issues, perfectly centered
+    const s = chevR * 0.5;
+    mk('path', {
+      d: `M ${(chevX-s*0.7).toFixed(1)} ${(chevCy-s).toFixed(1)} L ${(chevX+s*0.7).toFixed(1)} ${chevCy.toFixed(1)} L ${(chevX-s*0.7).toFixed(1)} ${(chevCy+s).toFixed(1)}`,
+      stroke: '#2D2D2E', 'stroke-width': (Math.max(1.5, chevR*0.28)).toFixed(1),
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round', fill: 'none'
+    }, chevG);
+    mktxt(r.id,  {x:lx,    y,'font-size':fontSize,'font-weight':700,fill:col,'font-family':FONT}, rowG);
+    mktxt(name,  {x:lx+38, y,'font-size':fontSize,'font-weight':600,fill:col,'font-family':FONT}, rowG);
+    rowG.addEventListener('mouseenter', () => {
+      _activeLegendRows.add(r.id);
+      rowG.classList.add('legend-row-hl');
+      const dg = dotGroupByRiskId[r.id];
+      if (dg) dg.classList.add('dot-force-highlight');
+      dimLegend(true);
+      _panDelay = setTimeout(() => panToRisk(r), 500);
+    });
+    rowG.addEventListener('mouseleave', () => {
+      _activeLegendRows.delete(r.id);
+      clearTimeout(_panDelay); _panDelay = null;
+      rowG.classList.remove('legend-row-hl');
+      const dg = dotGroupByRiskId[r.id];
+      if (dg) dg.classList.remove('dot-force-highlight');
+      dimLegend(false);
+    });
+    rowG.addEventListener('click', () => {
+      const grp = dotRisksGroupById[r.id];
+      const fullRisks = (grp || [r]).map(gr => RISKS.find(fr => fr.id === gr.id) || gr);
+      const tab = fullRisks.findIndex(fr => fr.id === r.id);
+      openModal(fullRisks, Math.max(0, tab));
+    });
     y += RISK_H;
   });
 
-  // Category colour key — backer card + circular swatches to the right of the list card
-  const CAT_ROW_H  = 26;
-  const CAT_R      = 7;   // swatch circle radius
+  // Category filter card — doubled circles with animated eye icon
+  const CAT_R      = 14;
+  const CAT_ROW_H  = 36;
   const LEG_PAD_X  = 12;
-  const LEG_PAD_Y  = 12;
-  const LEG_TEXT_X = CAT_R * 2 + 8;  // text starts after circle + gap
+  const LEG_PAD_Y  = 14;
+  const CAT_HDR_H  = 28;
+  const LEG_TEXT_X = CAT_R * 2 + 10;
   const legX = lx - CARD_PADX + CARD_W + 16;
   const legCardW = LEG_TEXT_X + 175 + LEG_PAD_X;
-  const legCardH = CAT_LABELS.length * CAT_ROW_H + LEG_PAD_Y * 2 - (CAT_ROW_H - CAT_R * 2);
+  const legCardHFit = LEG_PAD_Y + CAT_HDR_H + CAT_R + (CAT_LABELS.length - 1) * CAT_ROW_H + CAT_R + LEG_PAD_Y;
 
-  // Card top = P.y to align with the risk-list card and the graph square
-  const legCardHFit = LEG_PAD_Y + CAT_R + (CAT_LABELS.length - 1) * CAT_ROW_H + CAT_R + LEG_PAD_Y;
   mk('rect', {
     x: legX - LEG_PAD_X, y: P.y,
-    width: legCardW,      height: legCardHFit,
-    rx: 10, ry: 10,       fill: '#2D2D2E'
+    width: legCardW, height: legCardHFit,
+    rx: 10, ry: 10, fill: '#2D2D2E'
   }, layer);
 
-  let cy = P.y + LEG_PAD_Y + CAT_R;
+  mktxt('Categories / Filter', {
+    x: legX - LEG_PAD_X + legCardW / 2, y: P.y + LEG_PAD_Y + 11,
+    'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700,
+    fill: '#E8EAED', 'font-family': FONT
+  }, layer);
+  mk('line', {
+    x1: legX - LEG_PAD_X + 6, y1: P.y + LEG_PAD_Y + CAT_HDR_H - 4,
+    x2: legX - LEG_PAD_X + legCardW - 6, y2: P.y + LEG_PAD_Y + CAT_HDR_H - 4,
+    stroke: '#3F3F40', 'stroke-width': 1
+  }, layer);
+
+  let cy = P.y + LEG_PAD_Y + CAT_HDR_H + CAT_R;
   CAT_LABELS.forEach(([label, col]) => {
-    mk('circle', { cx: legX + CAT_R, cy, r: CAT_R, fill: col }, layer);
+    const catG = mk('g', { class: 'cat-filter-btn' }, layer);
+    catKeyElByColor[col] = catG;
+    if (_hiddenCatColors.has(col)) catG.classList.add('cat-filter-off');
+
+    const circX = legX + CAT_R;
+    mk('circle', { cx: circX, cy, r: CAT_R, fill: col }, catG);
+
+    // Eye icon centered in circle
+    const eyeG = mk('g', { transform: `translate(${circX},${cy})` }, catG);
+    const eyeOpen = mk('g', { class: 'eye-open' }, eyeG);
+    mk('path', { d: 'M -9,0 Q 0,-7 9,0 Q 0,7 -9,0 Z',
+      fill: 'none', stroke: '#000', 'stroke-width': '1.8',
+      'stroke-linejoin': 'round' }, eyeOpen);
+    mk('circle', { cx: '0', cy: '0', r: '2.6', fill: '#000' }, eyeOpen);
+    const eyeClosed = mk('g', { class: 'eye-closed' }, eyeG);
+    mk('path', { d: 'M -9,0 Q 0,-5 9,0',
+      fill: 'none', stroke: '#000', 'stroke-width': '2.2',
+      'stroke-linecap': 'round' }, eyeClosed);
+    [[-4,2,-4,5.5], [0,2,0,6], [4,2,4,5.5]].forEach(([x1,y1,x2,y2]) =>
+      mk('line', { x1, y1, x2, y2, stroke: '#000', 'stroke-width': '1.6',
+        'stroke-linecap': 'round' }, eyeClosed));
+
     mktxt(label, {
       x: legX + LEG_TEXT_X, y: cy + 4,
-      'font-size': 9, 'font-weight': 600, fill: '#ffffff', 'font-family': FONT
-    }, layer);
+      'font-size': 9.5, 'font-weight': 600, fill: '#ffffff', 'font-family': FONT
+    }, catG);
+    catG.addEventListener('click', () => {
+      if (_hiddenCatColors.has(col)) _hiddenCatColors.delete(col);
+      else _hiddenCatColors.add(col);
+      updateCatFilter();
+    });
     cy += CAT_ROW_H;
   });
 }
@@ -762,10 +960,11 @@ function showTip(e, risks) {
   TIP.style.display = 'block'; moveTip(e);
 }
 function moveTip(e) {
-  const tw=TIP.offsetWidth,th=TIP.offsetHeight;
-  let tx=e.clientX+16,ty=e.clientY-10;
-  if(tx+tw>window.innerWidth-8)  tx=e.clientX-tw-16;
-  if(ty+th>window.innerHeight-8) ty=e.clientY-th-4;
+  const tw=TIP.offsetWidth, th=TIP.offsetHeight;
+  let tx = e.clientX - tw - 16;
+  if (tx < 8) tx = e.clientX + 16;
+  let ty = e.clientY - 10;
+  if (ty + th > window.innerHeight - 8) ty = e.clientY - th - 4;
   TIP.style.left=tx+'px'; TIP.style.top=ty+'px';
 }
 function hideTip() { TIP.style.display='none'; }
@@ -777,9 +976,17 @@ function hexToRgba(hex, a) {
 }
 let _modalRisks = [];  // risks currently shown in the modal
 
-function openModal(risks) {
+function openModal(risks, initialTab) {
   hideTip();
-  _modalRisks = risks.map(r => RISKS.find(fr => fr.id === r.id) || r);
+  const allRisks = risks.map(r => RISKS.find(fr => fr.id === r.id) || r);
+  _modalRisks = allRisks.filter(r => !_hiddenCatColors.has(catColor(r.category || '')));
+  if (!_modalRisks.length) return;
+  // Adjust initialTab to point to the same risk in filtered array
+  if (initialTab != null && allRisks[initialTab]) {
+    const tid = allRisks[initialTab].id;
+    const ni = _modalRisks.findIndex(r => r.id === tid);
+    if (ni >= 0) initialTab = ni; else initialTab = 0;
+  }
 
   // Build tabs — one per risk ID
   const tabsEl = document.getElementById('risk-modal-tabs');
@@ -803,7 +1010,7 @@ function openModal(risks) {
     tabsEl.style.display = 'none';
   }
 
-  switchModalTab(0);
+  switchModalTab(initialTab || 0);
   document.getElementById('risk-modal').classList.add('open');
 }
 
@@ -849,9 +1056,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft')  switchModalTab((cur - 1 + _modalRisks.length) % _modalRisks.length);
 });
 
-renderStatic();
-renderRisks();
-renderLegend();
+// Renders moved to after event listeners — see bottom of script
 
 // ── Label toggle ──────────────────────────────────────────────────────────────
 let labelsVisible = true;
@@ -869,13 +1074,33 @@ function toggleLabels() {
 // Re-rendering updates axis ticks, dots, and labels.
 const hm = document.getElementById('hm');
 
+// Pin zoom pill directly below "Likelihood" label in SVG space
+function positionCtrl() {
+  const r = hm.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  // Correct SVG preserveAspectRatio scale (xMidYMid meet)
+  const scale   = Math.min(r.width / 1300, r.height / 780);
+  const offsetX = (r.width - 1300 * scale) / 2;
+  const ctrl = document.getElementById('zoom-ctrl');
+  // Only adjust horizontal — centers pill over chart (Likelihood label center)
+  // Vertical stays at CSS bottom:18px which is always in view
+  ctrl.style.left      = (r.left + offsetX + 430 * scale) + 'px';
+  ctrl.style.transform = 'translateX(-50%)';
+}
+
 function rerender() {
+  if (_panAnim) { cancelAnimationFrame(_panAnim); _panAnim = null; }
+  hideTip();
+  _dimCount = 0;
+  document.getElementById('legend-layer').classList.remove('legend-dimmed');
   ['static-layer','risks-layer'].forEach(id => {
     const el = document.getElementById(id);
     while (el.firstChild) el.removeChild(el.firstChild);
   });
   renderStatic();
   renderRisks();
+  positionCtrl();
+  _reapplyLegendHighlights();
 }
 
 function doZoom(factor, pivDX, pivDY) {
@@ -886,13 +1111,18 @@ function doZoom(factor, pivDX, pivDY) {
   const nyMin = cy - (cy - VR.yMin) / factor;
   const nyMax = cy + (VR.yMax - cy) / factor;
   // Don't zoom out beyond the original 0–5 × 0–5 range
-  if (nxMax - nxMin > 5.001 || nyMax - nyMin > 5.001) return;
+  if (nxMax - nxMin > 4.751 || nyMax - nyMin > 4.751) return;
   VR.xMin = nxMin; VR.xMax = nxMax;
   VR.yMin = nyMin; VR.yMax = nyMax;
+  const _xrz = VR.xMax - VR.xMin, _yrz = VR.yMax - VR.yMin;
+  if (VR.xMin < 0.25) { VR.xMin = 0.25; VR.xMax = 0.25 + _xrz; }
+  if (VR.xMax > 5)    { VR.xMax = 5;    VR.xMin = 5 - _xrz; }
+  if (VR.yMin < 0.25) { VR.yMin = 0.25; VR.yMax = 0.25 + _yrz; }
+  if (VR.yMax > 5)    { VR.yMax = 5;    VR.yMin = 5 - _yrz; }
   rerender();
 }
 
-function resetView() { VR = {xMin:0,xMax:5,yMin:0,yMax:5}; rerender(); }
+function resetView() { VR = {xMin:0.25,xMax:5,yMin:0.25,yMax:5}; rerender(); }
 
 function screenToData(clientX, clientY) {
   const r = hm.getBoundingClientRect();
@@ -933,16 +1163,21 @@ window.addEventListener('mousemove', e => {
   // Data-space delta
   const dDataX = -(e.clientX - panState.clientX) / r.width  * (panState.vr.xMax - panState.vr.xMin);
   const dDataY =  (e.clientY - panState.clientY) / r.height * (panState.vr.yMax - panState.vr.yMin);
-  // Update VR
+  // Update VR then clamp to default 0–5 bounds
   VR.xMin = panState.vr.xMin + dDataX;
   VR.xMax = panState.vr.xMax + dDataX;
   VR.yMin = panState.vr.yMin + dDataY;
   VR.yMax = panState.vr.yMax + dDataY;
-  panState.moved = true;  // track that user actually dragged (not just clicked)
+  const _xr = VR.xMax - VR.xMin, _yr = VR.yMax - VR.yMin;
+  if (VR.xMin < 0.25) { VR.xMin = 0.25; VR.xMax = 0.25 + _xr; }
+  if (VR.xMax > 5)    { VR.xMax = 5;    VR.xMin = 5 - _xr; }
+  if (VR.yMin < 0.25) { VR.yMin = 0.25; VR.yMax = 0.25 + _yr; }
+  if (VR.yMax > 5)    { VR.yMax = 5;    VR.yMin = 5 - _yr; }
+  panState.moved = true;
 
-  // SVG-pixel offset: how far the data layer should visually move
-  const dxSVG = -dDataX / (panState.vr.xMax - panState.vr.xMin) * P.w;
-  const dySVG =  dDataY / (panState.vr.yMax - panState.vr.yMin) * P.h;
+  // SVG-pixel offset using clamped VR (not raw delta)
+  const dxSVG = -(VR.xMin - panState.vr.xMin) / (panState.vr.xMax - panState.vr.xMin) * P.w;
+  const dySVG =  (VR.yMin - panState.vr.yMin) / (panState.vr.yMax - panState.vr.yMin) * P.h;
 
   if (!panThrottle) {
     panThrottle = requestAnimationFrame(() => {
@@ -969,6 +1204,14 @@ window.addEventListener('mouseup', () => {
   // dot elements before the click event fires on the dot group.
   if (wasDrag) rerender();
 });
+
+// Pin pill below "Likelihood"
+window.addEventListener('resize', positionCtrl);
+
+// Renders run LAST — after all event listeners are registered so a render
+// error can never prevent zoom/pan/labels from working
+try { renderStatic(); renderRisks(); renderLegend(); } catch(e) { console.error('render error', e); }
+setTimeout(positionCtrl, 0);
 </script>
 </body>
 </html>
