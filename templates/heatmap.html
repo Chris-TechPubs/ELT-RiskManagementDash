@@ -48,15 +48,7 @@
     .dot-force-highlight .dot-scale-wrapper { transform: scale(1.5); }
 
     /* ── Category filter key card ───────────────────────────────────────────── */
-    .cat-filter-btn { cursor: pointer; transition: opacity 0.15s; }
-    .cat-filter-btn:hover { filter: brightness(1.18); }
-    .cat-filter-off { opacity: 0.32; }
     .legend-row-cat-off { opacity: 0.25 !important; pointer-events: none; }
-    /* Eye icon open/close animation */
-    .eye-open  { transition: opacity 0.28s; opacity: 1; }
-    .eye-closed { transition: opacity 0.28s; opacity: 0; }
-    .cat-filter-off .eye-open  { opacity: 0; }
-    .cat-filter-off .eye-closed { opacity: 1; }
 
     /* ── Legend row hover ───────────────────────────────────────────────────── */
     .legend-row { cursor: pointer; transition: opacity 0.15s, transform 0.15s; transform-box: fill-box; transform-origin: left center; }
@@ -131,6 +123,43 @@
     #zoom-ctrl button.active { background: #e8f0ff; border-color: #6699cc; color: #2255aa; }
     #hm { cursor: grab; }
     #hm.panning { cursor: grabbing; }
+
+    /* ── Category filter dropdown ───────────────────────────────────────────── */
+    #cat-filter-wrap { position: fixed; z-index: 200; }
+    #cat-filter-btn {
+      display: flex; align-items: center; gap: 7px;
+      background: #2D2D2E; border: 1px solid #3F3F40;
+      border-radius: 20px; padding: 4px 14px 4px 10px;
+      color: #E8EAED; font-size: 11px; font-weight: 600; cursor: pointer;
+      font-family: 'Roboto', sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4); transition: filter 0.15s;
+      white-space: nowrap;
+    }
+    #cat-filter-btn:hover { filter: brightness(1.18); }
+    #cat-filter-btn.filtered { border-color: #6699cc; color: #a8c0ff; }
+    #cat-filter-chevron { font-size: 10px; transition: transform 0.2s; display: inline-block; }
+    #cat-filter-btn.open #cat-filter-chevron { transform: rotate(180deg); }
+    #cat-dropdown {
+      display: none; position: absolute; top: calc(100% + 6px); left: 0;
+      background: #2D2D2E; border: 1px solid #3F3F40;
+      border-radius: 10px; padding: 6px 0;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.65);
+      min-width: 230px; z-index: 300;
+    }
+    #cat-dropdown.open { display: block; }
+    .cat-dd-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 16px; cursor: pointer; transition: background 0.12s;
+    }
+    .cat-dd-row:hover { background: rgba(255,255,255,0.07); }
+    .cat-dd-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .cat-dd-label {
+      flex: 1; font-size: 11px; font-weight: 600;
+      font-family: 'Roboto', sans-serif; transition: opacity 0.15s;
+    }
+    .cat-dd-check { font-size: 12px; color: #E8EAED; transition: opacity 0.15s; opacity: 1; }
+    .cat-dd-row.off .cat-dd-label { opacity: 0.35; }
+    .cat-dd-row.off .cat-dd-check { opacity: 0; }
   </style>
 </head>
 <body>
@@ -182,6 +211,13 @@
     <div class="modal-field"><div class="modal-label">Manager(s)</div><div id="modal-managers" class="modal-value"></div></div>
   </div>
 </div>
+<div id="cat-filter-wrap">
+  <button id="cat-filter-btn">
+    <span id="cat-filter-label">All Categories</span>
+    <span id="cat-filter-chevron">▾</span>
+  </button>
+  <div id="cat-dropdown"></div>
+</div>
 <div id="tooltip"></div>
 
 <script>
@@ -203,7 +239,7 @@ let   _panDelay         = null;      // setTimeout ID for 1-second pan delay
 
 function updateCatFilter() {
   Object.entries(catKeyElByColor).forEach(([col, el]) =>
-    el.classList.toggle('cat-filter-off', _hiddenCatColors.has(col)));
+    el.classList.toggle('off', _hiddenCatColors.has(col)));
   RISKS.forEach(r => {
     const row = legendRowByRiskId[r.id];
     if (row) row.classList.toggle('legend-row-cat-off', _hiddenCatColors.has(catColor(r.category || '')));
@@ -796,6 +832,71 @@ function renderRisks() {
   });
 }
 
+function updateCatFilterBtn() {
+  const btn = document.getElementById('cat-filter-btn');
+  const lbl = document.getElementById('cat-filter-label');
+  const hidden = _hiddenCatColors.size;
+  if (hidden === 0) {
+    lbl.textContent = 'All Categories';
+    btn.classList.remove('filtered');
+  } else {
+    lbl.textContent = `${CAT_LABELS.length - hidden} of ${CAT_LABELS.length} shown`;
+    btn.classList.add('filtered');
+  }
+}
+
+function buildCatDropdown() {
+  const dd = document.getElementById('cat-dropdown');
+  dd.innerHTML = '';
+  CAT_LABELS.forEach(([label, col]) => {
+    const row = document.createElement('div');
+    row.className = 'cat-dd-row' + (_hiddenCatColors.has(col) ? ' off' : '');
+    row.innerHTML =
+      `<span class="cat-dd-dot" style="background:${col}"></span>` +
+      `<span class="cat-dd-label" style="color:${col}">${label}</span>` +
+      `<span class="cat-dd-check">✓</span>`;
+    catKeyElByColor[col] = row;
+    row.addEventListener('click', e => {
+      e.stopPropagation();
+      if (_hiddenCatColors.has(col)) _hiddenCatColors.delete(col);
+      else _hiddenCatColors.add(col);
+      updateCatFilter();
+      updateCatFilterBtn();
+    });
+    dd.appendChild(row);
+  });
+
+  // Open/close toggle
+  document.getElementById('cat-filter-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = dd.classList.toggle('open');
+    document.getElementById('cat-filter-btn').classList.toggle('open', isOpen);
+  });
+  // Click outside closes dropdown
+  document.addEventListener('click', () => {
+    dd.classList.remove('open');
+    document.getElementById('cat-filter-btn').classList.remove('open');
+  });
+}
+
+function positionCatFilter() {
+  const r = hm.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const scale   = Math.min(r.width / 1300, r.height / 780);
+  const offsetX = (r.width  - 1300 * scale) / 2;
+  const offsetY = (r.height -  780  * scale) / 2;
+  // Align button right edge with right edge of risk list card (SVG x = 778 - 40 + 490 - 8 = 1220)
+  // Vertically centered in the top-padding zone: card top = P.y=20, header text at y=40, mid = 30
+  const svgBtnRightX = (LEG_X - 40 + 490 - 8);  // = 1220
+  const svgBtnY      = P.y + 10;                  // = 30, mid of 20px top-padding zone
+  const screenX = r.left + offsetX + svgBtnRightX * scale;
+  const screenY = r.top  + offsetY + svgBtnY      * scale;
+  const wrap = document.getElementById('cat-filter-wrap');
+  wrap.style.left      = screenX + 'px';
+  wrap.style.top       = screenY + 'px';
+  wrap.style.transform = 'translateX(-100%) translateY(-50%)';
+}
+
 // ── Legend ────────────────────────────────────────────────────────────────────
 function renderLegend() {
   const layer = document.getElementById('legend-layer');
@@ -881,69 +982,6 @@ function renderLegend() {
     y += RISK_H;
   });
 
-  // Category filter card — doubled circles with animated eye icon
-  const CAT_R      = 14;
-  const CAT_ROW_H  = 36;
-  const LEG_PAD_X  = 12;
-  const LEG_PAD_Y  = 14;
-  const CAT_HDR_H  = 28;
-  const LEG_TEXT_X = CAT_R * 2 + 10;
-  const legX = lx - CARD_PADX + CARD_W + 16;
-  const legCardW = LEG_TEXT_X + 175 + LEG_PAD_X;
-  const legCardHFit = LEG_PAD_Y + CAT_HDR_H + CAT_R + (CAT_LABELS.length - 1) * CAT_ROW_H + CAT_R + LEG_PAD_Y;
-
-  mk('rect', {
-    x: legX - LEG_PAD_X, y: P.y,
-    width: legCardW, height: legCardHFit,
-    rx: 10, ry: 10, fill: '#2D2D2E'
-  }, layer);
-
-  mktxt('Categories / Filter', {
-    x: legX - LEG_PAD_X + legCardW / 2, y: P.y + LEG_PAD_Y + 11,
-    'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700,
-    fill: '#E8EAED', 'font-family': FONT
-  }, layer);
-  mk('line', {
-    x1: legX - LEG_PAD_X + 6, y1: P.y + LEG_PAD_Y + CAT_HDR_H - 4,
-    x2: legX - LEG_PAD_X + legCardW - 6, y2: P.y + LEG_PAD_Y + CAT_HDR_H - 4,
-    stroke: '#3F3F40', 'stroke-width': 1
-  }, layer);
-
-  let cy = P.y + LEG_PAD_Y + CAT_HDR_H + CAT_R;
-  CAT_LABELS.forEach(([label, col]) => {
-    const catG = mk('g', { class: 'cat-filter-btn' }, layer);
-    catKeyElByColor[col] = catG;
-    if (_hiddenCatColors.has(col)) catG.classList.add('cat-filter-off');
-
-    const circX = legX + CAT_R;
-    mk('circle', { cx: circX, cy, r: CAT_R, fill: col }, catG);
-
-    // Eye icon centered in circle
-    const eyeG = mk('g', { transform: `translate(${circX},${cy})` }, catG);
-    const eyeOpen = mk('g', { class: 'eye-open' }, eyeG);
-    mk('path', { d: 'M -9,0 Q 0,-7 9,0 Q 0,7 -9,0 Z',
-      fill: 'none', stroke: '#000', 'stroke-width': '1.8',
-      'stroke-linejoin': 'round' }, eyeOpen);
-    mk('circle', { cx: '0', cy: '0', r: '2.6', fill: '#000' }, eyeOpen);
-    const eyeClosed = mk('g', { class: 'eye-closed' }, eyeG);
-    mk('path', { d: 'M -9,0 Q 0,-5 9,0',
-      fill: 'none', stroke: '#000', 'stroke-width': '2.2',
-      'stroke-linecap': 'round' }, eyeClosed);
-    [[-4,2,-4,5.5], [0,2,0,6], [4,2,4,5.5]].forEach(([x1,y1,x2,y2]) =>
-      mk('line', { x1, y1, x2, y2, stroke: '#000', 'stroke-width': '1.6',
-        'stroke-linecap': 'round' }, eyeClosed));
-
-    mktxt(label, {
-      x: legX + LEG_TEXT_X, y: cy + 4,
-      'font-size': 9.5, 'font-weight': 600, fill: '#ffffff', 'font-family': FONT
-    }, catG);
-    catG.addEventListener('click', () => {
-      if (_hiddenCatColors.has(col)) _hiddenCatColors.delete(col);
-      else _hiddenCatColors.add(col);
-      updateCatFilter();
-    });
-    cy += CAT_ROW_H;
-  });
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -1207,13 +1245,15 @@ window.addEventListener('mouseup', () => {
   if (wasDrag) rerender();
 });
 
-// Pin pill below "Likelihood"
-window.addEventListener('resize', positionCtrl);
+// Pin pill below "Likelihood" and cat-filter button
+window.addEventListener('resize', () => { positionCtrl(); positionCatFilter(); });
 
 // Renders run LAST — after all event listeners are registered so a render
 // error can never prevent zoom/pan/labels from working
 try { renderStatic(); renderRisks(); renderLegend(); } catch(e) { console.error('render error', e); }
-setTimeout(positionCtrl, 0);
+buildCatDropdown();
+updateCatFilterBtn();
+setTimeout(() => { positionCtrl(); positionCatFilter(); }, 0);
 </script>
 </body>
 </html>
