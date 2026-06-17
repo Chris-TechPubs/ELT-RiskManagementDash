@@ -809,7 +809,7 @@ function renderLegend() {
   const CARD_PADX = 40;
   const CARD_TPAD = 20;  // air above header
   const CARD_BPAD = 8;   // snug below last row
-  const CARD_W    = 293;
+  const CARD_W    = 490;
   const HDR_H     = 16;
   const RISK_H    = (P.h - CARD_TPAD - HDR_H - CARD_BPAD) / sorted.length;
   const fontSize  = Math.min(11, Math.max(8.5, RISK_H * 0.78));
@@ -839,7 +839,7 @@ function renderLegend() {
 
   sorted.forEach(r => {
     const col  = catColor(r.category || '');
-    const name = r.name.length > 44 ? r.name.slice(0,42)+'…' : r.name;
+    const name = r.name.length > 72 ? r.name.slice(0,70)+'…' : r.name;
     const rowG = mk('g', { class: 'legend-row' }, listWrap);
     legendRowByRiskId[r.id] = rowG;
     const chevR = Math.max(5, Math.round(fontSize * 0.62));
