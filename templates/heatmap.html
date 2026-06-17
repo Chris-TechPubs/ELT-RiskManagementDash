@@ -150,7 +150,7 @@
       </linearGradient>
     <clipPath id="chartClip">
       <!-- Clip to the exact plot area (P.x=130, P.y=20, P.w=600, P.h=680) -->
-      <rect x="130" y="20" width="600" height="680"/>
+      <rect x="130" y="20" width="600" height="680" rx="20" ry="20"/>
     </clipPath>
     </defs>
     <g id="chart-inner">
@@ -664,7 +664,7 @@ function renderStatic() {
   updateGradientCoords();
   const layer = document.getElementById('static-layer');
   const { x, y, w, h } = P;
-  mk('rect', { x, y, width: w, height: h, fill: 'url(#gDiag)' }, layer);
+  mk('rect', { x, y, width: w, height: h, fill: 'url(#gDiag)', rx: 20, ry: 20 }, layer);
   // Dynamic grid lines and labels for current VR (data view range)
   const STEP = 0.5;
   function rangeTicks(lo, hi) {
@@ -691,7 +691,7 @@ function renderStatic() {
     mk('line',{x1:svgX(2.5),y1:y,x2:svgX(2.5),y2:y+h,stroke:'rgba(0,0,0,0.45)','stroke-width':2},layer);
   if (VR.yMin<=2.5 && VR.yMax>=2.5)
     mk('line',{x1:x,y1:svgY(2.5),x2:x+w,y2:svgY(2.5),stroke:'rgba(0,0,0,0.45)','stroke-width':2},layer);
-  mk('rect',{x,y,width:w,height:h,fill:'none',stroke:'rgba(0,0,0,0.55)','stroke-width':1.5},layer);
+  mk('rect',{x,y,width:w,height:h,fill:'none',stroke:'rgba(0,0,0,0.55)','stroke-width':1.5,rx:20,ry:20},layer);
   mktxt('Likelihood',{x:x+w/2,y:y+h+34,'text-anchor':'middle','font-size':13,'font-weight':600,fill:'#333','font-family':AXIS_FONT},layer);
   const sev=mktxt('Severity',{'text-anchor':'middle','font-size':13,'font-weight':600,fill:'#333','font-family':AXIS_FONT,transform:`rotate(-90,${x-44},${y+h/2})`},layer);
   sev.setAttribute('x',x-44); sev.setAttribute('y',y+h/2);
