@@ -241,8 +241,8 @@ function panToRisk(risk) {
   const pad = 0.15;
   if (tx > VR.xMin + pad && tx < VR.xMax - pad && ty > VR.yMin + pad && ty < VR.yMax - pad) return;
   const rW = VR.xMax - VR.xMin, rH = VR.yMax - VR.yMin;
-  const tXMin = Math.max(0.25, Math.min(5 - rW, tx - rW / 2));
-  const tYMin = Math.max(0.25, Math.min(5 - rH, ty - rH / 2));
+  const tXMin = Math.max(0, Math.min(5 - rW, tx - rW / 2));
+  const tYMin = Math.max(0, Math.min(5 - rH, ty - rH / 2));
   const tXMax = tXMin + rW, tYMax = tYMin + rH;
   if (Math.abs(tXMin - VR.xMin) < 0.01 && Math.abs(tYMin - VR.yMin) < 0.01) return;
   const sXMin = VR.xMin, sXMax = VR.xMax, sYMin = VR.yMin, sYMax = VR.yMax;
@@ -269,7 +269,7 @@ const LB        = { xMin: P.x + 2, yMin: P.y + 2, xMax: P.x + P.w - 2, yMax: P.y
 const LEG_X = P.x + P.w + 48;
 
 // Data view range — changes on zoom/pan; svgX/svgY map data into the fixed plot square
-let VR = { xMin: 0.25, xMax: 5, yMin: 0.25, yMax: 5 };
+let VR = { xMin: 0, xMax: 5, yMin: 0, yMax: 5 };
 
 function svgX(v) { return P.x + (v - VR.xMin) / (VR.xMax - VR.xMin) * P.w; }
 function svgY(v) { return P.y + (1 - (v - VR.yMin) / (VR.yMax - VR.yMin)) * P.h; }
@@ -1113,18 +1113,18 @@ function doZoom(factor, pivDX, pivDY) {
   const nyMin = cy - (cy - VR.yMin) / factor;
   const nyMax = cy + (VR.yMax - cy) / factor;
   // Don't zoom out beyond the original 0–5 × 0–5 range
-  if (nxMax - nxMin > 4.751 || nyMax - nyMin > 4.751) return;
+  if (nxMax - nxMin > 5.001 || nyMax - nyMin > 5.001) return;
   VR.xMin = nxMin; VR.xMax = nxMax;
   VR.yMin = nyMin; VR.yMax = nyMax;
   const _xrz = VR.xMax - VR.xMin, _yrz = VR.yMax - VR.yMin;
-  if (VR.xMin < 0.25) { VR.xMin = 0.25; VR.xMax = 0.25 + _xrz; }
-  if (VR.xMax > 5)    { VR.xMax = 5;    VR.xMin = 5 - _xrz; }
-  if (VR.yMin < 0.25) { VR.yMin = 0.25; VR.yMax = 0.25 + _yrz; }
-  if (VR.yMax > 5)    { VR.yMax = 5;    VR.yMin = 5 - _yrz; }
+  if (VR.xMin < 0) { VR.xMin = 0; VR.xMax = _xrz; }
+  if (VR.xMax > 5) { VR.xMax = 5; VR.xMin = 5 - _xrz; }
+  if (VR.yMin < 0) { VR.yMin = 0; VR.yMax = _yrz; }
+  if (VR.yMax > 5) { VR.yMax = 5; VR.yMin = 5 - _yrz; }
   rerender();
 }
 
-function resetView() { VR = {xMin:0.25,xMax:5,yMin:0.25,yMax:5}; rerender(); }
+function resetView() { VR = {xMin:0,xMax:5,yMin:0,yMax:5}; rerender(); }
 
 function screenToData(clientX, clientY) {
   const r = hm.getBoundingClientRect();
@@ -1171,10 +1171,10 @@ window.addEventListener('mousemove', e => {
   VR.yMin = panState.vr.yMin + dDataY;
   VR.yMax = panState.vr.yMax + dDataY;
   const _xr = VR.xMax - VR.xMin, _yr = VR.yMax - VR.yMin;
-  if (VR.xMin < 0.25) { VR.xMin = 0.25; VR.xMax = 0.25 + _xr; }
-  if (VR.xMax > 5)    { VR.xMax = 5;    VR.xMin = 5 - _xr; }
-  if (VR.yMin < 0.25) { VR.yMin = 0.25; VR.yMax = 0.25 + _yr; }
-  if (VR.yMax > 5)    { VR.yMax = 5;    VR.yMin = 5 - _yr; }
+  if (VR.xMin < 0) { VR.xMin = 0; VR.xMax = _xr; }
+  if (VR.xMax > 5) { VR.xMax = 5; VR.xMin = 5 - _xr; }
+  if (VR.yMin < 0) { VR.yMin = 0; VR.yMax = _yr; }
+  if (VR.yMax > 5) { VR.yMax = 5; VR.yMin = 5 - _yr; }
   panState.moved = true;
 
   // SVG-pixel offset using clamped VR (not raw delta)
