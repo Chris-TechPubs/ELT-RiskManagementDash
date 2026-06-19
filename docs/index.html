@@ -7,7 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;600;700&display=swap" rel="stylesheet">
-  <script src="https://www.gstatic.com/datastudio/developer/1.0/dscc.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; background: #e2f1fc; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; }
@@ -16,7 +15,10 @@
     .risk-group { cursor: pointer; }
     .risk-group:hover .r-dot { opacity: 0.7; }
     /* ── Allegion grey — solid, no transparency ─────────────────────────────── */
-    :root { --allegion-grey: #2D2D2E; --allegion-border: #3F3F40; --allegion-text: #E8EAED; --allegion-muted: #A8A8AA; }
+    :root {
+      --allegion-grey: #2D2D2E; --allegion-border: #3F3F40; --allegion-text: #E8EAED; --allegion-muted: #A8A8AA;
+      --antenna: Antenna, Roboto, 'Segoe UI', Arial, sans-serif;
+    }
 
     /* ── Tooltip (2× size for iframe legibility) ───────────────────────────── */
     #tooltip {
@@ -44,20 +46,12 @@
     .dot-force-highlight .dot-spin {
       animation: dotSpin 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
     }
-    /* Scale wrapper sits between dotG and spinG so scale+rotate don't conflict */
     .dot-scale-wrapper { transform-box: fill-box; transform-origin: center; transition: transform 0.15s; }
     .dot-hover:hover .dot-scale-wrapper,
     .dot-force-highlight .dot-scale-wrapper { transform: scale(1.5); }
 
     /* ── Category filter key card ───────────────────────────────────────────── */
-    .cat-filter-btn { cursor: pointer; transition: opacity 0.15s; }
-    .cat-filter-btn:hover { filter: brightness(1.18); }
-    .cat-filter-off { opacity: 0.32; }
     .legend-row-cat-off { opacity: 0.25 !important; pointer-events: none; }
-    .eye-open  { transition: opacity 0.28s; opacity: 1; }
-    .eye-closed { transition: opacity 0.28s; opacity: 0; }
-    .cat-filter-off .eye-open  { opacity: 0; }
-    .cat-filter-off .eye-closed { opacity: 1; }
 
     /* ── Legend row hover ───────────────────────────────────────────────────── */
     .legend-row { cursor: pointer; transition: opacity 0.15s, transform 0.15s; transform-box: fill-box; transform-origin: left center; }
@@ -72,7 +66,10 @@
       display: none; position: fixed; inset: 0; z-index: 1000;
       align-items: center; justify-content: center;
     }
-    #risk-modal.open { display: flex; }
+    #risk-modal.open    { display: flex; animation: modalBackdropIn  0.22s cubic-bezier(0.16,1,0.3,1) both; }
+    #risk-modal.closing { display: flex; animation: modalBackdropOut 0.20s cubic-bezier(0.4,0,1,1)    both; }
+    #risk-modal.open    #risk-modal-box { animation: modalBoxIn  0.34s cubic-bezier(0.16,1,0.3,1) both; }
+    #risk-modal.closing #risk-modal-box { animation: modalBoxOut 0.18s cubic-bezier(0.4,0,1,1)    both; }
     #risk-modal-overlay {
       position: absolute; inset: 0; background: rgba(0,0,0,0.55); cursor: pointer;
     }
@@ -109,29 +106,135 @@
       border-bottom-color: transparent;
     }
 
+    /* ── Zoom: labels fade out at start, fade in 50ms after zoom stops ─────── */
+    .label-box, .label-text, .conn-line { transition: opacity 150ms ease; }
+    #risks-layer.zooming .label-box,
+    #risks-layer.zooming .label-text,
+    #risks-layer.zooming .conn-line  { opacity: 0; }
+
     /* ── Label toggle — hide label boxes + connectors, keep dots ────────────── */
     .labels-off .label-box,
     .labels-off .label-text,
     .labels-off .conn-line { display: none; }
 
+
     /* ── Controls ───────────────────────────────────────────────────────────── */
     #zoom-ctrl {
       position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
-      display: flex; gap: 5px; z-index: 200;
-      background: rgba(255,255,255,0.92); padding: 4px 8px; border-radius: 20px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+      display: flex; gap: 6px; z-index: 200;
+      background: #363637; padding: 5px 8px; border-radius: 26px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+      border: 1px solid #3F3F40;
     }
     #zoom-ctrl button {
-      height: 28px; border: 1px solid #ccc; border-radius: 14px;
-      background: #fff; cursor: pointer; font-weight: 700;
+      height: 34px; border: 1px solid rgba(255,255,255,0.1); border-radius: 17px;
+      background: rgba(255,255,255,0.07); cursor: pointer; font-weight: 700;
       display: flex; align-items: center; justify-content: center;
-      color: #333; padding: 0 10px; font-size: 13px; white-space: nowrap;
+      color: #FF671F; padding: 0 14px; font-size: 15px; white-space: nowrap;
+      font-family: var(--antenna); transition: filter 0.15s, border-color 0.15s;
     }
-    #zoom-ctrl button.icon-btn { width: 28px; padding: 0; font-size: 17px; border-radius: 50%; }
-    #zoom-ctrl button:hover { background: #f0f4ff; border-color: #999; }
-    #zoom-ctrl button.active { background: #e8f0ff; border-color: #6699cc; color: #2255aa; }
+    #zoom-ctrl button.icon-btn { width: 34px; padding: 0; font-size: 19px; border-radius: 50%; }
+    #zoom-ctrl button:hover { filter: brightness(1.25); border-color: rgba(255,103,31,0.45); }
+    #zoom-ctrl button.active { background: rgba(255,103,31,0.14); border-color: #FF671F; }
     #hm { cursor: grab; }
     #hm.panning { cursor: grabbing; }
+
+    /* ── Menu animations ───────────────────────────────────────────────────── */
+    @keyframes menuSlideIn {
+      from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0)     scale(1);    }
+    }
+    @keyframes menuSlideOut {
+      from { opacity: 1; transform: translateY(0)    scale(1);    }
+      to   { opacity: 0; transform: translateY(-7px) scale(0.96); }
+    }
+    @keyframes modalBackdropIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes modalBackdropOut {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+    @keyframes modalBoxIn {
+      from { opacity: 0; transform: scale(0.92) translateY(22px); }
+      to   { opacity: 1; transform: scale(1)    translateY(0);    }
+    }
+    @keyframes modalBoxOut {
+      from { opacity: 1; transform: scale(1)    translateY(0);    }
+      to   { opacity: 0; transform: scale(0.95) translateY(10px); }
+    }
+
+    /* ── Risk list header bar — all inner sizes driven by JS via CSS vars ───── */
+    #risk-header-bar {
+      position: fixed; z-index: 200;
+      display: flex; align-items: center;
+      background: #363637;
+      border-radius: 10px 10px 0 0; /* overridden by JS to match SVG card rx at current scale */
+      border-bottom: 1px solid #3F3F40;
+      overflow: visible;
+      padding-left: var(--rh-pad-l, 40px);
+      padding-right: var(--rh-pad-r, 10px);
+    }
+    .rh-col {
+      font-size: var(--rh-col-font, 11px); font-weight: 700; letter-spacing: 0.09em;
+      text-transform: uppercase; color: #FF671F;
+      font-family: var(--antenna); white-space: nowrap; flex-shrink: 0;
+    }
+    #rh-id  {
+      width: var(--rh-id-w, 18px); flex-shrink: 0;
+      border-right: 1px solid rgba(255,255,255,0.22);
+      padding-right: var(--rh-id-pr, 4px);
+      margin-right: var(--rh-id-mr, 6px);
+    }
+    #rh-name { flex: 1; min-width: 0; }
+    .rh-divider {
+      width: 1px; background: rgba(255,255,255,0.22); align-self: stretch;
+      margin: 20% var(--rh-div-mx, 9px); flex-shrink: 0;
+    }
+    #cat-filter-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.16);
+      border-radius: var(--rh-btn-r, 10px);
+      padding: var(--rh-btn-pad-v, 5px) var(--rh-btn-pad-h, 11px);
+      color: #FF671F; font-size: var(--rh-btn-font, 13px); font-weight: 600; cursor: pointer;
+      font-family: var(--antenna); transition: filter 0.15s, border-color 0.15s;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    #cat-filter-btn:hover { filter: brightness(1.22); border-color: rgba(255,255,255,0.28); }
+    #cat-filter-btn.filtered { border-color: #6699cc; color: #a8c0ff; }
+    #cat-filter-chevron { font-size: 0.75em; transition: transform 0.2s; display: inline-block; opacity: 0.7; }
+    #cat-filter-btn.open #cat-filter-chevron { transform: rotate(180deg); }
+    #cat-dropdown {
+      display: none; position: absolute; top: calc(100% + 4px); right: 0;
+      background: #2A2A2B; border: 1px solid #3F3F40;
+      border-radius: 10px; padding: 4px 0;
+      box-shadow: 0 10px 36px rgba(0,0,0,0.7);
+      min-width: var(--rh-dd-min-w, 240px); z-index: 300;
+      transform-origin: top right;
+    }
+    #cat-dropdown.open    { display: block; animation: menuSlideIn  0.30s cubic-bezier(0.16,1,0.3,1) both; }
+    #cat-dropdown.closing { display: block; animation: menuSlideOut 0.16s cubic-bezier(0.4,0,1,1)    both; }
+    .cat-dd-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: var(--rh-dd-pad-v, 8px) var(--rh-dd-pad-h, 16px);
+      cursor: pointer; transition: background 0.12s;
+    }
+    .cat-dd-row:hover { background: rgba(255,255,255,0.07); }
+    .cat-dd-dot {
+      width: var(--rh-dd-dot, 11px); height: var(--rh-dd-dot, 11px);
+      border-radius: 50%; flex-shrink: 0;
+    }
+    .cat-dd-label {
+      flex: 1; font-size: var(--rh-dd-font, 13px); font-weight: 600;
+      font-family: var(--antenna); transition: opacity 0.15s;
+    }
+    .cat-dd-check {
+      font-size: var(--rh-dd-font, 13px); color: #E8EAED;
+      transition: opacity 0.15s; opacity: 1;
+    }
+    .cat-dd-row.off .cat-dd-label { opacity: 0.35; }
+    .cat-dd-row.off .cat-dd-check { opacity: 0; }
   </style>
 </head>
 <body>
@@ -151,7 +254,7 @@
       </linearGradient>
     <clipPath id="chartClip">
       <!-- Clip to the exact plot area (P.x=130, P.y=20, P.w=600, P.h=680) -->
-      <rect x="130" y="20" width="600" height="680"/>
+      <path d="M 150,20 L 730,20 L 730,700 L 150,700 Q 130,700 130,680 L 130,40 Q 130,20 150,20 Z"/>
     </clipPath>
     </defs>
     <g id="chart-inner">
@@ -166,7 +269,7 @@
 </div>
 <div id="zoom-ctrl">
   <button class="icon-btn" onclick="doZoom(1.3)" title="Zoom in">+</button>
-  <button class="icon-btn" onclick="resetView()" title="Reset view" style="font-size:12px">&#8962;</button>
+  <button class="icon-btn" onclick="resetView()" title="Reset view">&#8962;</button>
   <button class="icon-btn" onclick="doZoom(0.77)" title="Zoom out">&minus;</button>
   <button id="label-toggle" onclick="toggleLabels()" title="Toggle labels">Labels</button>
 </div>
@@ -183,11 +286,21 @@
     <div class="modal-field"><div class="modal-label">Manager(s)</div><div id="modal-managers" class="modal-value"></div></div>
   </div>
 </div>
+<div id="risk-header-bar">
+  <span class="rh-col" id="rh-id">#</span>
+  <span class="rh-col" id="rh-name">Risk Name</span>
+  <div class="rh-divider"></div>
+  <button id="cat-filter-btn">
+    <span id="cat-filter-label">All Categories</span>
+    <span id="cat-filter-chevron">▾</span>
+  </button>
+  <div id="cat-dropdown"></div>
+</div>
 <div id="tooltip"></div>
 
 <script>
-let RISKS = [];
-// Cross-reference maps for legend↔dot hover interactions
+const RISKS    = [{"category": "Strategic", "definition": "The risk that Allegion may not effectively manage or adapt its distribution channels, resulting in reduced market reach, inefficiencies, and lost revenue opportunities.", "id": "R01", "likelihood": 1.5, "managers": "Int: Business GM\u0027s\nAm: Mark Vigren + Business GM\u0027s", "name": "Channel Distribution", "owner": "David Ilardi, Tim Eckersley", "severity": 2.0, "status": "At Risk"}, {"category": "Strategic", "definition": "The risk that negative publicity regarding Allegion\u0027s business practices will lead to a loss of revenue, litigation, or shareholder activism.", "id": "R02", "likelihood": 3.0, "managers": "Whitney, IR", "name": "Reputational Risk", "owner": "Joe Blasko", "severity": 2.0, "status": "Monitored"}, {"category": "Strategic", "definition": "The risk that Allegion\u2019s overreliance on specific markets or regions may limit its ability to respond to market changes, resulting in reduced competitiveness and increased vulnerability.", "id": "R03", "likelihood": 3.0, "managers": "Int: B. Sommer\nAm: Business GM\u0027s", "name": "Business Concentration (Business/Region/Market)", "owner": "David Ilardi, Tim Eckersley", "severity": 3.0, "status": "Monitored"}, {"category": "Strategic", "definition": "The risk that Allegion may not respond effectively to disruptive competitors or technologies, resulting in loss of market share and diminished profitability.", "id": "R04", "likelihood": 1.5, "managers": "Business GM\u0027s", "name": "Competitive Disruption", "owner": "David Ilardi, Tim Eckersley", "severity": 1.5, "status": "In Progress"}, {"category": "Strategic", "definition": "The risk that Allegion engages in a merger and acquisition / strategic investment process that improperly values and prices a target, lacks sufficient due diligence and/or executes poorly", "id": "R05", "likelihood": 3.5, "managers": "Joe Jaurez", "name": "M\u0026A and Strategic Investments", "owner": "Robert Martens", "severity": 3.5, "status": "At Risk"}, {"category": "Operational", "definition": "The risk that Allegion\u2019s products may not meet quality standards or fail in the field, resulting in customer dissatisfaction, recalls, and reputational damage.", "id": "R06", "likelihood": 2.0, "managers": "Business GM\u0027s", "name": "Product Quality/Integrity", "owner": "David Ilardi, Tim Eckersley", "severity": 1.0, "status": "Not Started/Planning"}, {"category": "Operational", "definition": "The risk that Allegion\u2019s enterprise systems may be outdated, poorly integrated, or inefficiently implemented, leading to operational disruptions and data inaccuracies.", "id": "R07", "likelihood": 2.0, "managers": "Jennifer Sivak", "name": "Enterprise Applications", "owner": "Tracy Kemp", "severity": 2.5, "status": "Not Started/Planning"}, {"category": "Operational", "definition": "The risk that lack of operational redundancy or overreliance on a single production site may lead to severe disruptions from localized events.", "id": "R08", "likelihood": 2.0, "managers": "Business GM\u0027s", "name": "Concentration of Operations and Single Means of Production", "owner": "David Ilardi, Tim Eckersley", "severity": 2.0, "status": "Not Started/Planning"}, {"category": "Operational", "definition": "The risk that threats associated with Allegion\u2019s or a third party\u0027s intellectual property portfolio, including copyright infringement/piracy, industrial espionage, patent infringement, trademark and trade secret infringement, misappropriation of proprietary information and open source software, may rob the company of revenue generating sources.", "id": "R09", "likelihood": 2.5, "managers": "Americas:  Mark Lynn\nInternational:  Vince Wenos\nGSS:  Pritika Toutam", "name": "IP Infringement / Freedom to Operate", "owner": "Vincent Wenos", "severity": 3.0, "status": "In Progress"}, {"category": "Operational", "definition": "The risk that inadequate physical security measures may expose Allegion\u2019s facilities, assets, or personnel to harm or unauthorized access resulting in loss of sensitive information", "id": "R10", "likelihood": 2.5, "managers": "Carl Veld \u0026 Business GM\u0027s", "name": "Physical Security", "owner": "David Ilardi, Tim Eckersley", "severity": 1.5, "status": "At Risk"}, {"category": "Operational", "definition": "The risk that Allegion may lose a major customer, resulting in significant revenue decline and reduced economies of scale.", "id": "R11", "likelihood": 1.5, "managers": "Mark Vigren, Scott McNamara", "name": "Loss of Significant Customer", "owner": "David Ilardi", "severity": 3.5, "status": "Not Started/Planning"}, {"category": "Operational", "definition": "The risk that Allegion Is not successful in adapting its supply chain strategy to address rapidly evolving global risks, resulting in inability to manufacture products.", "id": "R12", "likelihood": 2.5, "managers": "VP SC \u0026 Business GM\u0027s", "name": "Global Supply Chain", "owner": "David Ilardi, Tim Eckersley", "severity": 2.0, "status": "Monitored"}, {"category": "Technology/Cybersecurity", "definition": "The risk that Allegion\u2019s electronically enabled products may be compromised, exposing sensitive data and damaging customer trust.", "id": "R13", "likelihood": 2.5, "managers": "Clayton MacCrindle", "name": "Product Security", "owner": "Vincent Wenos", "severity": 2.5, "status": "Completed"}, {"category": "Technology/Cybersecurity", "definition": "The risk that Allegion may be unable to maintain accurate and reliable data due to system failures or poor data management, affecting or delaying decision-making and reporting.", "id": "R14", "likelihood": 2.5, "managers": "Matthew A O\u0027Dell", "name": "Data Integrity/Quality", "owner": "Tracy Kemp", "severity": 2.5, "status": "Not Started/Planning"}, {"category": "Technology/Cybersecurity", "definition": "The risk that Allegion may be exposed to cyberattacks that disrupt operations, compromise data, and result in financial and reputational losses.", "id": "R15", "likelihood": 2.0, "managers": "Justin Scheitlin", "name": "Cybersecurity", "owner": "Tracy Kemp", "severity": 2.0, "status": "Not Started/Planning"}, {"category": "Human Capital", "definition": "The risk that Allegion may not have adequate plans to replace key leaders or roles, resulting in leadership gaps and strategic misalignment.", "id": "R16", "likelihood": 3.0, "managers": "Christina Chapman", "name": "Succession Planning", "owner": "Jennifer Hawes", "severity": 3.0, "status": "Not Started/Planning"}, {"category": "Human Capital", "definition": "The risk that disputes or poor relations with labor groups may lead to strikes, reduced productivity, or reputational harm.", "id": "R17", "likelihood": 2.0, "managers": "Nicole, Ashley, Tiffane", "name": "Labor Relations", "owner": "Jennifer Hawes", "severity": 2.0, "status": "Not Started/Planning"}, {"category": "Human Capital", "definition": "The risk that Allegion may struggle to attract, train, and retain talent (both manufacturing and non-manufacturing) in a competitive labor market, impacting innovation and execution.", "id": "R18", "likelihood": 2.5, "managers": "Christina Chapman", "name": "Inability to Recruit, Develop and Retain Workforce", "owner": "Jennifer Hawes", "severity": 1.5, "status": "In Progress"}, {"category": "Governance/Compliance", "definition": "The risk that non-compliance with customer requirements, organizational policies, laws, or ethical principles and values may result in poor performance, legal action, or damage to the company\u2019s reputation.", "id": "R19", "likelihood": 2.0, "managers": "Maria, Compliance Officer/ Alli, Global Compliance Manager", "name": "Ethics and Compliance Culture", "owner": "Joe Blasko", "severity": 2.5, "status": "Completed"}, {"category": "Governance/Compliance", "definition": "The risk that Allegion may fail to enforce internal controls, comply with corporate policies, or not meet statutory reporting regulations, or timing, leading to regulatory violations, operational inefficiencies, or fines.", "id": "R20", "likelihood": 3.5, "managers": "nick.musial@allegion.com", "name": "Internal Control/Compliance with Regulatory Reporting Policies", "owner": "Michael Wagnes", "severity": 2.5, "status": "Not Started/Planning"}, {"category": "Governance/Compliance", "definition": "The risk that Allegion violates legislation which limits the growth and use of monopoly power that interferes with the competitive market system.", "id": "R21", "likelihood": 2.0, "managers": "Tracy Jaques (for Americas); Maria Lucena Gomez (for International)", "name": "Anti-Trust/Competitive Practices", "owner": "Joe Blasko", "severity": 1.5, "status": "Not Started/Planning"}, {"category": "Governance/Compliance", "definition": "The risk that Allegion\u2019s products may not meet regulatory or industry standards, resulting in fines, recalls, or market access restrictions.", "id": "R22", "likelihood": 2.5, "managers": "frank.winters@allegion.com", "name": "Product Compliance", "owner": "Vincent Wenos", "severity": 2.0, "status": "Not Started/Planning"}, {"category": "Governance/Compliance", "definition": "The risk that government enforcement actions may hinder Allegion\u2019s ability to maintain cost-effective production or maintain continuity of its import supply chain.", "id": "R23", "likelihood": 2.0, "managers": "Kelly Guzman", "name": "Trade Compliance", "owner": "Joe Blasko", "severity": 2.0, "status": "Not Started/Planning"}, {"category": "Environmental/External", "definition": "The risk that climate related environmental events, other natural events or pandemics may disrupt Allegion\u2019s operations, supply chain, or markets, leading to financial and reputational impacts.", "id": "R24", "likelihood": 2.0, "managers": "Business GM\u0027s", "name": "Business Continuity", "owner": "David Ilardi, Tim Eckersley", "severity": 2.5, "status": "Not Started/Planning"}, {"category": "Environmental/External", "definition": "The risk that geopolitical events (e.g. economic downturns, social and political instability, international conflicts) may negatively impact Allegion\u0027s operations, resulting in increased cost of doing business, increased counterparty risk, and disruptions to markets and operations.", "id": "R25", "likelihood": 3.0, "managers": "Whitney Moorman", "name": "Geopolitical Risk", "owner": "Joe Blasko", "severity": 2.0, "status": "In Progress"}, {"category": "Financial", "definition": "The risk that Allegion suffers monetary loss due to an adverse movement in foreign exchange rates stemming from transactions.", "id": "R26", "likelihood": 3.0, "managers": "nick.musial@allegion.com", "name": "Foreign Currency", "owner": "Michael Wagnes", "severity": 1.5, "status": "At Risk"}, {"category": "Financial", "definition": "The risk that Allegion\u2019s use of derivatives or hedging strategies may be ineffective or mismanaged, resulting in financial losses, increased volatility, or failure to adequately mitigate exposure to market risks.", "id": "R27", "likelihood": 2.5, "managers": "nick.musial@allegion.com", "name": "Derivatives/Hedging", "owner": "Michael Wagnes", "severity": 1.5, "status": "Not Started/Planning"}, {"category": "Financial", "definition": "The risk that Allegion may not effectively manage its cash flows, liquidity, or working capital, leading to operational constraints, inability to meet financial obligations, or missed investment opportunities.", "id": "R28", "likelihood": 1.5, "managers": "nick.musial@allegion.com", "name": "Cash Management", "owner": "Michael Wagnes", "severity": 3.0, "status": "Monitored"}, {"category": "Financial", "definition": "The risk that Allegion may not effectively manage its debt levels, interest rate exposure, or liquidity, impacting its ability to invest, operate, or respond to financial stress", "id": "R29", "likelihood": 3.5, "managers": "Nick Musial, Mike Wagnes", "name": "Leverage Management and Liquidity", "owner": "Michael Wagnes", "severity": 1.5, "status": "At Risk"}, {"category": "Financial", "definition": "The risk that changes in tax laws, regulations or treaties, changes in our status under the tax laws of any particular jurisdiction, adverse determinations by taxing authorities, or our non-compliance with regulatory obligations could increase our tax burden, adversely impact our financial condition or result in conditions where are not able to achieve a competitive worldwide effective corporate tax rate.", "id": "R30", "likelihood": 2.0, "managers": "David Simpson", "name": "Tax Structure and Strategy", "owner": "Michael Wagnes", "severity": 2.0, "status": "Completed"}, {"category": "Financial", "definition": "The risk that Allegion\u2019s pension fund obligations and management may be adversely impacted by market fluctuations, regulatory changes, or actuarial assumptions, resulting in increased funding requirements or financial strain.", "id": "R31", "likelihood": 2.5, "managers": "Nick Musial (BIC)", "name": "Pension Funds", "owner": "Michael Wagnes", "severity": 1.0, "status": "Monitored"}];
+const LOGO_SRC = "../Static/AllegionLogo_Official.png";
 const dotGroupByRiskId   = {};
 const legendRowByRiskId  = {};
 const dotRisksGroupById  = {};
@@ -197,14 +310,15 @@ function dimLegend(on) {
   document.getElementById('legend-layer').classList.toggle('legend-dimmed', _dimCount > 0);
 }
 
+// Tracks which risk IDs have their legend row currently hovered (survives rerenders)
 const _activeLegendRows = new Set();
-const _hiddenCatColors  = new Set();
-const catKeyElByColor   = {};
-let   _panDelay         = null;
+const _hiddenCatColors  = new Set(); // hex colors of toggled-off categories
+const catKeyElByColor   = {};        // color → category key card <g> element
+let   _panDelay         = null;      // setTimeout ID for 1-second pan delay
 
 function updateCatFilter() {
   Object.entries(catKeyElByColor).forEach(([col, el]) =>
-    el.classList.toggle('cat-filter-off', _hiddenCatColors.has(col)));
+    el.classList.toggle('off', _hiddenCatColors.has(col)));
   RISKS.forEach(r => {
     const row = legendRowByRiskId[r.id];
     if (row) row.classList.toggle('legend-row-cat-off', _hiddenCatColors.has(catColor(r.category || '')));
@@ -223,6 +337,7 @@ function _reapplyLegendHighlights() {
   });
 }
 
+// Animated pan — fast dot-only render during frames, full rerender at end
 let _panAnim = null;
 function _fastRerender() {
   updateGradientCoords();
@@ -241,8 +356,8 @@ function panToRisk(risk) {
   const pad = 0.15;
   if (tx > VR.xMin + pad && tx < VR.xMax - pad && ty > VR.yMin + pad && ty < VR.yMax - pad) return;
   const rW = VR.xMax - VR.xMin, rH = VR.yMax - VR.yMin;
-  const tXMin = Math.max(0.25, Math.min(5 - rW, tx - rW / 2));
-  const tYMin = Math.max(0.25, Math.min(5 - rH, ty - rH / 2));
+  const tXMin = Math.max(0, Math.min(5 - rW, tx - rW / 2));
+  const tYMin = Math.max(0, Math.min(5 - rH, ty - rH / 2));
   const tXMax = tXMin + rW, tYMax = tYMin + rH;
   if (Math.abs(tXMin - VR.xMin) < 0.01 && Math.abs(tYMin - VR.yMin) < 0.01) return;
   const sXMin = VR.xMin, sXMax = VR.xMax, sYMin = VR.yMin, sYMax = VR.yMax;
@@ -266,10 +381,11 @@ const FONT      = 'Roboto, Segoe UI, Arial, sans-serif';
 const AXIS_FONT = 'Antenna, Roboto, Segoe UI, Arial, sans-serif';
 const LB        = { xMin: P.x + 2, yMin: P.y + 2, xMax: P.x + P.w - 2, yMax: P.y + P.h - 2 };
 
-const LEG_X = P.x + P.w + 48;
+const LEG_X = P.x + P.w + 40;  // card left = P.x+P.w (flush with graph right edge)
+let _graphAllRounded = true;   // true only during entrance animation phase 1
 
 // Data view range — changes on zoom/pan; svgX/svgY map data into the fixed plot square
-let VR = { xMin: 0.25, xMax: 5, yMin: 0.25, yMax: 5 };
+let VR = { xMin: 0, xMax: 5, yMin: 0, yMax: 5 };
 
 function svgX(v) { return P.x + (v - VR.xMin) / (VR.xMax - VR.xMin) * P.w; }
 function svgY(v) { return P.y + (1 - (v - VR.yMin) / (VR.yMax - VR.yMin)) * P.h; }
@@ -659,12 +775,39 @@ function liteRender() {
   });
 }
 
+// Per-corner rounded rect path. tl/tr/br/bl = corner radii (0 = square).
+function roundedRectPath(x, y, w, h, tl, tr, br, bl) {
+  const p = [`M ${x+tl},${y}`];
+  p.push(`L ${x+w-tr},${y}`);
+  p.push(tr ? `Q ${x+w},${y} ${x+w},${y+tr}` : `L ${x+w},${y}`);
+  p.push(`L ${x+w},${y+h-br}`);
+  p.push(br ? `Q ${x+w},${y+h} ${x+w-br},${y+h}` : `L ${x+w},${y+h}`);
+  p.push(`L ${x+bl},${y+h}`);
+  p.push(bl ? `Q ${x},${y+h} ${x},${y+h-bl}` : `L ${x},${y+h}`);
+  p.push(`L ${x},${y+tl}`);
+  p.push(tl ? `Q ${x},${y} ${x+tl},${y}` : `L ${x},${y}`);
+  return p.join(' ') + ' Z';
+}
+
 // ── Static chart ──────────────────────────────────────────────────────────────
 function renderStatic() {
   updateGradientCoords();
   const layer = document.getElementById('static-layer');
   const { x, y, w, h } = P;
-  mk('rect', { x, y, width: w, height: h, fill: 'url(#gDiag)' }, layer);
+  // Right corners are square when connected to the list; rounded when graph is alone
+  const rRight = _graphAllRounded ? 20 : 0;
+  mk('path', { d: roundedRectPath(x,y,w,h, 20,rRight,rRight,20), fill: 'url(#gDiag)' }, layer);
+
+  // Allegion logo watermark — 80% of plot size, centred, above gradient, below grid lines
+  const logoW = w * 0.8, logoH = h * 0.8;
+  mk('image', {
+    href: LOGO_SRC,
+    x: x + (w - logoW) / 2, y: y + (h - logoH) / 2,
+    width: logoW, height: logoH,
+    opacity: 0.20,
+    preserveAspectRatio: 'xMidYMid meet'
+  }, layer);
+
   // Dynamic grid lines and labels for current VR (data view range)
   const STEP = 0.5;
   function rangeTicks(lo, hi) {
@@ -691,7 +834,14 @@ function renderStatic() {
     mk('line',{x1:svgX(2.5),y1:y,x2:svgX(2.5),y2:y+h,stroke:'rgba(0,0,0,0.45)','stroke-width':2},layer);
   if (VR.yMin<=2.5 && VR.yMax>=2.5)
     mk('line',{x1:x,y1:svgY(2.5),x2:x+w,y2:svgY(2.5),stroke:'rgba(0,0,0,0.45)','stroke-width':2},layer);
-  mk('rect',{x,y,width:w,height:h,fill:'none',stroke:'rgba(0,0,0,0.55)','stroke-width':1.5},layer);
+  // Graph border — open path (no right edge); card draws the matching right+top+bottom border
+  const BSTROKE = 'rgba(0,0,0,0.45)';
+  if (_graphAllRounded) {
+    mk('path',{d:roundedRectPath(x,y,w,h,20,20,20,20),fill:'none',stroke:BSTROKE,'stroke-width':1.5},layer);
+  } else {
+    const gBorder = `M ${x+w},${y} L ${x+20},${y} Q ${x},${y} ${x},${y+20} L ${x},${y+h-20} Q ${x},${y+h} ${x+20},${y+h} L ${x+w},${y+h}`;
+    mk('path',{d:gBorder,fill:'none',stroke:BSTROKE,'stroke-width':1.5},layer);
+  }
   mktxt('Likelihood',{x:x+w/2,y:y+h+34,'text-anchor':'middle','font-size':13,'font-weight':600,fill:'#333','font-family':AXIS_FONT},layer);
   const sev=mktxt('Severity',{'text-anchor':'middle','font-size':13,'font-weight':600,fill:'#333','font-family':AXIS_FONT,transform:`rotate(-90,${x-44},${y+h/2})`},layer);
   sev.setAttribute('x',x-44); sev.setAttribute('y',y+h/2);
@@ -699,6 +849,7 @@ function renderStatic() {
 
 // ── Render risks ──────────────────────────────────────────────────────────────
 function renderRisks() {
+  // Reset dim state — old dotG elements are about to be destroyed so mouseleave won't fire
   _dimCount = 0;
   document.getElementById('legend-layer').classList.remove('legend-dimmed');
   Object.keys(dotGroupByRiskId).forEach(k => delete dotGroupByRiskId[k]);
@@ -752,7 +903,6 @@ function renderRisks() {
       const anchor = connAnchor(cx, cy, rect);
       const dotG   = mk('g', { class: 'dot-hover' }, g);
 
-      // Register each risk ID → this dot group for legend hover lookups
       grpRisks.forEach(r => { dotGroupByRiskId[r.id] = dotG; dotRisksGroupById[r.id] = grpRisks; });
 
       // Thicker, more visible connector with category colour
@@ -770,13 +920,10 @@ function renderRisks() {
                      stroke: col, 'stroke-width': 1.8, opacity: 0.85 }, dotG);
       }
 
-      // Scale wrapper (separate from spin so scale+rotate don't conflict)
       const scaleG = mk('g', { class: 'dot-scale-wrapper' }, dotG);
-      // Spin wrapper — CSS animation rotates this on hover
       const spinG = mk('g', { class: 'dot-spin' }, scaleG);
       drawPieDot(cx, cy, grpRisks.map(r => r.category || ''), spinG);
 
-      // Hover tooltip + legend row highlighting
       dotG.addEventListener('mouseenter', e => {
         showTip(e, grpRisks);
         grpRisks.forEach(r => {
@@ -794,10 +941,119 @@ function renderRisks() {
         });
         dimLegend(false);
       });
-      // Click → detail modal
       dotG.addEventListener('click', e => { e.stopPropagation(); openModal(grpRisks); });
     });
   });
+}
+
+function updateCatFilterBtn() {
+  const btn = document.getElementById('cat-filter-btn');
+  const lbl = document.getElementById('cat-filter-label');
+  const hidden = _hiddenCatColors.size;
+  if (hidden === 0) {
+    lbl.textContent = 'All Categories';
+    btn.classList.remove('filtered');
+  } else {
+    lbl.textContent = `${CAT_LABELS.length - hidden} of ${CAT_LABELS.length} shown`;
+    btn.classList.add('filtered');
+  }
+}
+
+function openCatDropdown() {
+  const dd  = document.getElementById('cat-dropdown');
+  const btn = document.getElementById('cat-filter-btn');
+  dd.classList.remove('closing');
+  void dd.offsetWidth; // reflow — restarts animation if mid-close
+  dd.classList.add('open');
+  btn.classList.add('open');
+}
+
+function closeCatDropdown() {
+  const dd  = document.getElementById('cat-dropdown');
+  const btn = document.getElementById('cat-filter-btn');
+  if (!dd.classList.contains('open')) return;
+  dd.classList.add('closing');
+  btn.classList.remove('open');
+  dd.addEventListener('animationend', () => {
+    dd.classList.remove('open', 'closing');
+  }, { once: true });
+}
+
+function buildCatDropdown() {
+  const dd = document.getElementById('cat-dropdown');
+  dd.innerHTML = '';
+  CAT_LABELS.forEach(([label, col]) => {
+    const row = document.createElement('div');
+    row.className = 'cat-dd-row' + (_hiddenCatColors.has(col) ? ' off' : '');
+    row.innerHTML =
+      `<span class="cat-dd-dot" style="background:${col}"></span>` +
+      `<span class="cat-dd-label" style="color:${col}">${label}</span>` +
+      `<span class="cat-dd-check">✓</span>`;
+    catKeyElByColor[col] = row;
+    row.addEventListener('click', e => {
+      e.stopPropagation();
+      if (_hiddenCatColors.has(col)) _hiddenCatColors.delete(col);
+      else _hiddenCatColors.add(col);
+      updateCatFilter();
+      updateCatFilterBtn();
+    });
+    dd.appendChild(row);
+  });
+
+  // Open/close toggle
+  document.getElementById('cat-filter-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    dd.classList.contains('open') ? closeCatDropdown() : openCatDropdown();
+  });
+  // Click outside closes dropdown
+  document.addEventListener('click', () => closeCatDropdown());
+}
+
+function positionRiskHeader() {
+  const r = hm.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const scale   = Math.min(r.width / 1300, r.height / 780);
+  const offsetX = (r.width  - 1300 * scale) / 2;
+  const offsetY = (r.height -  780  * scale) / 2;
+
+  // Card geometry — must match renderLegend() constants
+  const CARD_TPAD = 52;
+  const cardLeft  = (LEG_X - 40) * scale + offsetX + r.left;
+  const cardTop   = P.y * scale + offsetY + r.top;
+  const cardW     = 490 * scale;
+  const h         = CARD_TPAD * scale;  // header height in CSS px
+
+  const bar = document.getElementById('risk-header-bar');
+  bar.style.left         = cardLeft + 'px';
+  bar.style.top          = cardTop  + 'px';
+  bar.style.width        = cardW    + 'px';
+  bar.style.height       = h        + 'px';
+  // Match SVG card's rx=20 corner radius exactly at current scale
+  const rx = Math.round(20 * scale);
+  bar.style.borderRadius = `0 ${rx}px 0 0`;  // left edge flush with graph; only top-right rounded
+
+  // Column alignment: "#" at SVG x≈777 (one "R" char past R01 start at x=770)
+  //                   "RISK NAME" at SVG x=808 (= lx+38, where name text starts)
+  // Total from padding-left to RISK NAME = 31 SVG units, split as:
+  //   #rh-id width (border-box, includes border+padding) + margin-right
+  const DIV_GAP = 6;  // px: gap between border line and RISK NAME
+  bar.style.setProperty('--rh-pad-l',  Math.round(47 * scale)                               + 'px');
+  bar.style.setProperty('--rh-pad-r',  Math.max(8, Math.round(h * 0.18))                    + 'px');
+  bar.style.setProperty('--rh-id-w',   Math.max(14, Math.round(31 * scale) - DIV_GAP)       + 'px');
+  bar.style.setProperty('--rh-id-mr',  DIV_GAP                                               + 'px');
+  bar.style.setProperty('--rh-id-pr',  Math.max(3, Math.round(3 * scale))                   + 'px');
+  bar.style.setProperty('--rh-col-font',  Math.max(9,  Math.round(h * 0.26)) + 'px');
+  bar.style.setProperty('--rh-btn-font',  Math.max(11, Math.round(h * 0.30)) + 'px');
+  bar.style.setProperty('--rh-btn-pad-v', Math.max(3,  Math.round(h * 0.14)) + 'px');
+  bar.style.setProperty('--rh-btn-pad-h', Math.max(8,  Math.round(h * 0.22)) + 'px');
+  bar.style.setProperty('--rh-btn-r',     Math.max(5,  Math.round(h * 0.18)) + 'px');
+  bar.style.setProperty('--rh-div-mx',    Math.max(5,  Math.round(h * 0.18)) + 'px');
+  // Dropdown items scale with header so they're legible at any iframe size
+  bar.style.setProperty('--rh-dd-font',   Math.max(12, Math.round(h * 0.36)) + 'px');
+  bar.style.setProperty('--rh-dd-dot',    Math.max(10, Math.round(h * 0.26)) + 'px');
+  bar.style.setProperty('--rh-dd-pad-v',  Math.max(6,  Math.round(h * 0.18)) + 'px');
+  bar.style.setProperty('--rh-dd-pad-h',  Math.max(12, Math.round(h * 0.30)) + 'px');
+  bar.style.setProperty('--rh-dd-min-w',  Math.max(210, Math.round(300 * scale)) + 'px');
 }
 
 // ── Legend ────────────────────────────────────────────────────────────────────
@@ -811,41 +1067,57 @@ function renderLegend() {
 
   // Card sizing — fills from graph-top to graph-bottom
   const CARD_PADX = 40;
-  const CARD_TPAD = 20;  // air above header
+  const CARD_TPAD = 52;  // header bar zone (HTML overlay covers this area)
   const CARD_BPAD = 8;   // snug below last row
-  const CARD_W    = 293;
-  const HDR_H     = 16;
+  const CARD_W    = 490;
+  const HDR_H     = 18;  // gap below header bar — must clear chevron circle tops
   const RISK_H    = (P.h - CARD_TPAD - HDR_H - CARD_BPAD) / sorted.length;
   const fontSize  = Math.min(11, Math.max(8.5, RISK_H * 0.78));
-  const cardListH = CARD_TPAD + HDR_H + (sorted.length - 1) * RISK_H + fontSize + CARD_BPAD;
+  const cardListH = P.h;  // always matches graph height exactly (top + bottom edges flush)
 
-  // Backer card — top edge aligned with graph square top (P.y)
-  mk('rect', {
-    x: lx - CARD_PADX, y: P.y,
-    width: CARD_W,      height: cardListH,
-    rx: 10, ry: 10,     fill: '#2D2D2E'
-  }, layer);
+  // Backer card — left edge flush with graph right; right corners match graph's left corner rx=20
+  const cx = lx - CARD_PADX, cw = CARD_W, cy = P.y, ch = cardListH, cr = 20;
+  mk('path', { d: roundedRectPath(cx, cy, cw, ch, 0, cr, cr, 0), fill: '#2D2D2E' }, layer);
+  // Card border — open path (no left edge); matches graph's open right+top+bottom exposed sides
+  const cBorder = `M ${cx},${cy} L ${cx+cw-cr},${cy} Q ${cx+cw},${cy} ${cx+cw},${cy+cr} L ${cx+cw},${cy+ch-cr} Q ${cx+cw},${cy+ch} ${cx+cw-cr},${cy+ch} L ${cx},${cy+ch}`;
+  mk('path',{d:cBorder,fill:'none',stroke:'rgba(0,0,0,0.45)','stroke-width':1.5},layer);
 
+  // Clip path so scaled rows can't overflow the card right edge
   const defs = document.querySelector('#hm defs');
   const existingClip = document.getElementById('risk-list-clip');
   if (existingClip) existingClip.remove();
   const clipEl = mk('clipPath', { id: 'risk-list-clip' }, defs);
   mk('rect', { x: lx - CARD_PADX, y: P.y, width: CARD_W, height: cardListH }, clipEl);
+  // Wrapper: clip-path on parent so row scale transforms don't carry the clip with them
   const listWrap = mk('g', { 'clip-path': 'url(#risk-list-clip)' }, layer);
 
-  // Risk list inside card
-  let y = P.y + CARD_TPAD;
-  mktxt('Risk #',    {x:lx,    y,'font-size':10,'font-weight':700,fill:'#E8EAED','font-family':FONT}, layer);
-  mktxt('Risk Name', {x:lx+38, y,'font-size':10,'font-weight':700,fill:'#E8EAED','font-family':FONT}, layer);
-  y += HDR_H;
+  // Risk list inside card (HTML header bar covers the CARD_TPAD zone; rows start below)
+  let y = P.y + CARD_TPAD + HDR_H;
 
-  sorted.forEach(r => {
+  sorted.forEach((r, idx) => {
     const col  = catColor(r.category || '');
-    const name = r.name.length > 44 ? r.name.slice(0,42)+'…' : r.name;
+    const name = r.name.length > 72 ? r.name.slice(0,70)+'…' : r.name;
+
+    // Hairline separator exactly halfway between rows (true center of the gap)
+    if (idx > 0) {
+      mk('line', {
+        x1: lx - CARD_PADX + 6, y1: y - Math.round(RISK_H * 0.68),
+        x2: lx - CARD_PADX + CARD_W - 6, y2: y - Math.round(RISK_H * 0.68),
+        stroke: '#3A3B3C', 'stroke-width': 0.5
+      }, listWrap);
+    }
+
     const rowG = mk('g', { class: 'legend-row' }, listWrap);
     legendRowByRiskId[r.id] = rowG;
+    // Transparent full-width hit rect — closes the gaps between chevron/ID/name
+    // fill:"transparent" (not "none") is required; SVG treats it as painted for pointer events
+    mk('rect', {
+      x: lx - CARD_PADX, y: y - Math.round(RISK_H * 0.5),
+      width: CARD_W,      height: RISK_H,
+      fill: 'transparent'
+    }, rowG);
     const chevR = Math.max(5, Math.round(fontSize * 0.62));
-    const chevX = lx - CARD_PADX + chevR + 5;
+    const chevX = lx - CARD_PADX + chevR + 12;
     const chevCy = y - Math.round(fontSize * 0.3);
     const chevG = mk('g', { class: 'legend-chevron' }, rowG);
     mk('circle', { cx: chevX, cy: chevCy, r: chevR, fill: col }, chevG);
@@ -855,8 +1127,9 @@ function renderLegend() {
       stroke: '#2D2D2E', 'stroke-width': (Math.max(1.5, chevR*0.28)).toFixed(1),
       'stroke-linecap': 'round', 'stroke-linejoin': 'round', fill: 'none'
     }, chevG);
-    mktxt(r.id,  {x:lx,    y,'font-size':fontSize,'font-weight':700,fill:col,'font-family':FONT}, rowG);
-    mktxt(name,  {x:lx+38, y,'font-size':fontSize,'font-weight':600,fill:col,'font-family':FONT}, rowG);
+    // ID in category color (accent); name in neutral — corporate data-table convention
+    mktxt(r.id,  {x:lx,    y,'font-size':fontSize,'font-weight':700,fill:col,      'font-family':FONT}, rowG);
+    mktxt(name,  {x:lx+38, y,'font-size':fontSize,'font-weight':500,fill:'#BEC0C6','font-family':FONT}, rowG);
     rowG.addEventListener('mouseenter', () => {
       _activeLegendRows.add(r.id);
       rowG.classList.add('legend-row-hl');
@@ -882,68 +1155,6 @@ function renderLegend() {
     y += RISK_H;
   });
 
-  // Category filter card — doubled circles with animated eye icon
-  const CAT_R      = 14;
-  const CAT_ROW_H  = 36;
-  const LEG_PAD_X  = 12;
-  const LEG_PAD_Y  = 14;
-  const CAT_HDR_H  = 28;
-  const LEG_TEXT_X = CAT_R * 2 + 10;
-  const legX = lx - CARD_PADX + CARD_W + 16;
-  const legCardW = LEG_TEXT_X + 175 + LEG_PAD_X;
-  const legCardHFit = LEG_PAD_Y + CAT_HDR_H + CAT_R + (CAT_LABELS.length - 1) * CAT_ROW_H + CAT_R + LEG_PAD_Y;
-
-  mk('rect', {
-    x: legX - LEG_PAD_X, y: P.y,
-    width: legCardW, height: legCardHFit,
-    rx: 10, ry: 10, fill: '#2D2D2E'
-  }, layer);
-
-  mktxt('Categories / Filter', {
-    x: legX - LEG_PAD_X + legCardW / 2, y: P.y + LEG_PAD_Y + 11,
-    'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700,
-    fill: '#E8EAED', 'font-family': FONT
-  }, layer);
-  mk('line', {
-    x1: legX - LEG_PAD_X + 6, y1: P.y + LEG_PAD_Y + CAT_HDR_H - 4,
-    x2: legX - LEG_PAD_X + legCardW - 6, y2: P.y + LEG_PAD_Y + CAT_HDR_H - 4,
-    stroke: '#3F3F40', 'stroke-width': 1
-  }, layer);
-
-  let cy = P.y + LEG_PAD_Y + CAT_HDR_H + CAT_R;
-  CAT_LABELS.forEach(([label, col]) => {
-    const catG = mk('g', { class: 'cat-filter-btn' }, layer);
-    catKeyElByColor[col] = catG;
-    if (_hiddenCatColors.has(col)) catG.classList.add('cat-filter-off');
-
-    const circX = legX + CAT_R;
-    mk('circle', { cx: circX, cy, r: CAT_R, fill: col }, catG);
-
-    const eyeG = mk('g', { transform: `translate(${circX},${cy})` }, catG);
-    const eyeOpen = mk('g', { class: 'eye-open' }, eyeG);
-    mk('path', { d: 'M -9,0 Q 0,-7 9,0 Q 0,7 -9,0 Z',
-      fill: 'none', stroke: '#000', 'stroke-width': '1.8',
-      'stroke-linejoin': 'round' }, eyeOpen);
-    mk('circle', { cx: '0', cy: '0', r: '2.6', fill: '#000' }, eyeOpen);
-    const eyeClosed = mk('g', { class: 'eye-closed' }, eyeG);
-    mk('path', { d: 'M -9,0 Q 0,-5 9,0',
-      fill: 'none', stroke: '#000', 'stroke-width': '2.2',
-      'stroke-linecap': 'round' }, eyeClosed);
-    [[-4,2,-4,5.5], [0,2,0,6], [4,2,4,5.5]].forEach(([x1,y1,x2,y2]) =>
-      mk('line', { x1, y1, x2, y2, stroke: '#000', 'stroke-width': '1.6',
-        'stroke-linecap': 'round' }, eyeClosed));
-
-    mktxt(label, {
-      x: legX + LEG_TEXT_X, y: cy + 4,
-      'font-size': 9.5, 'font-weight': 600, fill: '#ffffff', 'font-family': FONT
-    }, catG);
-    catG.addEventListener('click', () => {
-      if (_hiddenCatColors.has(col)) _hiddenCatColors.delete(col);
-      else _hiddenCatColors.add(col);
-      updateCatFilter();
-    });
-    cy += CAT_ROW_H;
-  });
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -981,6 +1192,7 @@ function openModal(risks, initialTab) {
   const allRisks = risks.map(r => RISKS.find(fr => fr.id === r.id) || r);
   _modalRisks = allRisks.filter(r => !_hiddenCatColors.has(catColor(r.category || '')));
   if (!_modalRisks.length) return;
+  // Adjust initialTab to point to the same risk in filtered array
   if (initialTab != null && allRisks[initialTab]) {
     const tid = allRisks[initialTab].id;
     const ni = _modalRisks.findIndex(r => r.id === tid);
@@ -1041,7 +1253,13 @@ function switchModalTab(idx) {
 }
 
 function closeModal() {
-  document.getElementById('risk-modal').classList.remove('open');
+  const modal = document.getElementById('risk-modal');
+  if (!modal.classList.contains('open')) return;
+  modal.classList.add('closing');
+  // Listen on the backdrop — its 0.20s duration is longest, so it fires last
+  modal.addEventListener('animationend', () => {
+    modal.classList.remove('open', 'closing');
+  }, { once: true });
 }
 
 // Keyboard: Escape closes, Left/Right arrows switch tabs
@@ -1055,19 +1273,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft')  switchModalTab((cur - 1 + _modalRisks.length) % _modalRisks.length);
 });
 
-fetch('https://elt-riskmanagementdash.onrender.com/api/risks', { mode: 'cors' })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    RISKS = data;
-    RISKS.forEach(function(r) { ID_TO_CAT[r.id] = r.category || ''; });
-    renderStatic();
-    renderRisks();
-    renderLegend();
-    positionCtrl();
-  })
-  .catch(function(err) {
-    document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;color:#c00"><h2>Could not load risk data</h2><p>' + err.message + '</p></div>';
-  });
+// Renders moved to after event listeners — see bottom of script
 
 // ── Label toggle ──────────────────────────────────────────────────────────────
 let labelsVisible = true;
@@ -1085,6 +1291,7 @@ function toggleLabels() {
 // Re-rendering updates axis ticks, dots, and labels.
 const hm = document.getElementById('hm');
 
+// Pin zoom pill directly below "Likelihood" label in SVG space
 function positionCtrl() {
   const r = hm.getBoundingClientRect();
   if (!r.width || !r.height) return;
@@ -1093,12 +1300,12 @@ function positionCtrl() {
   const offsetY = (r.height - 780  * scale) / 2;
   const ctrl = document.getElementById('zoom-ctrl');
   ctrl.style.left      = (r.left + offsetX + 430 * scale) + 'px';
+  // Pin 10px below the "Likelihood" label (SVG y=734), clamped so it never leaves view
   const pillTop = r.top + offsetY + 734 * scale + 10;
   ctrl.style.top    = Math.min(pillTop, window.innerHeight - 50) + 'px';
   ctrl.style.bottom = 'auto';
   ctrl.style.transform = 'translateX(-50%)';
 }
-new ResizeObserver(positionCtrl).observe(hm);
 
 function rerender() {
   if (_panAnim) { cancelAnimationFrame(_panAnim); _panAnim = null; }
@@ -1115,26 +1322,70 @@ function rerender() {
   _reapplyLegendHighlights();
 }
 
-function doZoom(factor, pivDX, pivDY) {
+// Labels fade out at zoom start; 50ms debounce before fade-in so rapid scroll
+// events don't flicker them in and out between each 180ms animation.
+let _zoomFadeIn = null;
+const _zoomRL = () => document.getElementById('risks-layer');
+
+function doZoom(factor, pivDX, pivDY, dur = 300) {
   const cx = (pivDX != null) ? pivDX : (VR.xMin + VR.xMax) / 2;
   const cy = (pivDY != null) ? pivDY : (VR.yMin + VR.yMax) / 2;
   const nxMin = cx - (cx - VR.xMin) / factor;
   const nxMax = cx + (VR.xMax - cx) / factor;
   const nyMin = cy - (cy - VR.yMin) / factor;
   const nyMax = cy + (VR.yMax - cy) / factor;
-  // Don't zoom out beyond the original 0–5 × 0–5 range
-  if (nxMax - nxMin > 4.751 || nyMax - nyMin > 4.751) return;
-  VR.xMin = nxMin; VR.xMax = nxMax;
-  VR.yMin = nyMin; VR.yMax = nyMax;
-  const _xrz = VR.xMax - VR.xMin, _yrz = VR.yMax - VR.yMin;
-  if (VR.xMin < 0.25) { VR.xMin = 0.25; VR.xMax = 0.25 + _xrz; }
-  if (VR.xMax > 5)    { VR.xMax = 5;    VR.xMin = 5 - _xrz; }
-  if (VR.yMin < 0.25) { VR.yMin = 0.25; VR.yMax = 0.25 + _yrz; }
-  if (VR.yMax > 5)    { VR.yMax = 5;    VR.yMin = 5 - _yrz; }
-  rerender();
+  if (nxMax - nxMin > 5.001 || nyMax - nyMin > 5.001) return;
+
+  let tXMin = nxMin, tXMax = nxMax, tYMin = nyMin, tYMax = nyMax;
+  const _xrz = tXMax - tXMin, _yrz = tYMax - tYMin;
+  if (tXMin < 0) { tXMin = 0; tXMax = _xrz; }
+  if (tXMax > 5) { tXMax = 5; tXMin = 5 - _xrz; }
+  if (tYMin < 0) { tYMin = 0; tYMax = _yrz; }
+  if (tYMax > 5) { tYMax = 5; tYMin = 5 - _yrz; }
+
+  _zoomRL().classList.add('zooming');  // labels start fading out (CSS transition)
+  clearTimeout(_zoomFadeIn);           // cancel any pending fade-in
+  const aXMin = VR.xMin, aXMax = VR.xMax, aYMin = VR.yMin, aYMax = VR.yMax;
+  const t0 = performance.now();
+  if (_panAnim) { cancelAnimationFrame(_panAnim); _panAnim = null; }
+  function step(now) {
+    const p = Math.min(1, (now - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);
+    VR.xMin = aXMin + (tXMin - aXMin) * e;  VR.xMax = aXMax + (tXMax - aXMax) * e;
+    VR.yMin = aYMin + (tYMin - aYMin) * e;  VR.yMax = aYMax + (tYMax - aYMax) * e;
+    _fastRerender();
+    if (p < 1) { _panAnim = requestAnimationFrame(step); }
+    else {
+      VR.xMin=tXMin; VR.xMax=tXMax; VR.yMin=tYMin; VR.yMax=tYMax;
+      rerender();  // places labels at correct positions (still opacity:0)
+      _panAnim = null;
+      _zoomFadeIn = setTimeout(() => _zoomRL().classList.remove('zooming'), 50);
+    }
+  }
+  _panAnim = requestAnimationFrame(step);
 }
 
-function resetView() { VR = {xMin:0.25,xMax:5,yMin:0.25,yMax:5}; rerender(); }
+function resetView() {
+  _zoomRL().classList.add('zooming');
+  clearTimeout(_zoomFadeIn);
+  const aXMin=VR.xMin, aXMax=VR.xMax, aYMin=VR.yMin, aYMax=VR.yMax;
+  const tXMin=0, tXMax=5, tYMin=0, tYMax=5;
+  const dur = 420; const t0 = performance.now();
+  if (_panAnim) { cancelAnimationFrame(_panAnim); _panAnim = null; }
+  function step(now) {
+    const p = Math.min(1, (now - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);
+    VR.xMin = aXMin+(tXMin-aXMin)*e; VR.xMax = aXMax+(tXMax-aXMax)*e;
+    VR.yMin = aYMin+(tYMin-aYMin)*e; VR.yMax = aYMax+(tYMax-aYMax)*e;
+    _fastRerender();
+    if (p < 1) { _panAnim = requestAnimationFrame(step); }
+    else {
+      VR={xMin:0,xMax:5,yMin:0,yMax:5}; rerender(); _panAnim=null;
+      _zoomFadeIn = setTimeout(() => _zoomRL().classList.remove('zooming'), 50);
+    }
+  }
+  _panAnim = requestAnimationFrame(step);
+}
 
 function screenToData(clientX, clientY) {
   const r = hm.getBoundingClientRect();
@@ -1143,13 +1394,26 @@ function screenToData(clientX, clientY) {
   return { x: dataX(sx), y: dataY(sy) };
 }
 
+// Scroll wheel zoom: rAF accumulation batches rapid events into one doZoom() per frame.
+// doZoom() runs the same 180ms animated zoom as button clicks, using _renderVR as origin.
+let _wheelAcc = 1, _wheelPivX = null, _wheelPivY = null, _wheelRafId = null;
 hm.addEventListener('wheel', e => {
   e.preventDefault();
   const r = hm.getBoundingClientRect();
   const sx = (e.clientX - r.left) / r.width * 1300;
   if (sx < P.x || sx > P.x + P.w) return;
   const pt = screenToData(e.clientX, e.clientY);
-  doZoom(e.deltaY < 0 ? 1.25 : 0.8, pt.x, pt.y);
+  _wheelAcc *= e.deltaY < 0 ? 1.25 : 0.8;
+  _wheelAcc  = Math.max(0.5, Math.min(2.0, _wheelAcc));
+  _wheelPivX = pt.x;
+  _wheelPivY = pt.y;
+  if (!_wheelRafId) {
+    _wheelRafId = requestAnimationFrame(() => {
+      doZoom(_wheelAcc, _wheelPivX, _wheelPivY, 180);
+      _wheelAcc = 1;
+      _wheelRafId = null;
+    });
+  }
 }, { passive: false });
 
 // Pan: update VR on mousemove but throttle rerender to ~20fps so the data
@@ -1175,18 +1439,19 @@ window.addEventListener('mousemove', e => {
   // Data-space delta
   const dDataX = -(e.clientX - panState.clientX) / r.width  * (panState.vr.xMax - panState.vr.xMin);
   const dDataY =  (e.clientY - panState.clientY) / r.height * (panState.vr.yMax - panState.vr.yMin);
-  // Update VR
+  // Update VR then clamp to default 0–5 bounds
   VR.xMin = panState.vr.xMin + dDataX;
   VR.xMax = panState.vr.xMax + dDataX;
   VR.yMin = panState.vr.yMin + dDataY;
   VR.yMax = panState.vr.yMax + dDataY;
   const _xr = VR.xMax - VR.xMin, _yr = VR.yMax - VR.yMin;
-  if (VR.xMin < 0.25) { VR.xMin = 0.25; VR.xMax = 0.25 + _xr; }
-  if (VR.xMax > 5)    { VR.xMax = 5;    VR.xMin = 5 - _xr; }
-  if (VR.yMin < 0.25) { VR.yMin = 0.25; VR.yMax = 0.25 + _yr; }
-  if (VR.yMax > 5)    { VR.yMax = 5;    VR.yMin = 5 - _yr; }
+  if (VR.xMin < 0) { VR.xMin = 0; VR.xMax = _xr; }
+  if (VR.xMax > 5) { VR.xMax = 5; VR.xMin = 5 - _xr; }
+  if (VR.yMin < 0) { VR.yMin = 0; VR.yMax = _yr; }
+  if (VR.yMax > 5) { VR.yMax = 5; VR.yMin = 5 - _yr; }
   panState.moved = true;
 
+  // SVG-pixel offset using clamped VR (not raw delta)
   const dxSVG = -(VR.xMin - panState.vr.xMin) / (panState.vr.xMax - panState.vr.xMin) * P.w;
   const dySVG =  (VR.yMin - panState.vr.yMin) / (panState.vr.yMax - panState.vr.yMin) * P.h;
 
@@ -1216,8 +1481,167 @@ window.addEventListener('mouseup', () => {
   if (wasDrag) rerender();
 });
 
-window.addEventListener('resize', positionCtrl);
-setTimeout(positionCtrl, 0);
+// Pin pill below "Likelihood" and cat-filter button
+window.addEventListener('resize', () => { positionCtrl(); positionRiskHeader(); });
+
+// ── Page-load entrance animation ─────────────────────────────────────────────
+function runEntranceAnimation() {
+  const GRAPH_OFFSET = 220;   // SVG units — shifts graph to center initially
+  const PAUSE_MS     = 1000;  // hold centered state before animation begins
+  const P1_DUR       = 950;   // graph slides to final position
+  const P2_DELAY     = 550;   // list starts expanding (graph is ~97% home)
+  const P2_DUR       = 580;   // list card reveals
+  const P3_DELAY     = 1080;  // rows start after list bounce settles (must be < P2_DELAY+P2_DUR)
+  const STAGGER_DUR  = 980;   // total spread for all rows
+  const ITEM_DUR     = 400;   // each row / dot animation
+
+  const easeGraph   = t => 1 - (1 - t) ** 4;  // quartic: fast start, long settle
+  // easeOutBack: overshoots to ~1.10x then settles — gives the overstretch bounce
+  const c1 = 1.70158, c3 = c1 + 1;
+  const easeList    = t => 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;
+
+  const chartInner  = document.getElementById('chart-inner');
+  const legendLayer = document.getElementById('legend-layer');
+  const zoomCtrl    = document.getElementById('zoom-ctrl');
+  const headerBar   = document.getElementById('risk-header-bar');
+
+  // SVG attribute transform: translate-scale-translate anchors scale to x=730 (graph right edge)
+  // This is immune to CSS-pixel vs SVG-unit mismatch that causes left-edge drift with CSS scaleX
+  const SCALE_ORIGIN = P.x + P.w;  // = 730
+  legendLayer.setAttribute('transform',
+    `translate(${SCALE_ORIGIN} 0) scale(0 1) translate(${-SCALE_ORIGIN} 0)`);
+
+  zoomCtrl.style.opacity  = '0';
+  headerBar.style.opacity = '0';
+
+  const sortedIds = [...RISKS]
+    .sort((a, b) => parseInt(a.id.replace(/\D/g,'')) - parseInt(b.id.replace(/\D/g,'')))
+    .map(r => r.id);
+  const STAGGER_PER = STAGGER_DUR / sortedIds.length;
+
+  // ── Set initial visual state NOW (before the 1s pause) ───────────────────
+  const revealedRiskGroups = new Set();
+  sortedIds.forEach(id => {
+    const row = legendRowByRiskId[id];
+    if (row) {
+      row.style.opacity        = '0';
+      row.style.transform      = 'translateX(-20px)';
+      row.style.transformBox   = 'view-box';
+      row.style.transformOrigin = '50% 50%';
+    }
+    const dotG = dotGroupByRiskId[id];
+    if (dotG) {
+      const rg = dotG.parentElement;
+      if (rg && !revealedRiskGroups.has(rg)) { rg.style.opacity = '0'; revealedRiskGroups.add(rg); }
+      const sw = dotG.querySelector('.dot-scale-wrapper');
+      if (sw) { sw.style.transform = 'scale(0)'; sw.style.transition = 'none'; }
+    }
+  });
+  revealedRiskGroups.clear();
+
+  // Graph centered from the very first frame — user sees this for PAUSE_MS
+  chartInner.setAttribute('transform', `translate(${GRAPH_OFFSET},0)`);
+
+  // ── Start ticker after 1-second pause ────────────────────────────────────
+  setTimeout(() => {
+    const t0 = performance.now();
+    let phase2CornerSwitched = false;
+    let phase3Fired          = false;
+
+    function tick(now) {
+      const elapsed = now - t0;
+
+      // Phase 1: graph slides to final position
+      const p1 = Math.min(1, elapsed / P1_DUR);
+      const gx = GRAPH_OFFSET * (1 - easeGraph(p1));
+      if (p1 < 1) chartInner.setAttribute('transform', `translate(${gx.toFixed(2)},0)`);
+      else        chartInner.removeAttribute('transform');
+
+      // Switch to open-path border just as list starts appearing
+      if (!phase2CornerSwitched && elapsed >= P2_DELAY) {
+        phase2CornerSwitched = true;
+        _graphAllRounded = false;
+        const sl = document.getElementById('static-layer');
+        while (sl.firstChild) sl.removeChild(sl.firstChild);
+        renderStatic();
+      }
+
+      // Phase 2: SVG transform scale anchored to x=730 — easeOutBack gives overstretch bounce
+      const p2raw = (elapsed - P2_DELAY) / P2_DUR;
+      const p2    = Math.max(0, Math.min(1, p2raw));
+      const sx    = Math.max(0, easeList(p2)).toFixed(4);
+      legendLayer.setAttribute('transform',
+        `translate(${SCALE_ORIGIN} 0) scale(${sx} 1) translate(${-SCALE_ORIGIN} 0)`);
+
+      if (p2 > 0.4) {
+        headerBar.style.transition = 'opacity 0.35s ease';
+        headerBar.style.opacity    = '1';
+        zoomCtrl.style.transition  = 'opacity 0.35s ease';
+        zoomCtrl.style.opacity     = '1';
+      }
+
+      // Phase 3: stagger rows and dots
+      if (!phase3Fired && elapsed >= P3_DELAY) {
+        phase3Fired = true;
+        sortedIds.forEach((id, idx) => {
+          setTimeout(() => {
+            const row = legendRowByRiskId[id];
+            if (row) {
+              row.style.transition = `opacity ${ITEM_DUR}ms cubic-bezier(0.16,1,0.3,1), transform ${ITEM_DUR}ms cubic-bezier(0.16,1,0.3,1)`;
+              row.style.opacity    = '1';
+              row.style.transform  = 'translateX(0px)';
+              setTimeout(() => {
+                // Clear ALL inline styles — leftover values override CSS hover/dim rules
+                row.style.opacity = ''; row.style.transform = ''; row.style.transformBox = '';
+                row.style.transformOrigin = ''; row.style.transition = '';
+              }, ITEM_DUR + 60);
+            }
+            const dotG = dotGroupByRiskId[id];
+            if (dotG) {
+              const rg = dotG.parentElement;
+              if (rg && !revealedRiskGroups.has(rg)) {
+                revealedRiskGroups.add(rg);
+                rg.style.transition = `opacity ${Math.round(ITEM_DUR * 0.55)}ms ease`;
+                rg.style.opacity    = '1';
+                setTimeout(() => { rg.style.opacity = ''; rg.style.transition = ''; }, ITEM_DUR + 60);
+              }
+              const sw = dotG.querySelector('.dot-scale-wrapper');
+              if (sw) {
+                sw.style.transition = 'none';
+                sw.style.transform  = 'scale(0)';
+                requestAnimationFrame(() => {
+                  sw.style.transition = `transform ${ITEM_DUR}ms cubic-bezier(0.34,1.56,0.64,1)`;
+                  sw.style.transform  = 'scale(1)';
+                  // Clear inline styles after bounce so CSS hover rules take over
+                  setTimeout(() => {
+                    sw.style.transform = '';
+                    sw.style.transition = '';
+                  }, ITEM_DUR + 60);
+                });
+              }
+            }
+          }, idx * STAGGER_PER);
+        });
+      }
+
+      // Keep ticking until p1 done, p2 done, AND phase3 has fired
+      if (p1 < 1 || (p2raw > 0 && p2 < 1) || !phase3Fired) {
+        requestAnimationFrame(tick);
+      } else {
+        setTimeout(() => legendLayer.removeAttribute('transform'), STAGGER_DUR + ITEM_DUR + 100);
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }, PAUSE_MS);
+}
+
+// Renders run LAST — after all event listeners are registered so a render
+// error can never prevent zoom/pan/labels from working
+try { renderStatic(); renderRisks(); renderLegend(); } catch(e) { console.error('render error', e); }
+buildCatDropdown();
+updateCatFilterBtn();
+setTimeout(() => { positionCtrl(); positionRiskHeader(); runEntranceAnimation(); }, 0);
 </script>
 </body>
 </html>
