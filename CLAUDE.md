@@ -212,23 +212,59 @@ During drag:
 
 ## Deployment Notes
 
+### Local dev
 - Runs on port 5001 locally (`python app.py`)
-- Intended for Azure App Service (same tier as Keystone)
-- SmartSheet dashboard embeds via "Web Content" widget with the hosted URL
-- HTTPS is required for SmartSheet embedding (Azure provides this automatically)
-- No authentication needed on the endpoint (it's read-only data, internal use)
-- Cache TTL: 5 minutes. Hit `/refresh` to force reload after SmartSheet updates.
+- Netskope SSL proxy requires `truststore.inject_into_ssl()` — already in app.py
+
+### Netlify static deployment (CURRENT — for SmartSheet embedding)
+- **Live URL**: `https://delicate-florentine-c73974.netlify.app`
+- Netlify publishes the `docs/` folder (set in `netlify.toml`)
+- `docs/index.html` is a **baked static snapshot** — Flask renders the template with live SmartSheet data and the output HTML is saved as a static file
+- **To update**: run `python bake_static.py` (or see bake command below), then push to `master` or `pbi-custom-visual` branch → Netlify auto-deploys
+- Bake command (requires Flask running on 5001):
+  ```python
+  import urllib.request, truststore
+  truststore.inject_into_ssl()
+  with urllib.request.urlopen('http://localhost:5001/heatmap') as r:
+      html = r.read().decode('utf-8')
+  html = html.replace('/static/AllegionLogo_Official.png', 'AllegionLogo_Official.png')
+  open('docs/index.html', 'w', encoding='utf-8').write(html)
+  ```
+- `docs/AllegionLogo_Official.png` — logo must live inside `docs/` (Netlify can't serve files above publish dir)
+- Data is a **snapshot** from bake time, not live. Rebake + push to update.
+
+### SmartSheet Web Content widget embedding
+- SmartSheet requires domains to be on its approved list OR whitelisted by a System Admin
+- `netlify.app` was whitelisted by a Allegion SmartSheet System Admin (2026-06-19) ✅
+- SmartSheet dashboard → Web Content widget → URL: `https://delicate-florentine-c73974.netlify.app`
+- No form workaround needed with the whitelisted domain
+
+### Form workaround (previous method — kept as fallback)
+- SmartSheet form with a checkbox (Hidden=false, Default=Checked) + heatmap screenshot as background
+- Form Settings → "Send user to link" = the Netlify URL
+- Form redirect trick: SmartSheet form is from smartsheet.com (approved domain); form confirmation redirect navigates the iframe to the Netlify URL — bypasses domain restriction because it's a navigation not a new embed
+- Requires ONE user click on Submit to load the heatmap
+- Still works if the domain whitelist is ever removed
+
+### Azure App Service (long-term goal — needs IT)
+- `startup.txt` already configured: `gunicorn --bind=0.0.0.0 --timeout 600 app:app`
+- Would serve live data (not a snapshot) on every load
+- Requires IT to provision — deferred
+
+### Embedding approaches researched and tested (2026-06-19)
+See memory file: `project_elt_heatmap_smartsheet_embedding.md`
 
 ---
 
 ## Future Ideas / Deferred Work
 
-- **Azure deployment** — not yet deployed, still running locally
-- **Category column variations** — if data uses "Strategic" vs "Strategic Risks", the normalization covers this but verify with actual data
+- **Azure deployment** — needs IT provisioning; startup.txt already configured
+- **Make data live** — currently Netlify serves a baked snapshot; Azure App Service would serve live data always; alternatively, rewrite SmartSheet fetch as client-side JS (token exposed but acceptable for internal read-only)
+- **Scheduled rebake** — set up a GitHub Action or scheduled script to rebake docs/index.html on a schedule (e.g., daily) to keep data reasonably fresh
+- **Category column variations** — if data uses "Strategic" vs "Strategic Risks", normalization covers this but verify
 - **More SmartSheet columns** — Risk Score, Overall Risk Rating could enrich the modal
-- **Label merging** — `mergeClose()` exists to combine nearby label boxes with per-dot connectors; MAX_DOT_DIST=80 prevents merging dots more than 80px apart
-- **Bezier routing** — when straight connectors still cross something, Bezier arcs around obstacles; implemented for the vertical center line only
-- **Responsive label refresh on zoom** — currently labels are recalculated only on mouseup; could also recalculate after zoom settles
+- **Label merging** — `mergeClose()` exists; MAX_DOT_DIST=80 prevents merging dots >80px apart
+- **Bezier routing** — when straight connectors cross something, Bezier arcs around obstacles; implemented for vertical center line only
 
 ---
 
