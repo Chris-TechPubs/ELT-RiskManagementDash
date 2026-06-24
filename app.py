@@ -1,4 +1,4 @@
-import time
+import time, datetime
 from flask import Flask, render_template, jsonify, redirect, url_for
 from dotenv import load_dotenv
 
@@ -46,7 +46,10 @@ def test_page():
 @app.route("/heatmap")
 def heatmap():
     risks = _cached_risks()
-    return render_template("heatmap.html", risks=risks)
+    ts = _cache["ts"]
+    dt = datetime.datetime.fromtimestamp(ts)
+    last_updated = dt.strftime('%d %b %Y, %H:%M') if ts else 'Unknown'
+    return render_template("heatmap.html", risks=risks, last_updated=last_updated)
 
 
 @app.route("/refresh")

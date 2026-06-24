@@ -6,7 +6,7 @@
   <title>Risk Heat Map</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300..500,0,0&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; background: #e2f1fc; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; }
@@ -62,7 +62,24 @@
     .tt-nm  { color: #fff; font-size: 23px; }
     .tt-div { margin: 10px 0 8px; border-top: 2px solid var(--allegion-border); }
     .tt-stat { font-size: 22px; color: #ccd6ff; }
+    .tt-alert {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 19px; font-weight: 700; padding: 4px 12px;
+      border-radius: 999px; margin-top: 8px;
+    }
+    .tt-alert.overdue { background: rgba(229,57,53,0.22); color: #ef9a9a; border: 1px solid rgba(229,57,53,0.45); }
+    .tt-alert.health  { background: rgba(255,152,0,0.22);  color: #ffcc80; border: 1px solid rgba(255,152,0,0.45); }
     .tt-val  { color: #ffd060; font-weight: 600; }
+
+    /* ── Status ring pulse ───────────────────────────────────────────────────── */
+    @keyframes statusRingPulse {
+      0%, 100% { transform: scale(1);    opacity: 0.65; filter: drop-shadow(0 0 2px var(--ring-glow)); }
+      50%       { transform: scale(1.22); opacity: 1;    filter: drop-shadow(0 0 7px var(--ring-glow)); }
+    }
+    .status-ring {
+      transform-box: fill-box; transform-origin: center;
+      animation: statusRingPulse 2.6s ease-in-out infinite;
+    }
 
     /* ── Dot spin animation ─────────────────────────────────────────────────── */
     @keyframes dotSpin {
@@ -77,14 +94,16 @@
     }
     .dot-scale-wrapper {
       transform-box: fill-box; transform-origin: center;
-      transition: transform 0.15s, filter 0.15s;
-      filter: drop-shadow(-1.8px 1.8px 1.8px rgba(0,0,0,0.85));
+      transition: transform 0.15s;
+      will-change: transform, opacity;  /* no filter here — keeps compositor path clean */
     }
     .dot-hover:hover .dot-scale-wrapper,
-    .dot-force-highlight .dot-scale-wrapper {
-      transform: scale(1.5);
-      filter: drop-shadow(-6.75px 6.75px 6.75px rgba(0,0,0,0.85));
-    }
+    .dot-force-highlight .dot-scale-wrapper { transform: scale(1.5); }
+    .dot-hover { filter: drop-shadow(-1.8px 1.8px 1.8px rgba(0,0,0,0.85)); transition: filter 0.15s;
+                 transform-box: fill-box; transform-origin: center; }
+    .dot-hover:hover, .dot-force-highlight { filter: drop-shadow(-6.75px 6.75px 6.75px rgba(0,0,0,0.85)); }
+    /* Scope to risks-layer — much cheaper style recalc than body-level class */
+    #risks-layer.filter-animating .dot-hover { filter: none !important; transition: none !important; }
 
     /* ── Category filter key card ───────────────────────────────────────────── */
     .legend-row-cat-off { opacity: 0.25 !important; pointer-events: none; }
@@ -152,11 +171,185 @@
     }
     #risk-modal-close:hover { color: #E53935; }
     #risk-modal-id   { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
-    #risk-modal-name { font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 26px; }
+    #risk-modal-name { font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 16px; }
+    /* ── Overdue indicators in modal ────────────────────────────────────────── */
+    .mpn-btn.tab-overdue::after {
+      content: ''; display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; background: #E53935; margin-left: 6px;
+      vertical-align: middle; box-shadow: 0 0 6px rgba(229,57,53,0.7);
+    }
+    .modal-value.overdue-date { color: #ef5350 !important; font-weight: 600; }
+    .overdue-tri {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer; padding: 0;
+      margin-left: 8px; vertical-align: middle; position: relative;
+    }
+    .overdue-tri svg { display: block; }
+    .overdue-tip {
+      position: absolute; bottom: calc(100% + 8px); left: 50%;
+      transform: translateX(-50%);
+      background: rgba(183,28,28,0.95); color: #ffcdd2;
+      font-family: var(--antenna); font-size: 13px; font-weight: 500;
+      padding: 8px 14px; border-radius: 10px; white-space: nowrap;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.18s ease;
+      z-index: 10;
+    }
+    .overdue-tri:hover .overdue-tip,
+    .overdue-tri:focus .overdue-tip { opacity: 1; pointer-events: auto; }
+    .overdue-tip::after {
+      content: ''; position: absolute; top: 100%; left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent; border-top-color: rgba(183,28,28,0.95);
+    }
+
+    /* ── Page navigation strip ──────────────────────────────────────────────── */
+    #modal-page-nav {
+      display: flex; gap: 2px; margin-bottom: 20px;
+      border-bottom: 1px solid var(--allegion-border);
+      position: relative; /* anchor for the sliding indicator */
+    }
+    .mpn-btn {
+      background: none; border: none; border-bottom: none;
+      padding: 6px 14px 8px; cursor: pointer;
+      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      font-family: var(--antenna); color: var(--allegion-muted);
+      transition: color 0.15s;
+    }
+    .mpn-btn:hover { color: #E8EAED; }
+    .mpn-btn.active { color: var(--mpn-color, #FF671F); }
+    /* Sliding indicator line */
+    #mpn-indicator {
+      position: absolute; bottom: -1px; height: 2px;
+      background: var(--mpn-color, #FF671F);
+      transition: left 0.28s cubic-bezier(0.16,1,0.3,1), width 0.28s cubic-bezier(0.16,1,0.3,1);
+      pointer-events: none;
+    }
+    #mpn-indicator.instant { transition: none; }
+    /* ── Page area ───────────────────────────────────────────────────────────── */
+    @keyframes pageAreaIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    #modal-page-area.page-in { animation: pageAreaIn 0.22s cubic-bezier(0.16,1,0.3,1) both; }
+    /* ── Data grid (risk scores) ─────────────────────────────────────────────── */
+    .modal-data-grid {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px;
+    }
+    .modal-data-cell {
+      background: rgba(255,255,255,0.05); border-radius: 10px;
+      padding: 10px 12px; text-align: center;
+    }
+    .modal-data-cell .modal-label { margin-bottom: 4px; }
+    .modal-data-cell .modal-value { font-size: 22px; font-weight: 700; color: #fff; }
+    /* ── Section subheader ───────────────────────────────────────────────────── */
+    .modal-section-head {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.28); margin: 18px 0 10px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .modal-section-head::after {
+      content: ''; flex: 1; height: 1px; background: var(--allegion-border);
+    }
+    /* ── Progress bar ────────────────────────────────────────────────────────── */
+    .modal-progress-track {
+      height: 6px; background: rgba(255,255,255,0.1); border-radius: 999px;
+      overflow: hidden; margin-top: 6px;
+    }
+    .modal-progress-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, #8BC34A, #FF9800);
+      transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
+    }
+    /* ── Badge (overdue / health) ────────────────────────────────────────────── */
+    .modal-badge {
+      display: inline-block; padding: 2px 9px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+    }
+    .modal-badge.red    { background: rgba(229,57,53,0.22);  color: #ef9a9a; }
+    .modal-badge.green  { background: rgba(139,195,74,0.22); color: #aed581; }
+    .modal-badge.yellow { background: rgba(255,238,88,0.22); color: #fff176; }
+    .modal-badge.grey   { background: rgba(255,255,255,0.10); color: var(--allegion-muted); }
+    /* ── Fields ──────────────────────────────────────────────────────────────── */
     .modal-field { margin-bottom: 20px; }
     .modal-label { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
                    color: var(--allegion-muted); margin-bottom: 5px; }
     .modal-value { font-size: 20px; color: var(--allegion-text); line-height: 1.55; }
+    .spotlight-btn {
+      background: none; border: none; padding: 0; cursor: pointer;
+      color: #FF671F; font: inherit; font-weight: 600;
+      text-decoration: underline dotted rgba(255,103,31,0.45);
+      transition: color 0.15s, text-decoration-color 0.15s;
+    }
+    .spotlight-btn:hover { color: #fff; text-decoration-color: rgba(255,255,255,0.5); }
+    /* ── Status chips — float above the zoom pill ───────────────────────────── */
+    #active-chips {
+      position: fixed; z-index: 500;
+      display: flex; flex-direction: column; gap: 7px; align-items: flex-start;
+    }
+    .status-chip {
+      display: none; align-items: center; gap: 10px;
+      background: rgba(28,28,30,0.90);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,103,31,0.55); border-radius: 999px;
+      padding: 10px 14px 10px 18px;
+      font-family: var(--antenna); font-size: 16px; font-weight: 600; color: #FF671F;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.55);
+      white-space: nowrap;
+    }
+    .status-chip.visible { display: flex; animation: chipIn 0.28s cubic-bezier(0.16,1,0.3,1) both; }
+    .chip-icon {
+      font-size: 15px; line-height: 1;
+      font-family: 'Material Symbols Outlined'; font-weight: 400; flex-shrink: 0;
+    }
+    .chip-close {
+      background: none; border: none; cursor: pointer; padding: 2px 4px;
+      color: rgba(255,255,255,0.40); font-size: 16px; line-height: 1;
+      transition: color 0.15s; flex-shrink: 0;
+    }
+    .chip-close:hover { color: #E53935; }
+    /* Clickable chip state — when chip shows generic count */
+    #filter-chip.clickable { cursor: pointer; }
+    #filter-chip.clickable:hover { filter: brightness(1.18); }
+    /* Active filters detail menu */
+    #filter-chip-menu {
+      position: fixed; z-index: 501; display: none; flex-direction: column; gap: 5px;
+      background: rgba(26,26,28,0.94);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,103,31,0.42); border-top-color: rgba(255,103,31,0.68);
+      border-radius: 16px; padding: 10px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 40px rgba(0,0,0,0.65);
+      min-width: 220px;
+    }
+    #filter-chip-menu.open { display: flex; animation: chipIn 0.22s cubic-bezier(0.16,1,0.3,1) both; }
+    .fcm-header {
+      font-family: var(--antenna); font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: rgba(255,103,31,0.65); padding: 4px 8px 2px;
+    }
+    .fcm-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      font-family: var(--antenna); font-size: 15px; color: #E8EAED; font-weight: 500;
+    }
+    .fcm-label { flex: 1; }
+    .fcm-x {
+      background: none; border: none; cursor: pointer; padding: 2px 4px;
+      color: rgba(255,255,255,0.38); font-size: 15px; line-height: 1;
+      transition: color 0.15s; flex-shrink: 0;
+    }
+    .fcm-x:hover { color: #E53935; }
+    @keyframes chipIn {
+      from { opacity: 0; transform: translateY(6px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+    .modal-value a.contact-link {
+      color: #FF671F; text-decoration: none; border-bottom: 1px solid rgba(255,103,31,0.35);
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .modal-value a.contact-link:hover { color: #fff; border-bottom-color: rgba(255,255,255,0.5); }
     /* Tabs */
     #risk-modal-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 0;
                        padding-bottom: 0; }
@@ -198,17 +391,19 @@
 
     /* ── Category filter dot exit / enter animations ───────────────────────── */
     @keyframes dotCatExit {
-      0%   { transform: scale(1);   opacity: 1; }
-      20%  { transform: scale(1.1); opacity: 1; }
-      100% { transform: scale(0);   opacity: 0; }
+      0%   { filter: none; transform: scale(1);   opacity: 1; }
+      20%  { filter: none; transform: scale(1.1); opacity: 1; }
+      100% { filter: none; transform: scale(0);   opacity: 0; }
     }
     @keyframes dotCatEnter {
-      0%   { transform: scale(0);   opacity: 0; }
-      75%  { transform: scale(1.1); opacity: 1; }
-      100% { transform: scale(1);   opacity: 1; }
+      0%   { filter: none; transform: scale(0);   opacity: 0; }
+      75%  { filter: none; transform: scale(1.1); opacity: 1; }
+      100% { filter: none; transform: scale(1);   opacity: 1; }
     }
-    .dot-scale-wrapper.dot-cat-exit  { animation: dotCatExit  0.38s cubic-bezier(0.4, 0, 1, 1)      both; }
-    .dot-scale-wrapper.dot-cat-enter { animation: dotCatEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1)   both; }
+    /* Animate on dotG (.dot-hover) — filter:none in keyframes eliminates per-frame
+       filter re-composition from the very first frame, within the single classList.add */
+    .dot-hover.dot-cat-exit  { animation: dotCatExit  0.32s ease-in  both; }
+    .dot-hover.dot-cat-enter { animation: dotCatEnter 0.36s ease-out both; }
 
     /* ── Zoom: labels fade out at start, fade in 50ms after zoom stops ─────── */
     .label-box, .label-text, .conn-line { transition: opacity 150ms ease; }
@@ -260,6 +455,26 @@
       from { opacity: 1; transform: translateY(0)    scale(1);    }
       to   { opacity: 0; transform: translateY(-7px) scale(0.96); }
     }
+    /* Directional morph — used when switching between the two dropdowns */
+    @keyframes menuSwitchOut {
+      from { opacity: 1; transform: scale(1)    translateX(0); }
+      to   { opacity: 0; transform: scale(0.82) translateX(var(--sw-x, 28px)); }
+    }
+    @keyframes menuSwitchIn {
+      from { opacity: 0; transform: scale(0.82) translateX(var(--sw-x-in, -28px)); }
+      to   { opacity: 1; transform: scale(1)    translateX(0); }
+    }
+    #cat-dropdown.switch-out { display: flex; animation: menuSwitchOut 0.16s ease-in      both; }
+    #cat-dropdown.switch-in  { display: flex; animation: menuSwitchIn  0.22s cubic-bezier(0.16,1,0.3,1) both; }
+    #mf-dropdown.switch-out  { display: flex; animation: menuSwitchOut 0.16s ease-in      both; }
+    #mf-dropdown.switch-in   { display: flex; animation: menuSwitchIn  0.22s cubic-bezier(0.16,1,0.3,1) both; }
+    /* During morph crossfade: dropdown is invisible (overlay covers it), then fades in */
+    #cat-dropdown.morph-reveal,
+    #mf-dropdown.morph-reveal {
+      animation: none !important;
+      opacity: 0;
+      transition: opacity 0.1s ease !important;
+    }
     @keyframes modalBackdropIn {
       from { opacity: 0; }
       to   { opacity: 1; }
@@ -277,6 +492,69 @@
       to   { opacity: 0; transform: scale(0.95) translateY(10px); }
     }
 
+    /* ── Multi-filter dropdown ───────────────────────────────────────────────── */
+    #mf-dropdown {
+      display: none; position: absolute; top: calc(100% + 6px);
+      left: 50%; margin-left: calc(var(--rh-dd-min-w, 240px) * -0.5);
+      flex-direction: column; gap: 5px;
+      background: rgba(20,20,22,0.97);
+      border: 1px solid rgba(255,103,31,0.38); border-top-color: rgba(255,103,31,0.65);
+      border-radius: 20px; padding: 10px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 16px 48px rgba(0,0,0,0.72);
+      min-width: var(--rh-dd-min-w, 240px); z-index: 300; transform-origin: top left;
+    }
+    #mf-dropdown.open    { display: flex; animation: menuSlideIn  0.30s cubic-bezier(0.16,1,0.3,1) both; }
+    #mf-dropdown.closing { display: flex; animation: menuSlideOut 0.16s cubic-bezier(0.4,0,1,1)    both; }
+    .mf-section-label {
+      font-size: var(--rh-dd-font, 11px); font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: rgba(255,255,255,0.3);
+      padding: var(--rh-dd-pad-v, 6px) var(--rh-dd-pad-h, 10px) 2px;
+      font-family: var(--antenna);
+    }
+    .mf-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: var(--rh-dd-pad-v, 8px) var(--rh-dd-pad-h, 12px);
+      border-radius: 20px; cursor: pointer;
+      transition: background 0.12s, opacity 0.18s;
+    }
+    .mf-row:hover { background: rgba(255,255,255,0.07); }
+    .mf-swatch {
+      width: var(--rh-dd-dot, 10px); height: var(--rh-dd-dot, 10px);
+      border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
+      border: 2px solid rgba(255,255,255,0.35);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .mf-row.active .mf-swatch { background: #FF671F; border-color: #FF671F; }
+    .mf-label { flex: 1; font-size: var(--rh-dd-font, 13px); font-weight: 500;
+                font-family: var(--antenna); color: #E8EAED; }
+    #mf-sort-btn {
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.16);
+      border-radius: var(--rh-btn-r, 10px); padding: var(--rh-btn-pad-v,5px) var(--rh-btn-pad-h,11px);
+      color: #FF671F; font-size: var(--rh-btn-font,13px); font-weight: 600;
+      font-family: var(--antenna); cursor: pointer; flex-shrink: 0; gap: 5px;
+      transition: filter 0.15s, border-color 0.15s;
+    }
+    #mf-sort-btn:hover { filter: brightness(1.22); border-color: rgba(255,255,255,0.28); }
+    #mf-sort-btn.active { border-color: #FF671F; background: rgba(255,103,31,0.14); }
+    #rh-mf-btn {
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.16);
+      border-radius: var(--rh-btn-r, 10px); padding: var(--rh-btn-pad-v,5px) var(--rh-btn-pad-h,11px);
+      color: #FF671F; font-size: var(--rh-btn-font,13px); font-weight: 600;
+      font-family: var(--antenna); cursor: pointer; flex-shrink: 0; gap: 5px;
+      transition: filter 0.15s, border-color 0.15s;
+    }
+    #rh-mf-btn:hover { filter: brightness(1.22); border-color: rgba(255,255,255,0.28); }
+    #rh-mf-btn.filtered { border-color: #FF671F; }
+    #rh-mf-badge {
+      display: none; background: #FF671F; color: #fff;
+      font-size: 9px; font-weight: 800; line-height: 1;
+      padding: 2px 5px; border-radius: 999px;
+      min-width: 14px; text-align: center; flex-shrink: 0;
+    }
+    #rh-mf-badge.visible { display: inline-block; }
+
     /* ── Risk list body overlay — darkens list when dropdown is open ─────────── */
     #cat-list-overlay {
       position: fixed; z-index: 150; pointer-events: none;
@@ -285,6 +563,69 @@
       transition: opacity 0.2s ease;
     }
     #cat-list-overlay.dd-open { opacity: 1; }
+
+    /* ── Search bar ─────────────────────────────────────────────────────────── */
+    @keyframes rhItemExit {
+      0%   { transform: scale(1);   opacity: 1; }
+      20%  { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(0);   opacity: 0; }
+    }
+    @keyframes rhItemEnter {
+      0%   { transform: scale(0);   opacity: 0; }
+      75%  { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(1);   opacity: 1; }
+    }
+    .rh-exit  { animation: rhItemExit  0.22s cubic-bezier(0.4,0,1,1)      both !important; }
+    .rh-enter { animation: rhItemEnter 0.28s cubic-bezier(0.16,1,0.3,1)   both !important; }
+
+    #rh-search-btn {
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.16);
+      border-radius: var(--rh-btn-r, 10px);
+      padding: var(--rh-btn-pad-v, 5px) var(--rh-btn-pad-v, 5px);
+      color: #FF671F; cursor: pointer; flex-shrink: 0;
+      transition: filter 0.15s, border-color 0.15s;
+    }
+    #rh-search-btn:hover { filter: brightness(1.22); border-color: rgba(255,255,255,0.28); }
+
+    #rh-search-bar {
+      position: absolute; left: 16px; right: 16px; top: 10px; bottom: 10px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 14px;
+      background: rgba(28,28,30,0.72);
+      backdrop-filter: blur(15px) saturate(180%) brightness(1.06);
+      -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.06);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-top-color: rgba(255,255,255,0.44);
+      border-radius: 999px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.22),
+                  inset 1px 0 0 rgba(255,255,255,0.08),
+                  inset -1px 0 0 rgba(255,255,255,0.08);
+      transform: scaleX(0); opacity: 0; pointer-events: none;
+      transition: transform 0.38s cubic-bezier(0.16,1,0.3,1),
+                  opacity   0.22s ease;
+      transform-origin: center;
+      z-index: 10;
+    }
+    #rh-search-bar.open {
+      transform: scaleX(1); opacity: 1; pointer-events: all;
+    }
+    #rh-search-input {
+      flex: 1; min-width: 0; background: none; border: none; outline: none;
+      color: #FF671F; font-family: var(--antenna);
+      font-size: var(--rh-btn-font, 13px); font-weight: 500;
+    }
+    #rh-search-input::placeholder { color: rgba(255,255,255,0.32); }
+    #rh-search-close {
+      background: none; border: none; cursor: pointer; padding: 2px;
+      color: rgba(255,255,255,0.45); font-size: var(--rh-btn-font, 13px);
+      line-height: 1; display: flex; align-items: center;
+      transition: color 0.15s;
+    }
+    #rh-search-close:hover { color: #E53935; }
+    /* Search dim — independent of dot-hover dim so they can coexist */
+    #legend-layer.search-active .legend-row:not(.legend-row-hl) { opacity: 0.18; transition: opacity 0.18s; }
+    #legend-layer.search-active .legend-row.legend-row-hl       { opacity: 1;    transition: opacity 0.18s; }
 
     /* ── Risk list header bar — all inner sizes driven by JS via CSS vars ───── */
     #risk-header-bar {
@@ -324,38 +665,51 @@
     }
     #cat-filter-btn:hover { filter: brightness(1.22); border-color: rgba(255,255,255,0.28); }
     #cat-filter-btn.filtered { border-color: #6699cc; color: #a8c0ff; }
+    /* Glow when open so users know which pill owns the visible menu */
+    #cat-filter-btn.open, #rh-mf-btn.open {
+      background: rgba(255,103,31,0.16); border-color: rgba(255,103,31,0.7);
+      box-shadow: 0 0 0 2px rgba(255,103,31,0.22);
+    }
     #cat-filter-chevron { font-size: 0.75em; transition: transform 0.2s; display: inline-block; opacity: 0.7; }
     #cat-filter-btn.open #cat-filter-chevron { transform: rotate(180deg); }
     #cat-dropdown {
-      display: none; position: absolute; top: calc(100% + 4px); right: 0;
-      background: #2A2A2B; border: 1px solid #3F3F40;
-      border-radius: 10px; padding: 4px 0;
-      box-shadow: 0 10px 36px rgba(0,0,0,0.7);
+      display: none; position: absolute; top: calc(100% + 6px);
+      left: 50%; margin-left: calc(var(--rh-dd-min-w, 240px) * -0.5);
+      flex-direction: column; gap: 5px;
+      background: rgba(20,20,22,0.97);
+      border: 1px solid rgba(255,103,31,0.38);
+      border-top-color: rgba(255,103,31,0.65);
+      border-radius: 20px; padding: 10px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10),
+                  0 16px 48px rgba(0,0,0,0.72);
       min-width: var(--rh-dd-min-w, 240px); z-index: 300;
       transform-origin: top right;
     }
-    #cat-dropdown.open    { display: block; animation: menuSlideIn  0.30s cubic-bezier(0.16,1,0.3,1) both; }
-    #cat-dropdown.closing { display: block; animation: menuSlideOut 0.16s cubic-bezier(0.4,0,1,1)    both; }
+    #cat-dropdown.open    { display: flex; animation: menuSlideIn  0.30s cubic-bezier(0.16,1,0.3,1) both; }
+    #cat-dropdown.closing { display: flex; animation: menuSlideOut 0.16s cubic-bezier(0.4,0,1,1)    both; }
     .cat-dd-row {
       display: flex; align-items: center; gap: 10px;
-      padding: var(--rh-dd-pad-v, 8px) var(--rh-dd-pad-h, 16px);
-      cursor: pointer; transition: background 0.12s;
+      padding: var(--rh-dd-pad-v, 8px) var(--rh-dd-pad-h, 12px);
+      border-radius: 20px; cursor: pointer;
+      transition: background 0.12s, opacity 0.2s;
     }
     .cat-dd-row:hover { background: rgba(255,255,255,0.07); }
-    .cat-dd-dot {
-      width: var(--rh-dd-dot, 11px); height: var(--rh-dd-dot, 11px);
-      border-radius: 50%; flex-shrink: 0;
+    .cat-dd-swatch {
+      width: var(--rh-dd-dot, 10px); height: var(--rh-dd-dot, 10px);
+      border-radius: 50%; flex-shrink: 0; box-sizing: border-box;
+      background: var(--swatch-col);
+      border: 2px solid transparent;
+      transition: background 0.18s, border-color 0.18s;
     }
     .cat-dd-label {
-      flex: 1; font-size: var(--rh-dd-font, 13px); font-weight: 600;
-      font-family: var(--antenna); transition: opacity 0.15s;
+      flex: 1; font-size: var(--rh-dd-font, 13px); font-weight: 500;
+      font-family: var(--antenna); color: #E8EAED;
     }
-    .cat-dd-check {
-      font-size: var(--rh-dd-font, 13px); color: #E8EAED;
-      transition: opacity 0.15s; opacity: 1;
+    .cat-dd-row.off { opacity: 0.45; }
+    .cat-dd-row.off .cat-dd-swatch {
+      background: transparent;
+      border-color: var(--swatch-col);
     }
-    .cat-dd-row.off .cat-dd-label { opacity: 0.35; }
-    .cat-dd-row.off .cat-dd-check { opacity: 0; }
   </style>
 </head>
 <body>
@@ -388,6 +742,19 @@
     <g id="legend-layer"></g>
   </svg>
 </div>
+<div id="filter-chip-menu"></div>
+<div id="active-chips">
+  <div id="spotlight-chip" class="status-chip">
+    <span class="chip-icon">person_search</span>
+    <span id="spotlight-chip-label"></span>
+    <button class="chip-close" onclick="clearSpotlight()" title="Clear spotlight">✕</button>
+  </div>
+  <div id="filter-chip" class="status-chip">
+    <span class="chip-icon">filter_list</span>
+    <span id="filter-chip-label"></span>
+    <button class="chip-close" onclick="clearAllFilters()" title="Clear filters">✕</button>
+  </div>
+</div>
 <div id="zoom-ctrl">
   <button class="icon-btn" onclick="doZoom(1.3)" title="Zoom in">+</button>
   <button id="zoom-reset" class="icon-btn" onclick="resetView()" title="Reset view">
@@ -405,29 +772,51 @@
     <div id="modal-tab-content">
       <div id="risk-modal-id"></div>
       <div id="risk-modal-name"></div>
-      <div class="modal-field"><div class="modal-label">Definition</div><div id="modal-definition" class="modal-value"></div></div>
-      <div class="modal-field"><div class="modal-label">Risk Status</div><div id="modal-status" class="modal-value"></div></div>
-      <div class="modal-field"><div class="modal-label">Risk Owner</div><div id="modal-owner" class="modal-value"></div></div>
-      <div class="modal-field"><div class="modal-label">Manager(s)</div><div id="modal-managers" class="modal-value"></div></div>
+      <div id="modal-page-nav">
+        <button class="mpn-btn active" data-page="0">Overview</button>
+        <button class="mpn-btn"        data-page="1">Risk Data</button>
+        <button class="mpn-btn"        data-page="2">Ownership</button>
+        <div id="mpn-indicator"></div>
+      </div>
+      <div id="modal-page-area"></div>
     </div>
   </div>
 </div>
 <div id="risk-header-bar">
   <span class="rh-col" id="rh-id">#</span>
   <span class="rh-col" id="rh-name">Risk Name</span>
-  <div class="rh-divider"></div>
-  <button id="cat-filter-btn">
-    <span id="cat-filter-label">All Categories</span>
-    <span id="cat-filter-chevron">▾</span>
+  <div class="rh-divider" id="rh-divider"></div>
+  <button id="rh-search-btn" onclick="openSearch()" title="Search risks" style="margin-right:var(--rh-div-mx,9px)">
+    <span class="material-symbols-outlined" style="font-size:calc(var(--rh-btn-font,13px) * 1.35);line-height:1;font-family:'Material Symbols Outlined';font-weight:400;font-variation-settings:'wght' 400">search</span>
   </button>
-  <div id="cat-dropdown"></div>
+  <div id="rh-mf-wrap" style="position:relative;flex-shrink:0;margin-right:var(--rh-div-mx,9px)">
+    <button id="rh-mf-btn" onclick="toggleMfDropdown(event)" title="More filters">
+      <span id="rh-mf-label">Filters</span>
+      <span id="rh-mf-badge"></span>
+      <span style="font-size:0.8em">▾</span>
+    </button>
+    <div id="mf-dropdown"></div>
+  </div>
+  <div id="rh-cat-wrap" style="position:relative;flex-shrink:0">
+    <button id="cat-filter-btn">
+      <span id="cat-filter-label">All Categories</span>
+      <span id="cat-filter-chevron">▾</span>
+    </button>
+    <div id="cat-dropdown"></div>
+  </div>
+  <div id="rh-search-bar">
+    <span class="material-symbols-outlined" style="font-size:calc(var(--rh-btn-font,13px) * 1.35);line-height:1;font-family:'Material Symbols Outlined';font-weight:400;font-variation-settings:'wght' 400;color:#FF671F;flex-shrink:0">search</span>
+    <input id="rh-search-input" type="text" placeholder="Search risks…" autocomplete="off" spellcheck="false">
+    <button id="rh-search-close" onclick="closeSearch()">✕</button>
+  </div>
 </div>
 <div id="cat-list-overlay"></div>
 <div id="tooltip"></div>
 
 <script>
-const RISKS    = {{ risks | tojson }};
-const LOGO_SRC = "{{ url_for('static', filename='AllegionLogo_Official.png') }}";
+const RISKS        = {{ risks | tojson }};
+const LOGO_SRC     = "{{ url_for('static', filename='AllegionLogo_Official.png') }}";
+const LAST_UPDATED = "{{ last_updated }}";
 const dotGroupByRiskId   = {};
 const legendRowByRiskId  = {};
 const dotRisksGroupById  = {};
@@ -440,13 +829,106 @@ function dimLegend(on) {
 // Tracks which risk IDs have their legend row currently hovered (survives rerenders)
 const _activeLegendRows = new Set();
 const _hiddenCatColors  = new Set(); // hex colors of toggled-off categories
+// ── Multi-filter state ────────────────────────────────────────────────────────
+const _activeFilters = { status: new Set(), health: new Set(), overdue: false, quarter: new Set() };
+let   _listSort       = 'id';     // 'id' | 'score' | 'severity' | 'likelihood'
+let   _spotlightOwner = null;     // owner name string when spotlight is active
+
+function parseResidualVal(v) {
+  if (!v || v === 'None') return null;
+  const n = parseFloat(v);
+  if (!isNaN(n)) return n;
+  const m = {'very low':0.5,'low':1,'medium low':1.5,'medium':2.5,'moderate':2.5,
+             'medium high':3.5,'high':4,'very high':4.5,'extreme':5,'critical':5};
+  return m[String(v).toLowerCase().trim()] ?? null;
+}
+
+function _isRiskVisible(r) {
+  if (_hiddenCatColors.has(catColor(r.category || ''))) return false;
+  if (_activeFilters.status.size > 0 && !_activeFilters.status.has(r.status || '')) return false;
+  if (_activeFilters.health.size > 0 && !_activeFilters.health.has(r.mitigation_health || '')) return false;
+  if (_activeFilters.overdue && String(r.review_overdue).toLowerCase() !== 'true') return false;
+  if (_activeFilters.quarter.size > 0 && !_activeFilters.quarter.has(r.quarter || '')) return false;
+  return true;
+}
 const catKeyElByColor   = {};        // color → category key card <g> element
 let   _panDelay         = null;      // setTimeout ID for 1-second pan delay
 
 let _catFilterAnimating = false;
 
+// CSS inline transitions for filter dot animations.
+// CSS transitions on opacity+transform are always compositor-driven on SVG,
+// including inside clip-path containers (unlike Web Animations API on SVG).
+let _filterRerenderTimer = null;
+let _filterPrevVisible   = new Set();
+
+function _updateLegendRowVisibility() {
+  // Toggle CSS class on existing rows — O(31) class mutations, no DOM rebuild, instant.
+  // This gives immediate visual feedback without the GPU rasterization cost of renderLegend().
+  RISKS.forEach(r => {
+    const row = legendRowByRiskId[r.id];
+    if (row) row.classList.toggle('legend-row-cat-off', !_isRiskVisible(r));
+  });
+}
+
+function _applyFilterWithAnimation(prevVisibleIds) {
+  const STAGGER = 35;
+  _updateLegendRowVisibility(); // instant list feedback — no expensive DOM rebuild
+  const nowVisible = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+  if (!_filterRerenderTimer) _filterPrevVisible = new Set(prevVisibleIds);
+  const prevSnap = prevVisibleIds, nowSnap = nowVisible;
+
+  const toExit = [];
+  const seen = new Set();
+  Object.entries(dotGroupByRiskId).forEach(([id, dg]) => {
+    if (seen.has(dg)) return; seen.add(dg);
+    if (dg._exiting) return; // already animating out
+    const grp = dotRisksGroupById[id] || [];
+    if (grp.some(r => prevSnap.has(r.id)) && grp.every(r => !nowSnap.has(r.id))) {
+      dg._exiting = true;
+      toExit.push(dg);
+    }
+  });
+
+  if (toExit.length) {
+    // Class on dotG (.dot-hover): keyframes include filter:none so filter is removed
+    // from the very first frame — no separate mutation, no extra style recalculation.
+    toExit.forEach((dg, i) => {
+      dg.style.animationDelay = Math.min(i * STAGGER, 200) + 'ms';
+      dg.classList.remove('dot-cat-enter');
+      dg.classList.add('dot-cat-exit');
+    });
+  }
+
+  clearTimeout(_filterRerenderTimer);
+  _filterRerenderTimer = setTimeout(() => {
+    const baseline = new Set(_filterPrevVisible);
+    _filterRerenderTimer = null; _filterPrevVisible = new Set();
+    rerender();
+    requestAnimationFrame(() => {
+      renderLegend(); // full rebuild once at debounce end — restores correct row heights/counts
+      const toEnter = [];
+      const seen2 = new Set(); let enterIdx = 0;
+      Object.entries(dotGroupByRiskId).forEach(([id, dg]) => {
+        if (seen2.has(dg)) return; seen2.add(dg);
+        const grp = dotRisksGroupById[id] || [];
+        if (grp.some(r => !baseline.has(r.id))) toEnter.push({ dg, i: enterIdx++ });
+      });
+      if (toEnter.length) {
+        toEnter.forEach(({ dg, i }) => {
+          dg.style.animationDelay = Math.min(i * STAGGER, 200) + 'ms';
+          dg.classList.add('dot-cat-enter');
+          dg.addEventListener('animationend', () => {
+            dg.classList.remove('dot-cat-enter'); dg.style.animationDelay = '';
+          }, { once: true });
+        });
+      }
+    });
+  }, 600);
+}
+
 function updateCatFilter(col, isHiding) {
-  // Update legend rows + category key immediately (dropdown stays open)
+  // Instant legend feedback via CSS class toggle (no DOM rebuild)
   Object.entries(catKeyElByColor).forEach(([c, el]) =>
     el.classList.toggle('off', _hiddenCatColors.has(c)));
   RISKS.forEach(r => {
@@ -454,34 +936,48 @@ function updateCatFilter(col, isHiding) {
     if (row) row.classList.toggle('legend-row-cat-off', _hiddenCatColors.has(catColor(r.category || '')));
   });
 
-  // If a previous animation is still running, skip animation and rerender immediately
-  if (_catFilterAnimating) { rerender(); return; }
-
   if (isHiding) {
-    // Collect unique dotGs where every risk in the group will be hidden
+    // Animate hiding dots — uses the SAME shared _filterRerenderTimer as multi-filter.
+    // This guarantees no independent timer fires rerender mid-animation.
     const seen = new Set(), toAnimate = [];
     Object.entries(dotGroupByRiskId).forEach(([id, dg]) => {
-      if (seen.has(dg)) return;
-      seen.add(dg);
+      if (seen.has(dg)) return; seen.add(dg);
+      if (dg._exiting) return; // skip already-animating dots
       const grp = dotRisksGroupById[id] || [];
-      if (grp.every(r => _hiddenCatColors.has(catColor(r.category || '')))) toAnimate.push(dg);
+      if (grp.every(r => _hiddenCatColors.has(catColor(r.category || '')))) {
+        dg._exiting = true;
+        toAnimate.push({ dg });
+      }
     });
-    if (!toAnimate.length) { rerender(); return; }
-
-    _catFilterAnimating = true;
+    if (!toAnimate.length) {
+      // Nothing to animate — still reset shared debounce so rerender fires
+      clearTimeout(_filterRerenderTimer);
+      _filterRerenderTimer = setTimeout(() => {
+        _filterRerenderTimer = null; _filterPrevVisible = new Set();
+        rerender(); requestAnimationFrame(() => renderLegend());
+      }, 600);
+      return;
+    }
     const STAGGER = 45;
-    toAnimate.forEach((dg, i) => {
-      const sw = dg.querySelector('.dot-scale-wrapper');
-      if (!sw) return;
-      sw.style.animationDelay = Math.min(i * STAGGER, 250) + 'ms';
-      sw.classList.add('dot-cat-exit');
+    toAnimate.forEach(({ dg }, i) => {
+      dg.style.animationDelay = Math.min(i * STAGGER, 250) + 'ms';
+      dg.classList.remove('dot-cat-enter');
+      dg.classList.add('dot-cat-exit');
     });
-    const totalWait = Math.min((toAnimate.length - 1) * STAGGER, 250) + 400;
-    setTimeout(() => { _catFilterAnimating = false; rerender(); }, totalWait);
+    // Shared debounce — resets on EVERY filter click so rerender always waits
+    clearTimeout(_filterRerenderTimer);
+    _filterRerenderTimer = setTimeout(() => {
+      _filterRerenderTimer = null; _filterPrevVisible = new Set();
+      rerender(); requestAnimationFrame(() => renderLegend());
+    }, 600);
 
   } else {
-    // Show: rerender first so dots exist, then animate them in
+    // Show: rerender dots + rebuild legend so newly visible rows reappear in the list.
+    // renderLegend() is needed because the 600ms hide-timer called renderLegend() WITHOUT
+    // these risks, clearing their legendRowByRiskId entries — the CSS class toggle alone
+    // can't restore rows that no longer exist in the DOM.
     rerender();
+    renderLegend();
     const seen = new Set(), toAnimate = [];
     RISKS.filter(r => catColor(r.category || '') === col).forEach(r => {
       const dg = dotGroupByRiskId[r.id];
@@ -489,13 +985,10 @@ function updateCatFilter(col, isHiding) {
     });
     const STAGGER = 45;
     toAnimate.forEach((dg, i) => {
-      const sw = dg.querySelector('.dot-scale-wrapper');
-      if (!sw) return;
-      sw.style.animationDelay = Math.min(i * STAGGER, 250) + 'ms';
-      sw.classList.add('dot-cat-enter');
-      sw.addEventListener('animationend', () => {
-        sw.classList.remove('dot-cat-enter');
-        sw.style.animationDelay = '';
+      dg.style.animationDelay = Math.min(i * STAGGER, 250) + 'ms';
+      dg.classList.add('dot-cat-enter');
+      dg.addEventListener('animationend', () => {
+        dg.classList.remove('dot-cat-enter'); dg.style.animationDelay = '';
       }, { once: true });
     });
   }
@@ -503,12 +996,12 @@ function updateCatFilter(col, isHiding) {
 
 function _reapplyLegendHighlights() {
   if (!_activeLegendRows.size) return;
-  if (_dimCount === 0) { _dimCount = 1; document.getElementById('legend-layer').classList.add('legend-dimmed'); }
   _activeLegendRows.forEach(id => {
     const row = legendRowByRiskId[id];
     if (!row || row.classList.contains('legend-row-cat-off')) return;
     row.classList.add('legend-row-hl');
     const dg = dotGroupByRiskId[id]; if (dg) dg.classList.add('dot-force-highlight');
+    dimLegend(true); // increment once per actually-restored row so _dimCount stays accurate
   });
 }
 
@@ -626,7 +1119,7 @@ function snap(v) { return Math.round(v * 2) / 2; }
 function groupRisks(risks) {
   const map = new Map();
   risks.forEach(r => {
-    if (_hiddenCatColors.has(catColor(r.category || ''))) return;
+    if (!_isRiskVisible(r)) return;
     const sl = snap(r.likelihood), ss = snap(r.severity);
     if (sl < VR.xMin-0.26 || sl > VR.xMax+0.26) return;
     if (ss < VR.yMin-0.26 || ss > VR.yMax+0.26) return;
@@ -1020,6 +1513,13 @@ function renderStatic() {
   mktxt('Likelihood',{x:x+w/2,y:y+h+34,'text-anchor':'middle','font-size':13,'font-weight':600,fill:'#333','font-family':AXIS_FONT},layer);
   const sev=mktxt('Severity',{'text-anchor':'middle','font-size':13,'font-weight':600,fill:'#333','font-family':AXIS_FONT,transform:`rotate(-90,${x-44},${y+h/2})`},layer);
   sev.setAttribute('x',x-44); sev.setAttribute('y',y+h/2);
+  // Subtle "data as of" timestamp — bottom-right of chart area
+  if (LAST_UPDATED && LAST_UPDATED !== 'Unknown') {
+    mktxt(`Data as of ${LAST_UPDATED}`, {
+      x: x + w, y: y + h + 50, 'text-anchor': 'end',
+      'font-size': 9.5, fill: '#666', 'font-family': AXIS_FONT, opacity: 0.7
+    }, layer);
+  }
 }
 
 // ── Render risks ──────────────────────────────────────────────────────────────
@@ -1095,7 +1595,26 @@ function renderRisks() {
                      stroke: col, 'stroke-width': 1.8, opacity: 0.85 }, dotG);
       }
 
+      // ── Status ring (overdue review or poor mitigation health) ─────────────
+      const isOverdue   = grpRisks.some(r => String(r.review_overdue).toLowerCase() === 'true');
+      const isPoorHealth = grpRisks.some(r => {
+        const h = (r.mitigation_health || '').toLowerCase();
+        return h.includes('risk') || h.includes('behind');
+      });
+      if (isOverdue || isPoorHealth) {
+        const ringCol  = isOverdue ? '#E53935' : '#FF9800';
+        const ringGlow = isOverdue ? 'rgba(229,57,53,0.7)' : 'rgba(255,152,0,0.7)';
+        const ringR    = DOT_R + 5;
+        const C3 = 2 * Math.PI * ringR;
+        mk('circle', { cx, cy, r:ringR, fill:'none', stroke:ringCol,
+          'stroke-width':1.5,
+          'stroke-dasharray':`${(C3/10).toFixed(1)} ${(C3/10).toFixed(1)}`,
+          class:'status-ring', 'pointer-events':'none',
+          style:`--ring-glow:${ringGlow}` }, g);
+      }
+
       const scaleG = mk('g', { class: 'dot-scale-wrapper' }, dotG);
+      dotG._sw = scaleG;
       const spinG = mk('g', { class: 'dot-spin' }, scaleG);
       drawPieDot(cx, cy, grpRisks.map(r => r.category || ''), spinG);
 
@@ -1105,20 +1624,132 @@ function renderRisks() {
           const row = legendRowByRiskId[r.id];
           if (row) row.classList.add('legend-row-hl');
         });
-        dimLegend(true);
+        if (!_spotlightOwner) dimLegend(true); // spotlight owns dim state exclusively
       });
       dotG.addEventListener('mousemove',  moveTip);
       dotG.addEventListener('mouseleave', () => {
         hideTip();
         grpRisks.forEach(r => {
           const row = legendRowByRiskId[r.id];
-          if (row) row.classList.remove('legend-row-hl');
+          // Keep highlight if spotlight is active for this risk
+          if (row && !_isSpotlightRisk(r)) row.classList.remove('legend-row-hl');
         });
-        dimLegend(false);
+        // Don't un-dim if spotlight is active — it manages the dim state
+        if (!_spotlightOwner) dimLegend(false);
       });
-      dotG.addEventListener('click', e => { e.stopPropagation(); openModal(grpRisks); });
+      dotG.addEventListener('click', e => {
+        e.stopPropagation();
+        // If spotlight is active and this dot has no spotlighted risk, clear spotlight first
+        if (_spotlightOwner && !grpRisks.some(r => _isSpotlightRisk(r))) clearSpotlight();
+        openModal(grpRisks);
+      });
     });
   });
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+const RH_ITEMS = ['rh-id','rh-name','rh-divider','rh-search-btn','rh-mf-wrap','cat-filter-btn'];
+let _searchActive = false;
+const _searchHighlighted = new Set();  // row elements highlighted by search
+const _searchTextEls     = new Map();  // risk id → { el, original } for tspan cleanup
+
+function _rhAnimate(cls, delay = 30) {
+  RH_ITEMS.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const opp = cls === 'rh-exit' ? 'rh-enter' : 'rh-exit';
+    el.classList.remove(opp);
+    void el.offsetWidth;
+    el.style.animationDelay = (i * delay) + 'ms';
+    el.classList.add(cls);
+    if (cls === 'rh-enter') {
+      el.addEventListener('animationend', () => {
+        el.classList.remove('rh-enter');
+        el.style.animationDelay = '';
+      }, { once: true });
+    }
+  });
+}
+
+function openSearch() {
+  if (_searchActive) return;
+  _searchActive = true;
+  closeCatDropdown();
+  _rhAnimate('rh-exit');
+  setTimeout(() => {
+    const bar = document.getElementById('rh-search-bar');
+    bar.classList.add('open');
+    setTimeout(() => document.getElementById('rh-search-input').focus(), 200);
+  }, 120);
+}
+
+function closeSearch() {
+  if (!_searchActive) return;
+  _searchActive = false;
+  clearSearchFilter();
+  const bar = document.getElementById('rh-search-bar');
+  bar.classList.remove('open');
+  document.getElementById('rh-search-input').value = '';
+  setTimeout(() => _rhAnimate('rh-enter'), 160);
+}
+
+function _highlightNameText(textEl, fullText, query) {
+  // Clear existing children
+  while (textEl.firstChild) textEl.removeChild(textEl.firstChild);
+  const idx = fullText.toLowerCase().indexOf(query.toLowerCase());
+  if (idx < 0) { textEl.textContent = fullText; return; }
+  const mkspan = (txt, fill) => {
+    const s = document.createElementNS(NS, 'tspan');
+    s.textContent = txt; s.setAttribute('fill', fill); return s;
+  };
+  if (idx > 0)                          textEl.appendChild(mkspan(fullText.slice(0, idx), '#BEC0C6'));
+                                        textEl.appendChild(mkspan(fullText.slice(idx, idx + query.length), '#FF671F'));
+  if (idx + query.length < fullText.length) textEl.appendChild(mkspan(fullText.slice(idx + query.length), '#BEC0C6'));
+}
+
+function _restoreNameText(textEl, originalText) {
+  while (textEl.firstChild) textEl.removeChild(textEl.firstChild);
+  textEl.textContent = originalText;
+}
+
+function applySearchFilter(query) {
+  const ll = document.getElementById('legend-layer');
+  // Restore any previously highlighted text elements
+  _searchTextEls.forEach(({ el, original }) => _restoreNameText(el, original));
+  _searchTextEls.clear();
+  _searchHighlighted.forEach(row => row.classList.remove('legend-row-hl'));
+  _searchHighlighted.clear();
+
+  if (!query) { ll.classList.remove('search-active'); return; }
+
+  const q = query.toLowerCase();
+  ll.classList.add('search-active');
+  RISKS.forEach(r => {
+    if (!_isRiskVisible(r)) return;
+    const nameMatch = r.name.toLowerCase().includes(q);
+    const idMatch   = r.id.toLowerCase().includes(q);
+    const row = legendRowByRiskId[r.id];
+    if (row && (nameMatch || idMatch)) {
+      row.classList.add('legend-row-hl');
+      _searchHighlighted.add(row);
+      // Highlight matched portion in the name text element
+      if (nameMatch) {
+        const textEl = row.querySelector('text[font-weight="500"]');
+        if (textEl && !_searchTextEls.has(r.id)) {
+          _searchTextEls.set(r.id, { el: textEl, original: r.name });
+          _highlightNameText(textEl, r.name, query);
+        }
+      }
+    }
+  });
+}
+
+function clearSearchFilter() {
+  _searchTextEls.forEach(({ el, original }) => _restoreNameText(el, original));
+  _searchTextEls.clear();
+  _searchHighlighted.forEach(row => row.classList.remove('legend-row-hl'));
+  _searchHighlighted.clear();
+  document.getElementById('legend-layer').classList.remove('search-active');
 }
 
 function updateCatFilterBtn() {
@@ -1134,11 +1765,111 @@ function updateCatFilterBtn() {
   }
 }
 
+let _morphing = false; // prevent both menus opening during morph transition
+
+function _switchToDropdown(closeId, openId) {
+  if (_morphing) return;
+  _morphing = true;
+  const closeDd = document.getElementById(closeId + '-dropdown');
+  const openDd  = document.getElementById(openId  + '-dropdown');
+  if (openId === 'mf') buildMfDropdown();
+
+  // Measure both rects before any mutations
+  const cr = closeDd.getBoundingClientRect();
+  openDd.style.display = 'flex'; openDd.style.visibility = 'hidden';
+  const or = openDd.getBoundingClientRect();
+  openDd.style.display = ''; openDd.style.visibility = '';
+
+  // Exit content: set transition this frame, change values next frame
+  const closeKids = [...closeDd.children];
+  closeKids.forEach(el => { el.style.transition = 'opacity 0.1s ease, transform 0.1s ease'; });
+  requestAnimationFrame(() => {
+    closeKids.forEach(el => { el.style.opacity = '0'; el.style.transform = 'translateY(-4px)'; });
+  });
+
+  setTimeout(() => {
+    closeKids.forEach(el => { el.style.transition = el.style.opacity = el.style.transform = ''; });
+
+    // FLIP morph panel: physically at destination size/position,
+    // but a CSS transform makes it APPEAR at the source size/position.
+    // Animating transform → identity = pure GPU morph, no layout recalculation.
+    const scaleX = cr.width  / or.width;
+    const scaleY = cr.height / or.height;
+    const tx     = cr.left   - or.left;
+    const ty     = cr.top    - or.top;
+
+    const morph = document.createElement('div');
+    morph.style.cssText = `
+      position:fixed; left:${or.left}px; top:${or.top}px;
+      width:${or.width}px; height:${or.height}px;
+      background:rgba(20,20,22,0.97);
+      border:1px solid rgba(255,255,255,0.12);
+      border-top-color:rgba(255,255,255,0.22);
+      border-radius:20px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.10),0 16px 48px rgba(0,0,0,0.72);
+      transform-origin:top left;
+      transform:translate(${tx}px,${ty}px) scaleX(${scaleX}) scaleY(${scaleY});
+      z-index:302; pointer-events:none;
+      transition:transform 0.30s cubic-bezier(0.4,0,0.1,1);
+    `;
+    document.body.appendChild(morph);
+
+    // Hide source dropdown (morph panel covers it — overlay stays active throughout)
+    closeDd.classList.remove('open', 'closing');
+    if (closeId === 'cat') document.getElementById('cat-filter-btn').classList.remove('open');
+    else                   document.getElementById('rh-mf-btn').classList.remove('open');
+    // Ensure overlay is active for the entire morph transition
+    document.getElementById('cat-list-overlay').classList.add('dd-open');
+
+    // Play: animate transform to identity → panel morphs to destination
+    void morph.offsetWidth;
+    morph.style.transform = 'translate(0,0) scaleX(1) scaleY(1)';
+
+    // Fire content the instant the panel reaches its final position — no fixed delay
+    morph.addEventListener('transitionend', function onMorphDone(e) {
+      if (e.propertyName !== 'transform') return;
+      morph.removeEventListener('transitionend', onMorphDone);
+      morph.remove();
+      openDd.classList.remove('closing');
+      openDd.style.animationDuration = '0s';
+      openDd.classList.add('open');
+      document.getElementById('cat-list-overlay').classList.add('dd-open');
+      if (openId === 'cat') document.getElementById('cat-filter-btn').classList.add('open');
+      else                  document.getElementById('rh-mf-btn').classList.add('open');
+
+      const openKids = [...openDd.children];
+      openKids.forEach(el => { el.style.opacity = '0'; el.style.transform = 'translateY(5px)'; });
+
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        let remaining = openKids.length || 1;
+        openKids.forEach((el, i) => {
+          el.style.transition = `opacity 0.14s ease ${i * 20}ms, transform 0.14s ease ${i * 20}ms`;
+          el.style.opacity = '1'; el.style.transform = 'translateY(0)';
+          el.addEventListener('transitionend', function h() {
+            el.removeEventListener('transitionend', h);
+            el.style.transition = el.style.opacity = el.style.transform = '';
+            if (--remaining === 0) openDd.style.animationDuration = '';
+          });
+        });
+        if (!openKids.length) openDd.style.animationDuration = '';
+      }));
+      _morphing = false;
+    });
+  }, 110);
+}
+
 function openCatDropdown() {
+  if (_morphing) return;
+  const mfDd = document.getElementById('mf-dropdown');
+  // Also intercept when mf is mid-close-animation (closing class, no open class)
+  if (mfDd.classList.contains('open') || mfDd.classList.contains('closing')) {
+    mfDd.classList.remove('closing'); // cancel in-progress close so morph has a clean element
+    _switchToDropdown('mf', 'cat'); return;
+  }
   const dd  = document.getElementById('cat-dropdown');
   const btn = document.getElementById('cat-filter-btn');
   dd.classList.remove('closing');
-  void dd.offsetWidth; // reflow — restarts animation if mid-close
+  void dd.offsetWidth;
   dd.classList.add('open');
   btn.classList.add('open');
   document.getElementById('cat-list-overlay').classList.add('dd-open');
@@ -1150,11 +1881,149 @@ function closeCatDropdown() {
   if (!dd.classList.contains('open')) return;
   dd.classList.add('closing');
   btn.classList.remove('open');
-  document.getElementById('cat-list-overlay').classList.remove('dd-open');
+  if (!document.getElementById('mf-dropdown').classList.contains('open'))
+    document.getElementById('cat-list-overlay').classList.remove('dd-open');
   dd.addEventListener('animationend', () => {
     dd.classList.remove('open', 'closing');
   }, { once: true });
 }
+
+// ── Sort ──────────────────────────────────────────────────────────────────────
+const SORT_MODES = [
+  { key:'id',          label:'Risk ID' },
+  { key:'score',       label:'Risk Score' },
+  { key:'severity',    label:'Severity' },
+  { key:'likelihood',  label:'Likelihood' },
+];
+function setSortMode(key) {
+  _listSort = key;
+  updateMfBtn();
+  rerender();
+  renderLegend();
+}
+
+// ── Multi-filter dropdown ─────────────────────────────────────────────────────
+function buildMfDropdown() {
+  const dd = document.getElementById('mf-dropdown');
+  dd.innerHTML = '';
+
+  const uniqueStatuses = [...new Set(RISKS.map(r => r.status).filter(Boolean))].sort();
+  const uniqueHealths  = [...new Set(RISKS.map(r => r.mitigation_health).filter(Boolean))].sort();
+
+  // ── Sort section ─────────────────────────────────────────────────────────
+  const sortLbl = document.createElement('div');
+  sortLbl.className = 'mf-section-label'; sortLbl.textContent = 'Sort By';
+  dd.appendChild(sortLbl);
+  SORT_MODES.forEach(mode => {
+    const row = document.createElement('div');
+    row.className = 'mf-row' + (_listSort === mode.key ? ' active' : '');
+    row.innerHTML = `<span class="mf-swatch"></span><span class="mf-label">${mode.label}</span>`;
+    row.addEventListener('click', e => {
+      e.stopPropagation();
+      setSortMode(mode.key);
+      // Refresh the active state on all sort rows
+      dd.querySelectorAll('.mf-row[data-sort]').forEach(r =>
+        r.classList.toggle('active', r.dataset.sort === mode.key));
+    });
+    row.dataset.sort = mode.key;
+    dd.appendChild(row);
+  });
+
+  const addSection = (title, items, filterSet) => {
+    if (!items.length) return;
+    const lbl = document.createElement('div');
+    lbl.className = 'mf-section-label'; lbl.textContent = title;
+    dd.appendChild(lbl);
+    items.forEach(val => {
+      const row = document.createElement('div');
+      row.className = 'mf-row' + (filterSet.has(val) ? ' active' : '');
+      row.innerHTML = `<span class="mf-swatch"></span><span class="mf-label">${val}</span>`;
+      row.addEventListener('click', e => { e.stopPropagation();
+        // Capture prev and mutate state synchronously, then defer work to next frame
+        // so in-progress Web Animations can render their frame before new JS blocks the thread
+        const prev = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+        filterSet.has(val) ? filterSet.delete(val) : filterSet.add(val);
+        row.classList.toggle('active', filterSet.has(val));
+        requestAnimationFrame(() => {
+          updateMfBtn(); updateFilterChip();
+          _applyFilterWithAnimation(prev);
+        });
+      });
+      dd.appendChild(row);
+    });
+  };
+
+  // Overdue toggle
+  const lbl0 = document.createElement('div');
+  lbl0.className = 'mf-section-label'; lbl0.textContent = 'Review';
+  dd.appendChild(lbl0);
+  const ovRow = document.createElement('div');
+  ovRow.className = 'mf-row' + (_activeFilters.overdue ? ' active' : '');
+  ovRow.innerHTML = `<span class="mf-swatch"></span><span class="mf-label">Overdue only</span>`;
+  ovRow.addEventListener('click', e => { e.stopPropagation();
+    const prev = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+    _activeFilters.overdue = !_activeFilters.overdue;
+    ovRow.classList.toggle('active', _activeFilters.overdue);
+    requestAnimationFrame(() => {
+      updateMfBtn(); updateFilterChip();
+      _applyFilterWithAnimation(prev);
+    });
+  });
+  dd.appendChild(ovRow);
+
+  const uniqueQuarters = [...new Set(RISKS.map(r => r.quarter).filter(Boolean))].sort();
+  addSection('Quarter',           uniqueQuarters, _activeFilters.quarter);
+  addSection('Risk Status',       uniqueStatuses, _activeFilters.status);
+  addSection('Mitigation Health', uniqueHealths,  _activeFilters.health);
+}
+
+function updateMfBtn() {
+  const filterActive = _activeFilters.status.size + _activeFilters.health.size + (_activeFilters.overdue ? 1 : 0);
+  const sortActive   = _listSort !== 'id';
+  const totalActive  = filterActive + (sortActive ? 1 : 0);
+  document.getElementById('rh-mf-btn').classList.toggle('filtered', totalActive > 0);
+  // Label stays "Filters" always — badge communicates count
+  document.getElementById('rh-mf-label').textContent = 'Filters';
+  const badge = document.getElementById('rh-mf-badge');
+  badge.textContent = totalActive;
+  badge.classList.toggle('visible', totalActive > 0);
+}
+
+function openMfDropdown() {
+  if (_morphing) return;
+  const catDd = document.getElementById('cat-dropdown');
+  if (catDd.classList.contains('open') || catDd.classList.contains('closing')) {
+    catDd.classList.remove('closing');
+    _switchToDropdown('cat', 'mf'); return;
+  }
+  const dd = document.getElementById('mf-dropdown');
+  buildMfDropdown();
+  dd.classList.remove('closing');
+  void dd.offsetWidth;
+  dd.classList.add('open');
+  document.getElementById('rh-mf-btn').classList.add('open');
+  document.getElementById('cat-list-overlay').classList.add('dd-open'); // shared overlay
+}
+
+function closeMfDropdown() {
+  const dd = document.getElementById('mf-dropdown');
+  if (!dd.classList.contains('open')) return;
+  dd.classList.add('closing');
+  document.getElementById('rh-mf-btn').classList.remove('open');
+  // Only remove overlay if cat-dropdown is also closed
+  if (!document.getElementById('cat-dropdown').classList.contains('open'))
+    document.getElementById('cat-list-overlay').classList.remove('dd-open');
+  dd.addEventListener('animationend', () => dd.classList.remove('open','closing'), { once: true });
+}
+
+function toggleMfDropdown(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('mf-dropdown');
+  dd.classList.contains('open') ? closeMfDropdown() : openMfDropdown();
+}
+
+// Close mf dropdown on outside click
+document.addEventListener('click', () => closeMfDropdown());
 
 function buildCatDropdown() {
   const dd = document.getElementById('cat-dropdown');
@@ -1163,9 +2032,8 @@ function buildCatDropdown() {
     const row = document.createElement('div');
     row.className = 'cat-dd-row' + (_hiddenCatColors.has(col) ? ' off' : '');
     row.innerHTML =
-      `<span class="cat-dd-dot" style="background:${col}"></span>` +
-      `<span class="cat-dd-label" style="color:${col}">${label}</span>` +
-      `<span class="cat-dd-check">✓</span>`;
+      `<span class="cat-dd-swatch" style="--swatch-col:${col}"></span>` +
+      `<span class="cat-dd-label">${label}</span>`;
     catKeyElByColor[col] = row;
     row.addEventListener('click', e => {
       e.stopPropagation();
@@ -1232,6 +2100,16 @@ function positionRiskHeader() {
   bar.style.setProperty('--rh-dd-pad-h',  Math.max(12, Math.round(h * 0.30)) + 'px');
   bar.style.setProperty('--rh-dd-min-w',  Math.max(210, Math.round(300 * scale)) + 'px');
 
+  // Size rh-mf-btn to match cat-filter-btn using same CSS vars (already set above)
+  // Size search button to match cat-filter-btn height exactly — reads offsetHeight
+  // after CSS vars are applied (forces reflow, guaranteeing accurate measurement)
+  const catBtnH = document.getElementById('cat-filter-btn').offsetHeight;
+  const sb = document.getElementById('rh-search-btn');
+  sb.style.width        = catBtnH + 'px';
+  sb.style.height       = catBtnH + 'px';
+  sb.style.padding      = '0';
+  sb.style.borderRadius = '50%';
+
   // Size the cat-filter overlay to cover the card body (everything below the header bar)
   const overlay = document.getElementById('cat-list-overlay');
   overlay.style.left         = cardLeft + 'px';
@@ -1254,11 +2132,21 @@ function positionRiskHeader() {
 // ── Legend ────────────────────────────────────────────────────────────────────
 function renderLegend() {
   const layer = document.getElementById('legend-layer');
+  // Clear previous content and stale map references before rebuilding —
+  // without this, old detached DOM nodes accumulate on every call
+  while (layer.firstChild) layer.removeChild(layer.firstChild);
+  Object.keys(legendRowByRiskId).forEach(k => delete legendRowByRiskId[k]);
+
   const lx    = LEG_X;
 
-  const sorted = [...RISKS].sort((a,b) =>
-    parseInt(a.id.replace(/\D/g,''),10) - parseInt(b.id.replace(/\D/g,''),10)
-  );
+  const sorted = [...RISKS].filter(r => _isRiskVisible(r)).sort((a, b) => {
+    switch (_listSort) {
+      case 'score':      return (b.likelihood * b.severity) - (a.likelihood * a.severity);
+      case 'severity':   return b.severity   - a.severity;
+      case 'likelihood': return b.likelihood - a.likelihood;
+      default:           return parseInt(a.id.replace(/\D/g,''),10) - parseInt(b.id.replace(/\D/g,''),10);
+    }
+  });
 
   // Card sizing — fills from graph-top to graph-bottom
   const CARD_PADX = 40;
@@ -1330,16 +2218,19 @@ function renderLegend() {
       rowG.classList.add('legend-row-hl');
       const dg = dotGroupByRiskId[r.id];
       if (dg) dg.classList.add('dot-force-highlight');
-      dimLegend(true);
+      if (!_spotlightOwner) dimLegend(true);
+      clearTimeout(_panDelay);
       _panDelay = setTimeout(() => panToRisk(r), 500);
     });
     rowG.addEventListener('mouseleave', () => {
       _activeLegendRows.delete(r.id);
       clearTimeout(_panDelay); _panDelay = null;
+      // Keep highlight/dim if spotlight is active for this risk
+      if (_spotlightOwner && _isSpotlightRisk(r)) return;
       rowG.classList.remove('legend-row-hl');
       const dg = dotGroupByRiskId[r.id];
       if (dg) dg.classList.remove('dot-force-highlight');
-      dimLegend(false);
+      if (!_spotlightOwner) dimLegend(false);
     });
     rowG.addEventListener('click', () => {
       const grp = dotRisksGroupById[r.id];
@@ -1349,7 +2240,7 @@ function renderLegend() {
     });
     y += RISK_H;
   });
-
+  _reapplySpotlight(); // restore spotlight highlights on newly created row elements
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -1360,12 +2251,20 @@ let _tipSeq = 0;
 function showTip(e, risks) {
   const l = risks[0]?.likelihood ?? 0;
   const s = risks[0]?.severity   ?? 0;
+  const isOverdue    = risks.some(r => String(r.review_overdue).toLowerCase() === 'true');
+  const isPoorHealth = risks.some(r => { const h=(r.mitigation_health||'').toLowerCase(); return h.includes('risk')||h.includes('behind'); });
+  const alerts = [
+    isOverdue    ? `<div class="tt-alert overdue">⚠ Review Overdue</div>` : '',
+    isPoorHealth ? `<div class="tt-alert health">↓ Mitigation Behind</div>` : '',
+  ].join('');
+
   TIP.innerHTML = risks.map(r =>
     `<div class="tt-row"><span class="tt-id" style="color:${catColor(r.category||'')}">${r.id}</span><span class="tt-nm">${r.name}</span></div>`
   ).join('') + `<div class="tt-div"></div>
   <div class="tt-stat">Likelihood: <span class="tt-val">${snap(l).toFixed(1)}</span>
     &nbsp;|&nbsp; Severity: <span class="tt-val">${snap(s).toFixed(1)}</span></div>
-  <div class="tt-stat">Risk Score: <span class="tt-val">${(snap(l)*snap(s)).toFixed(2)}</span></div>`;
+  <div class="tt-stat">Risk Score: <span class="tt-val">${(snap(l)*snap(s)).toFixed(2)}</span></div>
+  ${alerts}`;
   moveTip(e);  // position while invisible so it won't jump when it appears
   const seq = ++_tipSeq;
   // setTimeout for wall-clock delay (refresh-rate independent), then rAF to land
@@ -1424,7 +2323,7 @@ function openModal(risks, initialTab) {
   hideTip();
   _activeTabIdx = null;  // reset so first switchModalTab call skips animation
   const allRisks = risks.map(r => RISKS.find(fr => fr.id === r.id) || r);
-  _modalRisks = allRisks.filter(r => !_hiddenCatColors.has(catColor(r.category || '')));
+  _modalRisks = allRisks.filter(r => _isRiskVisible(r));
   if (!_modalRisks.length) return;
   // Adjust initialTab to point to the same risk in filtered array
   if (initialTab != null && allRisks[initialTab]) {
@@ -1459,20 +2358,410 @@ function openModal(risks, initialTab) {
 
   switchModalTab(initialTab || 0);
   document.getElementById('risk-modal').classList.add('open');
+  // Re-snap indicator after the modal becomes display:flex — getBoundingClientRect
+  // returns zeros while the modal is still display:none, so we must measure again
+  // on the next frame when layout is available.
+  requestAnimationFrame(() => _updateIndicator(true));
 }
 
+// ── Owner spotlight ───────────────────────────────────────────────────────────
+function _isSpotlightRisk(r) {
+  if (!_spotlightOwner) return false;
+  return [r.owner, r.elt_owner, r.managers, r.other_managers]
+    .some(f => f && f.split(',').map(s => s.trim()).includes(_spotlightOwner));
+}
+
+function _reapplySpotlight() {
+  if (!_spotlightOwner) return;
+  // Re-apply dot and row highlights after any rerender/renderLegend that wipes them
+  const matchIds = new Set(RISKS.filter(r => _isSpotlightRisk(r)).map(r => r.id));
+  Object.entries(dotGroupByRiskId).forEach(([id, dg]) =>
+    dg.classList.toggle('dot-force-highlight', matchIds.has(id)));
+  Object.entries(legendRowByRiskId).forEach(([id, row]) =>
+    row.classList.toggle('legend-row-hl', matchIds.has(id)));
+  if (_dimCount === 0) dimLegend(true); // restore if rerender reset it
+}
+
+function activateSpotlight(ownerName) {
+  _spotlightOwner = ownerName;
+  // Close the modal first so the chart is visible
+  closeModal();
+  // Apply after the modal close animation completes (0.20s)
+  setTimeout(() => {
+    const matchIds = new Set(
+      RISKS.filter(r =>
+        [r.owner, r.elt_owner, r.managers, r.other_managers]
+          .some(f => f && f.split(',').map(s => s.trim()).includes(ownerName))
+      ).map(r => r.id)
+    );
+    Object.entries(dotGroupByRiskId).forEach(([id, dg]) => {
+      dg.classList.toggle('dot-force-highlight', matchIds.has(id));
+    });
+    Object.entries(legendRowByRiskId).forEach(([id, row]) => {
+      row.classList.toggle('legend-row-hl', matchIds.has(id));
+    });
+    dimLegend(true);
+    document.getElementById('spotlight-chip-label').textContent = ownerName;
+    document.getElementById('spotlight-chip').classList.add('visible');
+  }, 230);
+}
+
+function clearSpotlight() {
+  if (!_spotlightOwner) return;
+  _spotlightOwner = null;
+  Object.values(dotGroupByRiskId).forEach(dg => dg.classList.remove('dot-force-highlight'));
+  Object.values(legendRowByRiskId).forEach(row => row.classList.remove('legend-row-hl'));
+  dimLegend(false);
+  document.getElementById('spotlight-chip').classList.remove('visible');
+}
+
+function updateFilterChip() {
+  const n = _activeFilters.status.size + _activeFilters.health.size +
+            _activeFilters.quarter.size + (_activeFilters.overdue ? 1 : 0);
+  const chip = document.getElementById('filter-chip');
+  if (!n) {
+    chip.classList.remove('visible', 'clickable');
+    closeFilterChipMenu();
+    return;
+  }
+  let label;
+  const isSpecific = n === 1;
+  if (isSpecific) {
+    if (_activeFilters.overdue)           label = 'Overdue Only';
+    else if (_activeFilters.status.size)  label = [..._activeFilters.status][0];
+    else if (_activeFilters.health.size)  label = [..._activeFilters.health][0];
+    else if (_activeFilters.quarter.size) label = [..._activeFilters.quarter][0];
+    else                                  label = '1 Filter Active';
+  } else {
+    label = `${n} Filters Active`;
+  }
+  document.getElementById('filter-chip-label').textContent = label;
+  chip.classList.add('visible');
+  // Generic count → clickable to show detail menu; specific → not clickable
+  chip.classList.toggle('clickable', !isSpecific);
+  // If menu is open and count changed, rebuild it
+  if (document.getElementById('filter-chip-menu').classList.contains('open'))
+    _buildFilterChipMenu();
+}
+
+// ── Active filter detail menu ─────────────────────────────────────────────────
+let _fcmOpen = false;
+
+function _buildFilterChipMenu() {
+  const menu = document.getElementById('filter-chip-menu');
+  menu.innerHTML = '';
+  const FONT = `font-family:var(--antenna);font-size:15px;`;
+
+  const addSection = (title, items, removeOne) => {
+    if (!items.length) return;
+    const hdr = document.createElement('div');
+    hdr.className = 'fcm-header'; hdr.textContent = title;
+    menu.appendChild(hdr);
+    items.forEach(val => {
+      const row = document.createElement('div'); row.className = 'fcm-row';
+      const lbl = document.createElement('span'); lbl.className = 'fcm-label';
+      lbl.textContent = val; row.appendChild(lbl);
+      const x = document.createElement('button'); x.className = 'fcm-x'; x.textContent = '✕';
+      x.addEventListener('click', e => { e.stopPropagation(); removeOne(val); });
+      row.appendChild(x); menu.appendChild(row);
+    });
+  };
+
+  if (_activeFilters.overdue) {
+    const hdr = document.createElement('div'); hdr.className = 'fcm-header'; hdr.textContent = 'Review';
+    menu.appendChild(hdr);
+    const row = document.createElement('div'); row.className = 'fcm-row';
+    const lbl = document.createElement('span'); lbl.className = 'fcm-label'; lbl.textContent = 'Overdue Only';
+    row.appendChild(lbl);
+    const x = document.createElement('button'); x.className = 'fcm-x'; x.textContent = '✕';
+    x.addEventListener('click', e => { e.stopPropagation();
+      const prev = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+      _activeFilters.overdue = false; updateFilterChip(); updateMfBtn();
+      requestAnimationFrame(() => _applyFilterWithAnimation(prev));
+    });
+    row.appendChild(x); menu.appendChild(row);
+  }
+  addSection('Status', [..._activeFilters.status], val => {
+    const prev = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+    _activeFilters.status.delete(val); updateFilterChip(); updateMfBtn();
+    requestAnimationFrame(() => _applyFilterWithAnimation(prev));
+  });
+  addSection('Health', [..._activeFilters.health], val => {
+    const prev = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+    _activeFilters.health.delete(val); updateFilterChip(); updateMfBtn();
+    requestAnimationFrame(() => _applyFilterWithAnimation(prev));
+  });
+  addSection('Quarter', [..._activeFilters.quarter], val => {
+    const prev = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+    _activeFilters.quarter.delete(val); updateFilterChip(); updateMfBtn();
+    requestAnimationFrame(() => _applyFilterWithAnimation(prev));
+  });
+}
+
+function openFilterChipMenu() {
+  const menu = document.getElementById('filter-chip-menu');
+  const chip = document.getElementById('filter-chip');
+  _buildFilterChipMenu();
+  if (!menu.children.length) return;
+  const cr = chip.getBoundingClientRect();
+  menu.style.left = cr.left + 'px';
+  menu.style.bottom = (window.innerHeight - cr.top + 8) + 'px';
+  menu.style.top = 'auto';
+  menu.classList.remove('open'); void menu.offsetWidth;
+  menu.classList.add('open');
+  _fcmOpen = true;
+}
+
+function closeFilterChipMenu() {
+  document.getElementById('filter-chip-menu').classList.remove('open');
+  _fcmOpen = false;
+}
+
+// Wire up chip click
+document.getElementById('filter-chip').addEventListener('click', () => {
+  if (!document.getElementById('filter-chip').classList.contains('clickable')) return;
+  _fcmOpen ? closeFilterChipMenu() : openFilterChipMenu();
+});
+
+// Close on outside click
+document.addEventListener('click', e => {
+  if (!_fcmOpen) return;
+  const menu = document.getElementById('filter-chip-menu');
+  const chip = document.getElementById('filter-chip');
+  if (!menu.contains(e.target) && !chip.contains(e.target)) closeFilterChipMenu();
+});
+
+function clearAllFilters() {
+  const prev = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+  _activeFilters.status.clear();
+  _activeFilters.health.clear();
+  _activeFilters.quarter.clear();
+  _activeFilters.overdue = false;
+  updateFilterChip();
+  updateMfBtn();
+  _applyFilterWithAnimation(prev);
+}
+
+
+// Page tab clicks — delegate from the modal box so it works after re-renders
+document.getElementById('risk-modal-box').addEventListener('click', e => {
+  // Owner spotlight button
+  const sBtn = e.target.closest('.spotlight-btn');
+  if (sBtn) { activateSpotlight(sBtn.dataset.spotlight); return; }
+  // Page tab
+  const btn = e.target.closest('.mpn-btn');
+  if (!btn) return;
+  const page = +btn.dataset.page;
+  if (page === _modalPage) return;
+  const box = document.getElementById('risk-modal-box');
+  const pinnedH = box.offsetHeight;
+  box.style.transition = 'none';
+  box.style.height = pinnedH + 'px';
+  _setModalPage(page, true);
+  _animateBoxToAutoHeight(box, pinnedH);
+});
+
 let _activeTabIdx = null;  // null = modal not currently shown
+
+let _modalPage = 0;
+
+function _renderContacts(name, email) {
+  if (!name) return '—';
+  if (!email) return name;
+  const names  = name.split(',').map(s => s.trim()).filter(Boolean);
+  const emails = email.split(',').map(s => s.trim()).filter(Boolean);
+  return names.map((n, i) => {
+    const e = emails[i] || emails[0] || '';
+    return e ? `<a class="contact-link" href="mailto:${e}">${n}</a>` : n;
+  }).join(', ');
+}
+
+function _field(label, value) {
+  if (!value || value === 'None') return '';
+  return `<div class="modal-field">
+    <div class="modal-label">${label}</div>
+    <div class="modal-value">${value}</div>
+  </div>`;
+}
+
+function _badge(text) {
+  if (!text || text === 'None') return '—';
+  const t = text.toLowerCase();
+  const cls = t.includes('overdue') || t.includes('at risk') || t === 'true'   ? 'red'
+            : t.includes('on track') || t.includes('complete') || t === 'false' ? 'green'
+            : t.includes('monitor') || t.includes('behind')                     ? 'yellow'
+            : 'grey';
+  return `<span class="modal-badge ${cls}">${text}</span>`;
+}
+
+function _scoreCell(label, value, color) {
+  const v = value || '—';
+  return `<div class="modal-data-cell">
+    <div class="modal-label">${label}</div>
+    <div class="modal-value" style="${color ? 'color:'+color : ''}">${v}</div>
+  </div>`;
+}
+
+function _buildPageContent(r, page) {
+  if (page === 0) {
+    // ── Overview ──────────────────────────────────────────────────────────────
+    return [
+      _field('Definition',          r.definition),
+      _field('Risk Status',         r.status),
+      _field('Action Plan Status',  r.action_status),
+      _field('Control Effectiveness', r.control_eff),
+      _field('Risk Level',          r.risk_level),
+    ].filter(Boolean).join('') || '<div class="modal-value">No overview data available.</div>';
+  }
+
+  if (page === 1) {
+    // ── Risk Data ─────────────────────────────────────────────────────────────
+    const l = r.likelihood != null ? snap(r.likelihood).toFixed(1) : '—';
+    const s = r.severity   != null ? snap(r.severity).toFixed(1)   : '—';
+    const score = (r.likelihood != null && r.severity != null)
+      ? (snap(r.likelihood) * snap(r.severity)).toFixed(2) : r.risk_score || '—';
+
+    const inherent = `
+      <div class="modal-section-head">Inherent Risk</div>
+      <div class="modal-data-grid">
+        ${_scoreCell('Likelihood', l)}
+        ${_scoreCell('Severity',   s)}
+        ${_scoreCell('Risk Score', score)}
+      </div>`;
+
+    const residual = (r.residual_likelihood || r.residual_impact || r.residual_score)
+      ? `<div class="modal-section-head">Residual Risk</div>
+         <div class="modal-data-grid">
+           ${_scoreCell('Likelihood', r.residual_likelihood)}
+           ${_scoreCell('Impact',     r.residual_impact)}
+           ${_scoreCell('Score',      r.residual_score)}
+         </div>`
+      : '';
+
+    const isOverdueFlag = String(r.review_overdue).toLowerCase() === 'true';
+    const reviewOverdue = isOverdueFlag ? _badge('Overdue') : r.review_overdue === 'false' ? _badge('On Track') : '';
+    const overdueTriangle = isOverdueFlag
+      ? `<button class="overdue-tri" title="Overdue for review">
+           <svg width="16" height="14" viewBox="0 0 16 14" fill="none">
+             <polygon points="8,1 15,13 1,13" fill="#E53935"/>
+             <text x="8" y="11.5" text-anchor="middle" fill="white"
+               font-size="7.5" font-weight="900" font-family="Arial,sans-serif">!</text>
+           </svg>
+           <span class="overdue-tip">This item is overdue for review</span>
+         </button>`
+      : '';
+    const reviewBlock = (r.review_date || r.last_reviewed)
+      ? `<div class="modal-section-head">Review</div>
+         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+           ${r.review_date ? `<div class="modal-field">
+             <div class="modal-label">Scheduled</div>
+             <div class="modal-value ${isOverdueFlag ? 'overdue-date' : ''}">
+               ${r.review_date}
+             </div></div>` : ''}
+           ${r.last_reviewed ? _field('Last Reviewed', r.last_reviewed) : ''}
+         </div>
+         ${reviewOverdue ? `<div class="modal-field"><div class="modal-label">Status</div><div class="modal-value">${reviewOverdue}</div></div>` : ''}`
+      : '';
+
+    return inherent + residual + reviewBlock;
+  }
+
+  if (page === 2) {
+    // ── Ownership & Mitigation ────────────────────────────────────────────────
+    const pct     = parseFloat(r.mitigation_pct) || 0;
+    const total   = r.tasks_total || '—';
+    const done    = r.tasks_done  || '—';
+
+    const _spotBtn = name => name
+      ? name.split(',').map(n => n.trim()).filter(Boolean)
+             .map(n => `<button class="spotlight-btn" data-spotlight="${n.replace(/"/g,'&quot;')}">${n}</button>`)
+             .join(', ')
+      : '—';
+    const ownership = `
+      <div class="modal-section-head">Ownership</div>
+      ${r.elt_owner ? `<div class="modal-field"><div class="modal-label">ELT Owner</div><div class="modal-value">${_spotBtn(r.elt_owner)}</div></div>` : ''}
+      ${r.owner     ? `<div class="modal-field"><div class="modal-label">Risk Owner</div><div class="modal-value">${_spotBtn(r.owner)}</div></div>` : ''}
+      ${r.managers  ? `<div class="modal-field"><div class="modal-label">Manager(s)</div><div class="modal-value">${_spotBtn(r.managers)}</div></div>` : ''}
+      ${r.other_managers ? `<div class="modal-field"><div class="modal-label">Other Managers</div><div class="modal-value">${_spotBtn(r.other_managers)}</div></div>` : ''}`;
+
+    const mitigation = `
+      <div class="modal-section-head">Mitigation</div>
+      ${r.mitigation_health ? `<div class="modal-field"><div class="modal-label">Health</div><div class="modal-value">${_badge(r.mitigation_health)}</div></div>` : ''}
+      ${r.mitigation_pct !== undefined && r.mitigation_pct !== '' ? `
+        <div class="modal-field">
+          <div class="modal-label">Completion — ${Math.round(pct)}%
+            ${total !== '—' ? `<span style="color:var(--allegion-muted);font-weight:400;text-transform:none">&nbsp;(${done}/${total} tasks)</span>` : ''}
+          </div>
+          <div class="modal-progress-track">
+            <div class="modal-progress-fill" style="width:${Math.min(100,pct)}%"></div>
+          </div>
+        </div>` : ''}`;
+
+    return ownership + mitigation;
+  }
+  return '';
+}
+
+function _updateIndicator(instant) {
+  const nav = document.getElementById('modal-page-nav');
+  const activeBtn = nav && nav.querySelector('.mpn-btn.active');
+  const indicator = document.getElementById('mpn-indicator');
+  if (!activeBtn || !indicator) return;
+  const navRect = nav.getBoundingClientRect();
+  const btnRect = activeBtn.getBoundingClientRect();
+  const left  = btnRect.left - navRect.left;
+  const width = btnRect.width;
+  if (instant) {
+    indicator.classList.add('instant');
+    indicator.style.left  = left + 'px';
+    indicator.style.width = width + 'px';
+    void indicator.offsetWidth; // flush so transition re-arms after class removal
+    indicator.classList.remove('instant');
+  } else {
+    indicator.style.left  = left + 'px';
+    indicator.style.width = width + 'px';
+  }
+}
+
+function _setModalPage(page, animate) {
+  _modalPage = page;
+  // Update active button
+  const r   = _modalRisks[_activeTabIdx ?? 0] || {};
+  const _isOD = String(r.review_overdue).toLowerCase() === 'true';
+  document.querySelectorAll('.mpn-btn').forEach(b => {
+    b.classList.toggle('active', +b.dataset.page === page);
+    if (+b.dataset.page === 1) b.classList.toggle('tab-overdue', _isOD);
+  });
+  _updateIndicator(false); // slide to new tab
+  const area = document.getElementById('modal-page-area');
+  area.innerHTML = _buildPageContent(r, page);
+  if (animate) {
+    area.classList.remove('page-in');
+    void area.offsetWidth;
+    area.classList.add('page-in');
+    area.addEventListener('animationend', () => area.classList.remove('page-in'), { once: true });
+  }
+}
 
 function _updateModalContent(idx) {
   const r = _modalRisks[idx] || {};
   const idEl = document.getElementById('risk-modal-id');
   idEl.textContent = r.id || '';
   idEl.style.color = catColor(r.category || '');
-  document.getElementById('risk-modal-name').textContent  = r.name       || '';
-  document.getElementById('modal-definition').textContent = r.definition || '—';
-  document.getElementById('modal-status').textContent     = r.status     || '—';
-  document.getElementById('modal-owner').textContent      = r.owner      || '—';
-  document.getElementById('modal-managers').textContent   = r.managers   || '—';
+  document.getElementById('risk-modal-name').textContent = r.name || '';
+  // Reset page nav to Overview, colour tabs to match this risk's category
+  _modalPage = 0;
+  const col = catColor(r.category || '') || '#FF671F';
+  document.getElementById('modal-page-nav').style.setProperty('--mpn-color', col);
+  const isOverdue = String(r.review_overdue).toLowerCase() === 'true';
+  document.querySelectorAll('.mpn-btn').forEach(b => {
+    b.classList.toggle('active', +b.dataset.page === 0);
+    if (+b.dataset.page === 1) b.classList.toggle('tab-overdue', isOverdue);
+  });
+  const area = document.getElementById('modal-page-area');
+  area.innerHTML = _buildPageContent(r, 0);
+  area.classList.remove('page-in');
+  _updateIndicator(true); // snap indicator to Overview without animating
 }
 
 function switchModalTab(idx) {
@@ -1501,7 +2790,10 @@ function switchModalTab(idx) {
   const sweep = document.getElementById('modal-sep-sweep');
 
   if (isFirstRender) {
-    // No animation on initial open — set directly
+    // No animation on initial open — set directly and wipe any frozen sweep
+    // state left over from a modal that was closed mid-animation
+    sweep.classList.remove('sweeping');
+    sweep.style.cssText = '';  // clear background, transform, transition all at once
     sep.style.setProperty('--sep-color', newColor);
     _updateModalContent(idx);
     return;
@@ -1577,13 +2869,32 @@ function closeModal() {
 
 // Keyboard: Escape closes, Left/Right arrows switch tabs
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (_fcmOpen) { closeFilterChipMenu(); return; }
+    if (_spotlightOwner) { clearSpotlight(); return; }
+    if (_searchActive) { closeSearch(); return; }
+    if (document.getElementById('risk-modal').classList.contains('open')) closeModal();
+    return;
+  }
   if (!document.getElementById('risk-modal').classList.contains('open')) return;
-  if (e.key === 'Escape') { closeModal(); return; }
   const tabs = document.querySelectorAll('.modal-tab');
   if (!tabs.length) return;
   const cur = [...tabs].findIndex(t => t.classList.contains('active'));
   if (e.key === 'ArrowRight') switchModalTab((cur + 1) % _modalRisks.length);
   if (e.key === 'ArrowLeft')  switchModalTab((cur - 1 + _modalRisks.length) % _modalRisks.length);
+});
+
+// Search input — filter on every keystroke
+document.getElementById('rh-search-input').addEventListener('input', e => {
+  applySearchFilter(e.target.value.trim());
+});
+
+// Click outside search bar closes it
+document.addEventListener('click', e => {
+  if (!_searchActive) return;
+  if (document.getElementById('rh-search-bar').contains(e.target)) return;
+  if (document.getElementById('rh-search-btn').contains(e.target)) return;
+  closeSearch();
 });
 
 // Renders moved to after event listeners — see bottom of script
@@ -1612,12 +2923,17 @@ function positionCtrl() {
   const offsetX = (r.width  - 1300 * scale) / 2;
   const offsetY = (r.height - 780  * scale) / 2;
   const ctrl = document.getElementById('zoom-ctrl');
-  ctrl.style.left      = (r.left + offsetX + 430 * scale) + 'px';
-  // Pin 10px below the "Likelihood" label (SVG y=734), clamped so it never leaves view
-  const pillTop = r.top + offsetY + 734 * scale + 10;
-  ctrl.style.top    = Math.min(pillTop, window.innerHeight - 50) + 'px';
-  ctrl.style.bottom = 'auto';
+  const pillLeft = r.left + offsetX + 430 * scale;
+  const pillTop  = Math.min(r.top + offsetY + 734 * scale + 10, window.innerHeight - 50);
+  ctrl.style.left      = pillLeft + 'px';
+  ctrl.style.top       = pillTop + 'px';
+  ctrl.style.bottom    = 'auto';
   ctrl.style.transform = 'translateX(-50%)';
+  // Position the chips container — centred on the pill, stacks upward
+  const chips = document.getElementById('active-chips');
+  chips.style.left      = (pillLeft - ctrl.offsetWidth / 2) + 'px';
+  chips.style.top       = 'auto';
+  chips.style.bottom    = (window.innerHeight - pillTop + 10) + 'px';
 }
 
 function updateResetBtn() {
@@ -1640,6 +2956,7 @@ function rerender() {
   renderRisks();
   positionCtrl();
   _reapplyLegendHighlights();
+  _reapplySpotlight();
 }
 
 // Labels fade out at zoom start; 50ms debounce before fade-in so rapid scroll
