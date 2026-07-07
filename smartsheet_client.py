@@ -24,6 +24,66 @@ except ImportError:
 
 _REQUIRED = ["Risk ID", "Risk Name", "Overall Likelihood", "Overall Severity"]
 
+_TASK_SHEET_NAME = "Mitigation Tasks"
+
+
+def get_task_data() -> dict[str, list[dict]]:
+    """Return tasks grouped by Risk ID: { 'R01': [{...}, ...], 'R02': [...], ... }"""
+    client = smartsheet.Smartsheet(os.environ["SMARTSHEET_ACCESS_TOKEN"])
+    client.errors_as_exceptions(True)
+
+    response = client.Sheets.list_sheets(include_all=True)
+    sheet_id = next(
+        (s.id for s in response.data if s.name == _TASK_SHEET_NAME), None
+    )
+    if sheet_id is None:
+        return {}
+
+    sheet = client.Sheets.get_sheet(sheet_id)
+    col_map = {col.title: col.id for col in sheet.columns}
+
+    def _val(cell_by_col, col_name: str) -> str:
+        raw = cell_by_col.get(col_map.get(col_name, -1))
+        return str(raw).strip() if raw is not None and raw != "" else ""
+
+    tasks_by_risk: dict[str, list[dict]] = {}
+    for row in sheet.rows:
+        cell_by_col = {cell.column_id: cell.value for cell in row.cells}
+
+        risk_id = _val(cell_by_col, "Risk ID")
+        if not risk_id:
+            continue
+
+        # Progress % comes as a decimal (0.75 = 75%) — convert to int percentage
+        raw_pct = cell_by_col.get(col_map.get("Progress %", -1))
+        try:
+            progress = int(float(raw_pct) * 100)
+        except (TypeError, ValueError):
+            progress = None
+
+        task = {
+            "task":               _val(cell_by_col, "Mitigation Task"),
+            "task_status":        _val(cell_by_col, "Task Status"),
+            "managers":           _val(cell_by_col, "Risk Manager(s)"),
+            "responsible":        _val(cell_by_col, "Responsible"),
+            "status":             _val(cell_by_col, "Status"),
+            "progress":           progress,
+            "start_date":         _val(cell_by_col, "Start Date"),
+            "target_date":        _val(cell_by_col, "Target Date"),
+            "trend":              _val(cell_by_col, "Trend Towards Target"),
+            "trend_analysis":     _val(cell_by_col, "Trend Analysis"),
+            "mitigation_strategy": _val(cell_by_col, "Mitigation Strategy"),
+            "definition":         _val(cell_by_col, "Definition"),
+            "severity":           cell_by_col.get(col_map.get("Severity",  -1)),
+            "likelihood":         cell_by_col.get(col_map.get("Likelihood", -1)),
+            "mitigation_type":    _val(cell_by_col, "Mitigation Type"),
+            "gov_compliance":     _val(cell_by_col, "Governance/Compliance Risk"),
+        }
+
+        tasks_by_risk.setdefault(risk_id, []).append(task)
+
+    return tasks_by_risk
+
 
 def get_risk_data() -> list[dict]:
     client = smartsheet.Smartsheet(os.environ["SMARTSHEET_ACCESS_TOKEN"])

@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from smartsheet_client import get_risk_data
+from smartsheet_client import get_risk_data, get_task_data
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -21,6 +21,7 @@ def allow_embedding(response):
     return response
 
 _cache: dict = {"data": None, "ts": 0.0}
+_task_cache: dict = {"data": None, "ts": 0.0}
 CACHE_TTL = 300  # 5 minutes — avoids hammering the SmartSheet API
 
 
@@ -29,6 +30,13 @@ def _cached_risks() -> list[dict]:
         _cache["data"] = get_risk_data()
         _cache["ts"] = time.time()
     return _cache["data"]
+
+
+def _cached_tasks() -> dict:
+    if _task_cache["data"] is None or time.time() - _task_cache["ts"] > CACHE_TTL:
+        _task_cache["data"] = get_task_data()
+        _task_cache["ts"] = time.time()
+    return _task_cache["data"]
 
 
 @app.route("/")
@@ -46,10 +54,11 @@ def test_page():
 @app.route("/heatmap")
 def heatmap():
     risks = _cached_risks()
+    tasks = _cached_tasks()
     ts = _cache["ts"]
     dt = datetime.datetime.fromtimestamp(ts)
-    last_updated = dt.strftime('%d %b %Y, %H:%M') if ts else 'Unknown'
-    return render_template("heatmap.html", risks=risks, last_updated=last_updated)
+    last_updated = dt.strftime('%d %b %Y, %I:%M %p').replace(', 0', ', ') if ts else 'Unknown'
+    return render_template("heatmap.html", risks=risks, tasks=tasks, last_updated=last_updated)
 
 
 @app.route("/refresh")
@@ -57,6 +66,8 @@ def refresh():
     """Force a cache bust — useful after updating data in SmartSheet."""
     _cache["data"] = None
     _cache["ts"] = 0.0
+    _task_cache["data"] = None
+    _task_cache["ts"] = 0.0
     return redirect(url_for("heatmap"))
 
 

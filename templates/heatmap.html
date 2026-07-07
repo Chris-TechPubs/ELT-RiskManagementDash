@@ -141,7 +141,9 @@
       color: var(--allegion-text);
       border: 1px solid rgba(255,255,255,0.14);
       border-top-color: rgba(255,255,255,0.44);  /* bright top — thick glass edge */
-      border-radius: 20px; padding: 36px 44px; max-width: 700px; width: 90%;
+      border-radius: 20px; padding: 36px 44px; width: 90%; max-width: 740px;
+      max-height: calc(100vh - 60px); display: flex; flex-direction: column; overflow: hidden;
+      transition: width 0.35s cubic-bezier(0.16,1,0.3,1), max-width 0.35s cubic-bezier(0.16,1,0.3,1);
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.28),    /* inner top rim */
         inset 1px 0 0 rgba(255,255,255,0.09),    /* left side glint */
@@ -164,6 +166,7 @@
           transparent calc(100% - 80px), rgba(255,255,255,0.07) 100%);
       mix-blend-mode: screen;
     }
+    /* Tasks tab width is set dynamically via JS inline style based on task count */
     #risk-modal-close {
       position: absolute; top: 16px; right: 20px; background: none; border: none;
       color: var(--allegion-muted); font-size: 28px; cursor: pointer; line-height: 1;
@@ -227,7 +230,44 @@
       pointer-events: none;
     }
     #mpn-indicator.instant { transition: none; }
+    /* ── Sort bar — slides out from behind Tasks tab ─────────────────────────── */
+    #task-sort-bar {
+      display: flex; align-items: center; gap: 5px;
+      max-width: 0; overflow: hidden; opacity: 0; white-space: nowrap;
+      padding-left: 0;
+      transition: max-width 0.42s cubic-bezier(0.16,1,0.3,1),
+                  opacity 0.22s ease,
+                  padding-left 0.42s cubic-bezier(0.16,1,0.3,1);
+    }
+    #task-sort-bar.visible {
+      max-width: 300px; opacity: 1; padding-left: 10px;
+    }
+    .sort-btn {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+      font-family: var(--antenna); padding: 3px 10px; border-radius: 999px; cursor: pointer;
+      background: rgba(255,255,255,0.07); color: var(--allegion-muted);
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .sort-btn:hover { background: rgba(255,255,255,0.13); color: var(--allegion-text); }
+    .sort-btn.active {
+      background: rgba(255,255,255,0.12); color: var(--mpn-color, #FF671F);
+      border-color: rgba(255,255,255,0.18);
+    }
     /* ── Page area ───────────────────────────────────────────────────────────── */
+    /* Make modal-tab-content fill remaining box height and allow page-area to scroll */
+    #modal-tab-content {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;
+    }
+    #modal-page-area {
+      flex: 1; overflow-y: auto; min-height: 0; padding: 2px 0;
+    }
+    #modal-page-area::-webkit-scrollbar { width: 5px; }
+    #modal-page-area::-webkit-scrollbar-track { background: transparent; }
+    #modal-page-area::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2); border-radius: 999px;
+    }
     @keyframes pageAreaIn {
       from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -262,6 +302,238 @@
       background: linear-gradient(90deg, #8BC34A, #FF9800);
       transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
     }
+    /* ── Task cards (Tasks tab) ──────────────────────────────────────────────── */
+    .tasks-scroll-row {
+      display: flex; flex-direction: row; gap: 14px;
+      overflow-x: auto; overflow-y: visible;
+      /* Extra padding gives the pulse box-shadow room on all sides before the
+         scroll container clips it */
+      padding: 8px 10px 18px 4px;
+      align-items: flex-start;
+    }
+    /* Scrollbar — thick enough to grab, thin enough to stay subtle */
+    .tasks-scroll-row::-webkit-scrollbar { height: 7px; }
+    .tasks-scroll-row::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 999px; }
+    .tasks-scroll-row::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.28); border-radius: 999px;
+    }
+    .tasks-scroll-row::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.45); }
+    .task-card {
+      flex: 0 0 340px;          /* fixed width — doesn't grow or shrink */
+      background: rgba(255,255,255,0.05); border: 1px solid var(--allegion-border);
+      border-radius: 12px; padding: 18px 20px; box-sizing: border-box;
+    }
+    .task-card-header {
+      display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px;
+      flex-wrap: wrap;          /* lets long badge drop to next line if needed */
+    }
+    .task-card-name {
+      flex: 1; min-width: 120px; font-size: 16px; font-weight: 600;
+      color: var(--allegion-text); line-height: 1.4;
+    }
+    .task-status-badge {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; border-radius: 999px; padding: 4px 11px;
+      font-family: var(--antenna); white-space: nowrap;
+    }
+    .tss-completed   { background: rgba(139,195,74,0.18);  color: #8BC34A; }
+    .tss-in-progress { background: rgba(255,152,0,0.18);   color: #FF9800; }
+    .tss-monitoring  { background: rgba(100,180,255,0.18); color: #74B8F5; }
+    .tss-at-risk     { background: rgba(229,57,53,0.18);   color: #EF5350; }
+    .tss-not-started { background: rgba(168,168,170,0.14); color: var(--allegion-muted); }
+    .task-progress-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .task-progress-label { font-size: 14px; color: var(--allegion-muted); white-space: nowrap; }
+    .task-meta { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; margin-bottom: 12px; }
+    .task-meta-label {
+      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--allegion-muted); font-family: var(--antenna); white-space: nowrap;
+      padding-top: 2px;
+    }
+    .task-meta-value { font-size: 15px; color: var(--allegion-text); line-height: 1.5; }
+    .task-detail-block {
+      border-top: 1px solid var(--allegion-border); margin-top: 10px; padding-top: 10px;
+    }
+    /* In-card content tabs: Strategy / Analysis / Definition */
+    .task-content-tabs { display: flex; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
+    .tct-btn {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+      font-family: var(--antenna); padding: 4px 12px; border-radius: 999px; border: none;
+      background: rgba(255,255,255,0.07); color: var(--allegion-muted);
+      cursor: pointer; transition: background 0.15s, color 0.15s;
+    }
+    .tct-btn:hover { background: rgba(255,255,255,0.12); color: var(--allegion-text); }
+    .tct-btn.active {
+      background: rgba(255,255,255,0.13);
+      color: var(--mpn-color, #FF671F);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .task-content-panel {
+      font-size: 14px; color: rgba(232,234,237,0.82); line-height: 1.65;
+      max-height: 160px; overflow-y: auto;
+    }
+    .task-content-panel::-webkit-scrollbar { width: 4px; }
+    .task-content-panel::-webkit-scrollbar-track { background: transparent; }
+    .task-content-panel::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2); border-radius: 999px;
+    }
+    .task-trend-icon { font-size: 16px; line-height: 1; margin-right: 4px; }
+    .task-no-data {
+      text-align: center; color: var(--allegion-muted); font-size: 16px;
+      padding: 32px 0;
+    }
+    /* ── Task card expand button — fixed in top-right corner, header padded to avoid overlap ─ */
+    .task-expand-btn {
+      position: absolute; top: 8px; right: 8px;
+      width: 26px; height: 26px; border-radius: 7px; border: none;
+      background: rgba(255,255,255,0.08); color: var(--allegion-muted);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s; z-index: 1;
+    }
+    .task-expand-btn:hover { background: rgba(255,255,255,0.18); color: var(--allegion-text); }
+    /* ── Task detail modal ───────────────────────────────────────────────── */
+    #task-detail-modal {
+      display: none; position: fixed; inset: 0; z-index: 1100;
+      align-items: center; justify-content: center;
+    }
+    #task-detail-modal.open { display: flex; }
+    #task-detail-overlay { position: fixed; inset: 0; z-index: 0; background: rgba(0,0,0,0.5); cursor: pointer; }
+    #task-detail-box {
+      position: relative; z-index: 1; box-sizing: border-box;
+      background: rgba(22,22,24,0.80);
+      backdrop-filter: blur(20px) saturate(180%) brightness(1.08);
+      -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.08);
+      border: 1px solid rgba(255,255,255,0.14); border-top-color: rgba(255,255,255,0.44);
+      border-radius: 20px; padding: 0;
+      max-width: min(92vw, 900px); width: min(92vw, 900px);
+      max-height: calc(100vh - 60px); display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 24px 64px rgba(0,0,0,0.65);
+      animation: modalBoxIn 0.30s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    #task-detail-close {
+      position: absolute; top: 14px; right: 18px; background: none; border: none;
+      color: var(--allegion-muted); font-size: 26px; cursor: pointer; z-index: 2;
+      transition: color 0.18s;
+    }
+    #task-detail-close:hover { color: #E53935; }
+    /* Viewport: clips horizontal slide animation, scrolls vertically */
+    #task-detail-viewport {
+      flex: 1; overflow-x: hidden; overflow-y: hidden; min-height: 0; position: relative;
+    }
+    #task-detail-viewport::-webkit-scrollbar { width: 5px; }
+    #task-detail-viewport::-webkit-scrollbar-track { background: transparent; }
+    #task-detail-viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 999px; }
+    /* Content is a plain block — no overflow needed, viewport handles scrolling */
+    #task-detail-content { padding: 36px 44px 40px; }
+    /* Navigation footer */
+    #task-detail-nav {
+      display: flex; align-items: center; justify-content: center; gap: 20px;
+      padding: 14px 24px; border-top: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;
+    }
+    #tdm-prev, #tdm-next {
+      width: 38px; height: 38px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.07); color: var(--allegion-text);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background 0.15s, opacity 0.15s;
+    }
+    #tdm-prev:hover, #tdm-next:hover { background: rgba(255,255,255,0.16); }
+    #tdm-prev:disabled, #tdm-next:disabled { opacity: 0.18; cursor: default; pointer-events: none; }
+    #tdm-counter {
+      font-size: 13px; color: var(--allegion-muted); font-family: var(--antenna);
+      font-weight: 700; letter-spacing: 0.05em; min-width: 56px; text-align: center;
+    }
+    /* Hero — risk context + task name */
+    .tdm-risk-line { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .tdm-risk-badge {
+      font-size: 13px; font-weight: 700; font-family: var(--antenna);
+      padding: 3px 11px; border-radius: 999px; background: rgba(255,255,255,0.1);
+    }
+    .tdm-risk-name { font-size: 14px; color: var(--allegion-muted); }
+    .tdm-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+    .tdm-task-name { font-size: 26px; font-weight: 700; color: #fff; line-height: 1.3; flex: 1; }
+    .tdm-status-badge {
+      flex-shrink: 0; margin-top: 4px; font-size: 12px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.07em; font-family: var(--antenna);
+      padding: 5px 14px; border-radius: 999px;
+    }
+    /* Progress bar */
+    .tdm-progress-section { margin-bottom: 28px; }
+    .tdm-progress-label {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      font-family: var(--antenna); color: var(--allegion-muted); margin-bottom: 8px;
+    }
+    .tdm-progress-pct { font-size: 18px; font-weight: 700; color: var(--allegion-text); }
+    .tdm-progress-track {
+      height: 10px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden;
+    }
+    .tdm-progress-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, #8BC34A, #FF9800);
+    }
+    /* Stats grid */
+    .tdm-stats {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1px; background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
+      overflow: hidden; margin-bottom: 28px;
+    }
+    .tdm-stat {
+      background: rgba(255,255,255,0.04); padding: 16px 18px;
+    }
+    .tdm-stat-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
+      color: var(--allegion-muted); font-family: var(--antenna); margin-bottom: 6px;
+    }
+    .tdm-stat-value { font-size: 17px; color: var(--allegion-text); line-height: 1.4; }
+    .tdm-stat-value.wide { font-size: 14px; }
+    /* Text sections */
+    .tdm-section { margin-bottom: 24px; }
+    .tdm-section:last-child { margin-bottom: 0; }
+    .tdm-section-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
+      color: var(--allegion-muted); font-family: var(--antenna);
+      margin-bottom: 10px; padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .tdm-section-text {
+      font-size: 16px; color: rgba(232,234,237,0.88); line-height: 1.7;
+      background: rgba(255,255,255,0.03); border-radius: 10px; padding: 16px 18px;
+    }
+    /* Task card highlight pulse (from search result click) ─────────────── */
+    /* outline is used for the main stroke because it bypasses overflow:hidden
+       clipping on ancestor containers; box-shadow provides the inner glow. */
+    @keyframes taskCardPulse {
+      0%   { outline: 2px solid transparent;                   outline-offset: 1px; }
+      15%  { outline: 3px solid var(--card-pulse,#FF671F);     outline-offset: 3px;
+             box-shadow: 0 0 14px 3px var(--card-pulse,#FF671F); }
+      32%  { outline: 2px solid var(--card-pulse,#FF671F);     outline-offset: 1px;
+             box-shadow: 0 0 4px  1px var(--card-pulse,#FF671F); }
+      50%  { outline: 3px solid var(--card-pulse,#FF671F);     outline-offset: 3px;
+             box-shadow: 0 0 14px 3px var(--card-pulse,#FF671F); }
+      68%  { outline: 2px solid var(--card-pulse,#FF671F);     outline-offset: 1px;
+             box-shadow: 0 0 4px  1px var(--card-pulse,#FF671F); }
+      84%  { outline: 3px solid var(--card-pulse,#FF671F);     outline-offset: 3px;
+             box-shadow: 0 0 12px 2px var(--card-pulse,#FF671F); }
+      100% { outline: 2px solid transparent;                   outline-offset: 1px;
+             box-shadow: none; }
+    }
+    .task-card-pulse { animation: taskCardPulse 5s ease-in-out forwards; }
+    /* Matching characters inside the highlighted card also pulse */
+    @keyframes taskCharPulse {
+      0%   { color: var(--card-pulse,#FF671F); text-shadow: none;                                opacity: 0.55; }
+      15%  { color: var(--card-pulse,#FF671F); text-shadow: 0 0 7px var(--card-pulse,#FF671F);  opacity: 1;    }
+      32%  { color: var(--card-pulse,#FF671F); text-shadow: none;                                opacity: 0.55; }
+      50%  { color: var(--card-pulse,#FF671F); text-shadow: 0 0 7px var(--card-pulse,#FF671F);  opacity: 1;    }
+      68%  { color: var(--card-pulse,#FF671F); text-shadow: none;                                opacity: 0.55; }
+      84%  { color: var(--card-pulse,#FF671F); text-shadow: 0 0 7px var(--card-pulse,#FF671F);  opacity: 1;    }
+      100% { color: inherit;                   text-shadow: none;                                opacity: 1;    }
+    }
+    .task-char-pulse { animation: taskCharPulse 5s ease-in-out forwards; font-weight: 700; }
+    /* Progress fill color overrides by task status */
+    .task-progress-fill-completed   { background: #8BC34A; }
+    .task-progress-fill-at-risk     { background: #EF5350; }
+    .task-progress-fill-monitoring  { background: #74B8F5; }
+    .task-progress-fill-in-progress { background: linear-gradient(90deg, #FF9800, #FFB74D); }
     /* ── Badge (overdue / health) ────────────────────────────────────────────── */
     .modal-badge {
       display: inline-block; padding: 2px 9px; border-radius: 999px;
@@ -299,6 +571,8 @@
       white-space: nowrap;
     }
     .status-chip.visible { display: flex; animation: chipIn 0.28s cubic-bezier(0.16,1,0.3,1) both; }
+    #reset-all-chip { padding: 10px 18px; border-color: rgba(229,57,53,0.6); color: #EF5350; }
+    #reset-all-chip:hover { opacity: 0.82; }
     .chip-icon {
       font-size: 15px; line-height: 1;
       font-family: 'Material Symbols Outlined'; font-weight: 400; flex-shrink: 0;
@@ -614,8 +888,21 @@
       flex: 1; min-width: 0; background: none; border: none; outline: none;
       color: #FF671F; font-family: var(--antenna);
       font-size: var(--rh-btn-font, 13px); font-weight: 500;
+      caret-color: rgba(255,103,31,0.85); /* explicit so it doesn't bleed into icon area */
     }
     #rh-search-input::placeholder { color: rgba(255,255,255,0.32); }
+    /* Thin divider separating the icon from the input — makes the caret visually distinct */
+    #rh-search-icon-sep {
+      width: 1px; height: 16px; background: rgba(255,255,255,0.18); flex-shrink: 0;
+    }
+    #rh-search-advanced {
+      background: none; border: 1px solid rgba(255,255,255,0.18); border-radius: 999px;
+      color: var(--allegion-muted); font-size: 11px; font-family: var(--antenna);
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      padding: 3px 10px; cursor: pointer; flex-shrink: 0; white-space: nowrap;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #rh-search-advanced:hover { color: var(--allegion-text); border-color: rgba(255,255,255,0.35); }
     #rh-search-close {
       background: none; border: none; cursor: pointer; padding: 2px;
       color: rgba(255,255,255,0.45); font-size: var(--rh-btn-font, 13px);
@@ -623,6 +910,198 @@
       transition: color 0.15s;
     }
     #rh-search-close:hover { color: #E53935; }
+    /* ── Extended search results panel ──────────────────────────────────── */
+    #search-results-panel {
+      display: none; position: fixed; z-index: 180;
+      background: rgba(22, 22, 24, 0.72);
+      backdrop-filter: blur(20px) saturate(180%) brightness(1.08);
+      -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-top-color: rgba(255,255,255,0.44);
+      border-radius: 18px; padding: 8px 0;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.28),
+        inset 1px 0 0 rgba(255,255,255,0.07),
+        inset -1px 0 0 rgba(255,255,255,0.07),
+        inset 0 -1px 0 rgba(0,0,0,0.22),
+        0 16px 48px rgba(0,0,0,0.6);
+      max-height: calc(100vh - 80px); overflow-y: auto; width: 380px;
+    }
+    #search-results-panel.srp-visible { display: block; }
+    #search-results-panel::-webkit-scrollbar { width: 4px; }
+    #search-results-panel::-webkit-scrollbar-track { background: transparent; }
+    #search-results-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 999px; }
+    .srp-section + .srp-section { border-top: 1px solid rgba(255,255,255,0.1); margin-top: 6px; padding-top: 2px; }
+    .srp-header {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--allegion-muted); font-family: var(--antenna); padding: 8px 16px 5px;
+    }
+    .srp-row {
+      display: flex; align-items: flex-start; gap: 9px;
+      padding: 8px 16px; cursor: pointer;
+      transition: background 0.12s;
+    }
+    .srp-row:hover { background: rgba(255,255,255,0.09); }
+    /* Task name wraps naturally — no truncation */
+    .srp-row-name { flex: 1; font-size: 15px; color: var(--allegion-text); line-height: 1.45; }
+    .srp-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+    .srp-risk-badge {
+      font-size: 11px; font-weight: 700; font-family: var(--antenna);
+      padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.1);
+      color: var(--allegion-muted); white-space: nowrap;
+    }
+    .srp-status-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; font-family: var(--antenna);
+      padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+    }
+    .srp-more { padding: 5px 16px 8px; font-size: 12px; color: var(--allegion-muted); cursor: default; }
+    .srp-more-link { cursor: pointer; color: #FF671F; transition: opacity 0.15s; }
+    .srp-more-link:hover { opacity: 0.75; }
+    /* ── Person profile modal ────────────────────────────────────────────── */
+    #person-modal {
+      display: none; position: fixed; inset: 0; z-index: 220;
+      align-items: center; justify-content: center;
+    }
+    #person-modal.open { display: flex; }
+    #person-modal.open #person-modal-overlay { animation: modalBackdropIn  0.22s cubic-bezier(0.16,1,0.3,1) both; }
+    #person-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45); cursor: pointer;
+    }
+    #person-modal-box {
+      position: relative; z-index: 1; box-sizing: border-box;
+      background: rgba(28,28,30,0.82);
+      backdrop-filter: blur(15px) saturate(180%) brightness(1.06);
+      -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.06);
+      color: var(--allegion-text);
+      border: 1px solid rgba(255,255,255,0.14); border-top-color: rgba(255,255,255,0.44);
+      border-radius: 20px; padding: 32px 40px;
+      max-width: 620px; width: 90%; max-height: calc(100vh - 60px);
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.58);
+      animation: modalBoxIn 0.34s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    #person-modal-close {
+      position: absolute; top: 14px; right: 18px; background: none; border: none;
+      color: var(--allegion-muted); font-size: 26px; cursor: pointer; line-height: 1;
+      transition: color 0.18s;
+    }
+    #person-modal-close:hover { color: #E53935; }
+    #person-modal-content { overflow-y: auto; min-height: 0; }
+    #person-modal-content::-webkit-scrollbar { width: 4px; }
+    #person-modal-content::-webkit-scrollbar-track { background: transparent; }
+    #person-modal-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 999px; }
+    .pm-name { font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .pm-email-link {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 13px; color: var(--allegion-muted); text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 2px;
+      transition: color 0.15s; margin-bottom: 20px;
+    }
+    .pm-email-link:hover { color: var(--allegion-text); }
+    .pm-section-head {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--allegion-muted); font-family: var(--antenna); margin: 16px 0 6px;
+      padding-bottom: 6px; border-bottom: 1px solid var(--allegion-border);
+    }
+    .pm-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 8px; border-radius: 8px; cursor: pointer;
+      transition: background 0.12s;
+    }
+    .pm-row:hover { background: rgba(255,255,255,0.07); }
+    .pm-row-badge {
+      flex-shrink: 0; font-size: 11px; font-weight: 700; font-family: var(--antenna);
+      padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,0.1);
+    }
+    .pm-row-name { font-size: 14px; color: var(--allegion-text); line-height: 1.4; }
+    .pm-no-data { font-size: 13px; color: var(--allegion-muted); padding: 4px 8px; }
+    /* ── Full search modal ───────────────────────────────────────────────── */
+    #search-modal {
+      display: none; position: fixed; inset: 0; z-index: 210;
+      align-items: center; justify-content: center;
+    }
+    #search-modal.open { display: flex; }
+    #search-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); cursor: pointer; }
+    #search-modal-box {
+      position: relative; z-index: 1; box-sizing: border-box;
+      background: rgba(22,22,24,0.80);
+      backdrop-filter: blur(20px) saturate(180%) brightness(1.08);
+      -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.08);
+      border: 1px solid rgba(255,255,255,0.14); border-top-color: rgba(255,255,255,0.44);
+      border-radius: 20px; padding: 0;
+      max-width: min(92vw, 1060px); width: min(92vw, 1060px);
+      max-height: calc(100vh - 60px); display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 24px 64px rgba(0,0,0,0.6);
+      animation: modalBoxIn 0.30s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    #search-modal-close {
+      position: absolute; top: 14px; right: 18px; background: none; border: none;
+      color: var(--allegion-muted); font-size: 26px; cursor: pointer; line-height: 1;
+      z-index: 2; transition: color 0.18s;
+    }
+    #search-modal-close:hover { color: #E53935; }
+    #search-modal-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 18px 52px 18px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      flex-shrink: 0;
+    }
+    #search-modal-icon-sep {
+      width: 1px; height: 18px; background: rgba(255,255,255,0.18); flex-shrink: 0;
+    }
+    #search-modal-input {
+      flex: 1; min-width: 0; background: none; border: none; outline: none;
+      color: #FF671F; font-family: var(--antenna); font-size: 16px; font-weight: 500;
+      caret-color: rgba(255,103,31,0.85);
+    }
+    #search-modal-input::placeholder { color: rgba(255,255,255,0.28); }
+    #smc-content-toggle {
+      flex-shrink: 0; background: none; cursor: pointer; white-space: nowrap;
+      border: 1px solid rgba(255,255,255,0.18); border-radius: 999px;
+      color: var(--allegion-muted); font-size: 11px; font-family: var(--antenna);
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      padding: 4px 12px; transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    #smc-content-toggle:hover { color: var(--allegion-text); border-color: rgba(255,255,255,0.3); }
+    #smc-content-toggle.smc-toggle-on {
+      background: rgba(255,103,31,0.15); color: #FF671F;
+      border-color: rgba(255,103,31,0.5);
+    }
+    #search-modal-content { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+    .smc-col {
+      flex: 1; overflow-y: auto; min-height: 0; padding-bottom: 12px;
+    }
+    .smc-col + .smc-col { border-left: 1px solid rgba(255,255,255,0.09); }
+    .smc-col::-webkit-scrollbar { width: 4px; }
+    .smc-col::-webkit-scrollbar-track { background: transparent; }
+    .smc-col::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 999px; }
+    .smc-section-head {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--allegion-muted); font-family: var(--antenna); padding: 10px 20px 5px;
+    }
+    .smc-section-head + * { border-top: none; }
+    .smc-row {
+      display: flex; align-items: flex-start; gap: 10px; padding: 9px 20px;
+      cursor: pointer; transition: background 0.12s;
+    }
+    .smc-row:hover { background: rgba(255,255,255,0.07); }
+    .smc-name { flex: 1; font-size: 15px; color: var(--allegion-text); line-height: 1.45; }
+    .smc-snippet {
+      font-size: 12px; color: var(--allegion-muted); line-height: 1.5; margin-top: 3px;
+    }
+    .smc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+    .smc-risk-badge {
+      font-size: 11px; font-weight: 700; font-family: var(--antenna);
+      padding: 2px 9px; border-radius: 999px; background: rgba(255,255,255,0.1);
+      white-space: nowrap;
+    }
+    .smc-status-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      font-family: var(--antenna); padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+    }
+    .smc-divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 6px 0; }
+    .smc-empty { padding: 20px 20px; font-size: 14px; color: var(--allegion-muted); text-align: center; }
     /* Search dim — independent of dot-hover dim so they can coexist */
     #legend-layer.search-active .legend-row:not(.legend-row-hl) { opacity: 0.18; transition: opacity 0.18s; }
     #legend-layer.search-active .legend-row.legend-row-hl       { opacity: 1;    transition: opacity 0.18s; }
@@ -754,6 +1233,10 @@
     <span id="filter-chip-label"></span>
     <button class="chip-close" onclick="clearAllFilters()" title="Clear filters">✕</button>
   </div>
+  <div id="reset-all-chip" class="status-chip" onclick="resetAllFilters()" style="cursor:pointer">
+    <span class="chip-icon" style="font-size:14px">restart_alt</span>
+    <span>Reset All</span>
+  </div>
 </div>
 <div id="zoom-ctrl">
   <button class="icon-btn" onclick="doZoom(1.3)" title="Zoom in">+</button>
@@ -763,6 +1246,62 @@
   <button class="icon-btn" onclick="doZoom(0.77)" title="Zoom out">&minus;</button>
   <button id="label-toggle" onclick="toggleLabels()" title="Toggle labels">Labels</button>
 </div>
+<!-- ── Task detail modal ──────────────────────────────────────────────────── -->
+<div id="task-detail-modal">
+  <div id="task-detail-overlay" onclick="closeTaskDetail()"></div>
+  <div id="task-detail-box">
+    <button id="task-detail-close" onclick="closeTaskDetail()">&#215;</button>
+    <div id="task-detail-viewport">
+      <div id="task-detail-content"></div>
+    </div>
+    <div id="task-detail-nav">
+      <button id="tdm-prev" onclick="prevTaskDetail()">
+        <span class="material-symbols-outlined" style="font-size:20px;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300;line-height:1">chevron_left</span>
+      </button>
+      <span id="tdm-counter"></span>
+      <button id="tdm-next" onclick="nextTaskDetail()">
+        <span class="material-symbols-outlined" style="font-size:20px;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300;line-height:1">chevron_right</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Extended search results panel ──────────────────────────────────── -->
+<div id="search-results-panel">
+  <div class="srp-section" id="srp-tasks-section">
+    <div class="srp-header">Tasks</div>
+    <div id="srp-tasks-list"></div>
+  </div>
+  <div class="srp-section" id="srp-people-section">
+    <div class="srp-header">People</div>
+    <div id="srp-people-list"></div>
+  </div>
+</div>
+
+<!-- ── Full search results modal ─────────────────────────────────────── -->
+<div id="search-modal">
+  <div id="search-modal-overlay" onclick="closeSearchModal()"></div>
+  <div id="search-modal-box">
+    <button id="search-modal-close" onclick="closeSearchModal()">&#215;</button>
+    <div id="search-modal-header">
+      <span class="material-symbols-outlined" style="font-size:20px;color:#FF671F;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300;flex-shrink:0">search</span>
+      <div id="search-modal-icon-sep"></div>
+      <input id="search-modal-input" type="text" placeholder="Search tasks, people…" autocomplete="off" spellcheck="false">
+      <button id="smc-content-toggle" onclick="_toggleSmcContent()">Include Task Content</button>
+    </div>
+    <div id="search-modal-content"></div>
+  </div>
+</div>
+
+<!-- ── Person profile modal ───────────────────────────────────────────── -->
+<div id="person-modal">
+  <div id="person-modal-overlay" onclick="closePersonModal()"></div>
+  <div id="person-modal-box">
+    <button id="person-modal-close" onclick="closePersonModal()">&#215;</button>
+    <div id="person-modal-content"></div>
+  </div>
+</div>
+
 <div id="risk-modal">
   <div id="risk-modal-overlay" onclick="closeModal()"></div>
   <div id="risk-modal-box">
@@ -776,6 +1315,12 @@
         <button class="mpn-btn active" data-page="0">Overview</button>
         <button class="mpn-btn"        data-page="1">Risk Data</button>
         <button class="mpn-btn"        data-page="2">Ownership</button>
+        <button class="mpn-btn"        data-page="3">Tasks</button>
+        <div id="task-sort-bar">
+          <button class="sort-btn active" data-sort="completion">% Done</button>
+          <button class="sort-btn"        data-sort="alpha">A – Z</button>
+          <button class="sort-btn"        data-sort="severity">Severity</button>
+        </div>
         <div id="mpn-indicator"></div>
       </div>
       <div id="modal-page-area"></div>
@@ -806,7 +1351,10 @@
   </div>
   <div id="rh-search-bar">
     <span class="material-symbols-outlined" style="font-size:calc(var(--rh-btn-font,13px) * 1.35);line-height:1;font-family:'Material Symbols Outlined';font-weight:400;font-variation-settings:'wght' 400;color:#FF671F;flex-shrink:0">search</span>
+    <div id="rh-search-icon-sep"></div>
     <input id="rh-search-input" type="text" placeholder="Search risks…" autocomplete="off" spellcheck="false">
+    <button id="rh-search-advanced" onclick="openSearchModal(document.getElementById('rh-search-input').value.trim())">Advanced</button>
+    <div style="width:1px;height:14px;background:rgba(255,255,255,0.15);flex-shrink:0"></div>
     <button id="rh-search-close" onclick="closeSearch()">✕</button>
   </div>
 </div>
@@ -815,6 +1363,7 @@
 
 <script>
 const RISKS        = {{ risks | tojson }};
+const TASKS        = {{ tasks | tojson }};  // { 'R01': [{task, task_status, ...}, ...], ... }
 const LOGO_SRC     = "{{ url_for('static', filename='AllegionLogo_Official.png') }}";
 const LAST_UPDATED = "{{ last_updated }}";
 const dotGroupByRiskId   = {};
@@ -1674,6 +2223,7 @@ function _rhAnimate(cls, delay = 30) {
 function openSearch() {
   if (_searchActive) return;
   _searchActive = true;
+  _updateResetBtn();
   closeCatDropdown();
   _rhAnimate('rh-exit');
   setTimeout(() => {
@@ -1687,6 +2237,8 @@ function closeSearch() {
   if (!_searchActive) return;
   _searchActive = false;
   clearSearchFilter();
+  _closeSearchPanel();
+  _updateResetBtn();
   const bar = document.getElementById('rh-search-bar');
   bar.classList.remove('open');
   document.getElementById('rh-search-input').value = '';
@@ -1763,6 +2315,7 @@ function updateCatFilterBtn() {
     lbl.textContent = `${CAT_LABELS.length - hidden} of ${CAT_LABELS.length} shown`;
     btn.classList.add('filtered');
   }
+  _updateResetBtn();
 }
 
 let _morphing = false; // prevent both menus opening during morph transition
@@ -2319,9 +2872,13 @@ function hexToRgba(hex, a) {
 }
 let _modalRisks = [];  // risks currently shown in the modal
 
-function openModal(risks, initialTab) {
+function openModal(risks, initialTab, initialPage, targetTask, searchQuery) {
   hideTip();
+  closePersonModal();    // close person card if open
   _activeTabIdx = null;  // reset so first switchModalTab call skips animation
+  _modalPage = initialPage || 0; // use caller's page (e.g. Tasks tab from search result)
+  _taskSortOrder = 'completion'; // reset sort on each new modal open
+  document.querySelectorAll('.sort-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
   const allRisks = risks.map(r => RISKS.find(fr => fr.id === r.id) || r);
   _modalRisks = allRisks.filter(r => _isRiskVisible(r));
   if (!_modalRisks.length) return;
@@ -2361,7 +2918,72 @@ function openModal(risks, initialTab) {
   // Re-snap indicator after the modal becomes display:flex — getBoundingClientRect
   // returns zeros while the modal is still display:none, so we must measure again
   // on the next frame when layout is available.
-  requestAnimationFrame(() => _updateIndicator(true));
+  // Animated slide: indicator travels to the correct tab 100ms after open,
+  // after layout is stable. Looks intentional and sidesteps transition-timing issues.
+  setTimeout(() => _updateIndicator(false), 100);
+  // Highlight the specific task card that was clicked from search results
+  if (targetTask) setTimeout(() => _highlightTaskCard(targetTask, searchQuery || ''), 220);
+}
+
+function _hlPulseHtml(text, query, col) {
+  if (!query || !text) return text || '';
+  const lo = text.toLowerCase(), q = query.toLowerCase();
+  let result = '', i = 0;
+  while (i < text.length) {
+    const idx = lo.indexOf(q, i);
+    if (idx < 0) { result += text.slice(i); break; }
+    result += text.slice(i, idx) +
+      `<span class="task-char-pulse" style="--card-pulse:${col}">${text.slice(idx, idx + q.length)}</span>`;
+    i = idx + q.length;
+  }
+  return result;
+}
+
+function _highlightTaskCard(taskName, searchQuery) {
+  if (!taskName) return;
+  const r   = _modalRisks[_activeTabIdx ?? 0] || {};
+  const col = catColor(r.category || '') || '#FF671F';
+  const card = [...document.querySelectorAll('.task-card')]
+    .find(c => c.dataset.task === taskName);
+  if (!card) return;
+
+  card.style.setProperty('--card-pulse', col);
+  card.classList.remove('task-card-pulse');
+  void card.offsetWidth;
+  card.classList.add('task-card-pulse');
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+  let savedPanelEl = null, savedPanelText = null;
+
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+
+    // Highlight in task name if it matches
+    const nameEl = card.querySelector('.task-card-name');
+    if (nameEl && taskName.toLowerCase().includes(q))
+      nameEl.innerHTML = _hlPulseHtml(taskName, searchQuery, col);
+
+    // Highlight in the currently visible content panel (definition) if it matches
+    card.querySelectorAll('.task-content-panel').forEach(panel => {
+      if (savedPanelEl || panel.style.display === 'none') return;
+      const text = panel.textContent;
+      if (text.toLowerCase().includes(q)) {
+        savedPanelEl   = panel;
+        savedPanelText = text;
+        panel.innerHTML = _hlPulseHtml(text, searchQuery, col);
+      }
+    });
+  }
+
+  setTimeout(() => {
+    card.classList.remove('task-card-pulse');
+    card.style.removeProperty('--card-pulse');
+    if (searchQuery) {
+      const nameEl = card.querySelector('.task-card-name');
+      if (nameEl) nameEl.textContent = taskName;
+      if (savedPanelEl) savedPanelEl.textContent = savedPanelText;
+    }
+  }, 5200);
 }
 
 // ── Owner spotlight ───────────────────────────────────────────────────────────
@@ -2384,6 +3006,7 @@ function _reapplySpotlight() {
 
 function activateSpotlight(ownerName) {
   _spotlightOwner = ownerName;
+  _updateResetBtn();
   // Close the modal first so the chart is visible
   closeModal();
   // Apply after the modal close animation completes (0.20s)
@@ -2413,6 +3036,7 @@ function clearSpotlight() {
   Object.values(legendRowByRiskId).forEach(row => row.classList.remove('legend-row-hl'));
   dimLegend(false);
   document.getElementById('spotlight-chip').classList.remove('visible');
+  _updateResetBtn();
 }
 
 function updateFilterChip() {
@@ -2437,11 +3061,10 @@ function updateFilterChip() {
   }
   document.getElementById('filter-chip-label').textContent = label;
   chip.classList.add('visible');
-  // Generic count → clickable to show detail menu; specific → not clickable
   chip.classList.toggle('clickable', !isSpecific);
-  // If menu is open and count changed, rebuild it
   if (document.getElementById('filter-chip-menu').classList.contains('open'))
     _buildFilterChipMenu();
+  _updateResetBtn();
 }
 
 // ── Active filter detail menu ─────────────────────────────────────────────────
@@ -2542,6 +3165,89 @@ function clearAllFilters() {
   _applyFilterWithAnimation(prev);
 }
 
+function _updateResetBtn() {
+  const anyActive =
+    _hiddenCatColors.size > 0 ||
+    _activeFilters.status.size > 0 ||
+    _activeFilters.health.size > 0 ||
+    _activeFilters.quarter.size > 0 ||
+    _activeFilters.overdue ||
+    _searchActive ||
+    !!_spotlightOwner;
+  document.getElementById('reset-all-chip').classList.toggle('visible', anyActive);
+}
+
+function resetAllFilters() {
+  const prev = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+  // Immediately un-dim the legend — prevents stale _dimCount leaving list dark
+  _dimCount = 0;
+  const ll = document.getElementById('legend-layer');
+  ll.classList.remove('legend-dimmed', 'search-active');
+  // Clear category filter
+  _hiddenCatColors.clear();
+  Object.entries(catKeyElByColor).forEach(([, el]) => el.classList.remove('off'));
+  updateCatFilterBtn();
+  buildCatDropdown();
+  // Clear multi-filters
+  _activeFilters.status.clear();
+  _activeFilters.health.clear();
+  _activeFilters.quarter.clear();
+  _activeFilters.overdue = false;
+  updateFilterChip();
+  updateMfBtn();
+  // Clear search and spotlight
+  if (_searchActive) closeSearch();
+  if (_spotlightOwner) clearSpotlight();
+  _applyFilterWithAnimation(prev);
+  _updateResetBtn();
+}
+
+
+// Sort bar button clicks — re-sort task cards in place
+document.getElementById('modal-page-nav').addEventListener('click', e => {
+  const btn = e.target.closest('.sort-btn');
+  if (!btn) return;
+  _taskSortOrder = btn.dataset.sort;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b === btn));
+  const r = _modalRisks[_activeTabIdx ?? 0] || {};
+  document.getElementById('modal-page-area').innerHTML = _buildPageContent(r, 3);
+});
+
+// Task expand button — delegate from modal-page-area
+document.getElementById('modal-page-area').addEventListener('click', e => {
+  const btn = e.target.closest('.task-expand-btn');
+  if (!btn) return;
+  e.stopPropagation();
+  openTaskDetail(btn.dataset.expandRisk, btn.dataset.expandTask);
+});
+
+// In-card content tab clicks (Strategy / Analysis / Definition)
+document.getElementById('modal-page-area').addEventListener('click', e => {
+  const btn = e.target.closest('.tct-btn');
+  if (!btn) return;
+  const block = btn.closest('.task-detail-block');
+  block.querySelectorAll('.tct-btn').forEach(b => b.classList.remove('active'));
+  block.querySelectorAll('.task-content-panel').forEach(p => p.style.display = 'none');
+  btn.classList.add('active');
+  block.querySelector(`[data-panel="${btn.dataset.field}"]`).style.display = '';
+});
+
+// Mouse-wheel scroll: vertical inside text panels, horizontal on task row
+document.getElementById('modal-page-area').addEventListener('wheel', e => {
+  // If inside a text panel, let it scroll vertically (natural behavior)
+  const panel = e.target.closest('.task-content-panel');
+  if (panel) {
+    // Only intercept if panel is at its scroll limit — then fall through to row scroll
+    const atTop    = panel.scrollTop === 0 && e.deltaY < 0;
+    const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 1 && e.deltaY > 0;
+    if (!atTop && !atBottom) return; // let panel scroll naturally
+  }
+  // Otherwise scroll the task row horizontally
+  const row = e.target.closest('.tasks-scroll-row');
+  if (!row) return;
+  e.preventDefault();
+  row.scrollLeft += e.deltaY + e.deltaX;
+}, { passive: false });
 
 // Page tab clicks — delegate from the modal box so it works after re-renders
 document.getElementById('risk-modal-box').addEventListener('click', e => {
@@ -2555,7 +3261,7 @@ document.getElementById('risk-modal-box').addEventListener('click', e => {
   if (page === _modalPage) return;
   const box = document.getElementById('risk-modal-box');
   const pinnedH = box.offsetHeight;
-  box.style.transition = 'none';
+  box.style.transition = _W_TRANSITION; // keep width animated, kill height transition for pinning
   box.style.height = pinnedH + 'px';
   _setModalPage(page, true);
   _animateBoxToAutoHeight(box, pinnedH);
@@ -2564,6 +3270,24 @@ document.getElementById('risk-modal-box').addEventListener('click', e => {
 let _activeTabIdx = null;  // null = modal not currently shown
 
 let _modalPage = 0;
+let _taskSortOrder = 'completion'; // 'completion' | 'alpha' | 'severity'
+
+function _sortedTasks(r) {
+  const tasks = (TASKS[r.id] || []).filter(t => t.task);
+  return [...tasks].sort((a, b) => {
+    if (_taskSortOrder === 'alpha')
+      return (a.task || '').localeCompare(b.task || '');
+    if (_taskSortOrder === 'severity') {
+      const sa = parseFloat(a.severity) ?? 0;
+      const sb = parseFloat(b.severity) ?? 0;
+      return sb - sa; // highest severity first
+    }
+    // completion: highest % first; null/missing goes last
+    const pa = a.progress ?? -1;
+    const pb = b.progress ?? -1;
+    return pb - pa;
+  });
+}
 
 function _renderContacts(name, email) {
   if (!name) return '—';
@@ -2699,7 +3423,118 @@ function _buildPageContent(r, page) {
 
     return ownership + mitigation;
   }
+
+  if (page === 3) {
+    return _buildTasksPage(r);
+  }
+
   return '';
+}
+
+function _taskStatusClass(status) {
+  if (!status) return 'tss-not-started';
+  const s = status.toLowerCase();
+  if (s.includes('complete') || s.includes('done'))    return 'tss-completed';
+  if (s.includes('in progress') || s.includes('progress')) return 'tss-in-progress';
+  if (s.includes('monitor'))                           return 'tss-monitoring';
+  if (s.includes('at risk') || s.includes('risk'))     return 'tss-at-risk';
+  return 'tss-not-started';
+}
+
+function _taskProgressFillClass(status) {
+  const s = (status || '').toLowerCase();
+  if (s.includes('complete'))   return 'task-progress-fill-completed';
+  if (s.includes('at risk'))    return 'task-progress-fill-at-risk';
+  if (s.includes('monitor'))    return 'task-progress-fill-monitoring';
+  return 'task-progress-fill-in-progress';
+}
+
+function _trendLabel(trend) {
+  if (!trend) return '';
+  // Map emoji shortcuts to readable labels
+  if (trend.includes('⚠') || trend.includes('risk'))    return { icon: '⚠️', label: 'At Risk',    cls: 'color:#EF5350' };
+  if (trend.includes('►') || trend.includes('▶'))  return { icon: '▶',  label: 'On Track',  cls: 'color:#8BC34A' };
+  if (trend.includes('\U0001f441') || trend.includes('👁'))  return { icon: '👁', label: 'Monitoring', cls: 'color:#74B8F5' };
+  return { icon: '', label: trend, cls: '' };
+}
+
+function _buildTasksPage(r) {
+  const tasks = _sortedTasks(r);
+  if (!tasks.length) {
+    return `<div class="task-no-data">No mitigation tasks recorded for this risk.</div>`;
+  }
+
+  return `<div class="tasks-scroll-row">${tasks.map(t => {
+    const statusCls  = _taskStatusClass(t.task_status);
+    const fillCls    = _taskProgressFillClass(t.task_status);
+    const pct        = (t.progress != null) ? Math.min(100, Math.max(0, t.progress)) : null;
+    const trend      = _trendLabel(t.trend);
+
+    const progressBar = pct != null ? `
+      <div class="task-progress-row">
+        <div class="modal-progress-track" style="flex:1">
+          <div class="modal-progress-fill ${fillCls}" style="width:${pct}%"></div>
+        </div>
+        <span class="task-progress-label">${pct}%</span>
+      </div>` : '';
+
+    const sevNum = t.severity != null ? parseFloat(t.severity) : null;
+    const metaRows = [
+      sevNum != null  ? ['Severity',   sevNum.toFixed(1)] : null,
+      t.responsible  ? ['Responsible', t.responsible]    : null,
+      t.target_date  ? ['Target Date', t.target_date]    : null,
+      t.start_date   ? ['Start Date',  t.start_date]     : null,
+      t.managers     ? ['Manager(s)',  t.managers]        : null,
+    ].filter(Boolean);
+
+    const meta = metaRows.length ? `
+      <div class="task-meta">
+        ${metaRows.map(([lbl, val]) =>
+          `<span class="task-meta-label">${lbl}</span><span class="task-meta-value">${val}</span>`
+        ).join('')}
+        ${trend.label ? `<span class="task-meta-label">Trend</span>
+          <span class="task-meta-value" style="${trend.cls}">
+            <span class="task-trend-icon">${trend.icon}</span>${trend.label}
+          </span>` : ''}
+      </div>` : '';
+
+    // Build content tabs — only for non-empty fields, first one active by default
+    // Definition first (default view), then strategy, then analysis
+    const textFields = [
+      { key: 'definition', label: 'Definition', text: t.definition },
+      { key: 'strategy',   label: 'Strategy',   text: t.mitigation_strategy },
+      { key: 'analysis',   label: 'Analysis',   text: t.trend_analysis },
+    ].filter(f => f.text);
+
+    const details = textFields.length ? `
+      <div class="task-detail-block">
+        <div class="task-content-tabs">
+          ${textFields.map((f, i) =>
+            `<button class="tct-btn${i === 0 ? ' active' : ''}" data-field="${f.key}">${f.label}</button>`
+          ).join('')}
+        </div>
+        ${textFields.map((f, i) =>
+          `<div class="task-content-panel" data-panel="${f.key}" style="${i > 0 ? 'display:none' : ''}">${f.text}</div>`
+        ).join('')}
+      </div>` : '';
+
+    const expandRisk = r.id || '';
+    const expandTask = (t.task||'').replace(/"/g,'&quot;');
+    return `
+      <div class="task-card" data-task="${expandTask}" style="position:relative">
+        <button class="task-expand-btn" data-expand-risk="${expandRisk}" data-expand-task="${expandTask}"
+                title="View full task details">
+          <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">open_in_full</span>
+        </button>
+        <div class="task-card-header" style="padding-right:34px">
+          <span class="task-card-name">${t.task}</span>
+          ${t.task_status ? `<span class="task-status-badge ${statusCls}">${t.task_status}</span>` : ''}
+        </div>
+        ${progressBar}
+        ${meta}
+        ${details}
+      </div>`;
+  }).join('')}</div>`;
 }
 
 function _updateIndicator(instant) {
@@ -2732,6 +3567,20 @@ function _setModalPage(page, animate) {
     b.classList.toggle('active', +b.dataset.page === page);
     if (+b.dataset.page === 1) b.classList.toggle('tab-overdue', _isOD);
   });
+  // Expand modal width to fit task cards exactly, capped at viewport - 48px
+  const _box = document.getElementById('risk-modal-box');
+  if (page === 3) {
+    const taskCount = (TASKS[r.id] || []).filter(t => t.task).length;
+    const needed = taskCount * 354 + 100; // 340px card + 14px gap + box padding + scroll row padding + scrollbar
+    const MIN_W  = 808; // floor: exact 2-card width (2*354+100), avoids jarring collapse
+    const target = Math.min(Math.max(needed, MIN_W), window.innerWidth - 48);
+    _box.style.width    = target + 'px';
+    _box.style.maxWidth = target + 'px';
+  } else {
+    _box.style.width  = '';
+    _box.style.maxWidth = '';
+  }
+  document.getElementById('task-sort-bar').classList.toggle('visible', page === 3);
   _updateIndicator(false); // slide to new tab
   const area = document.getElementById('modal-page-area');
   area.innerHTML = _buildPageContent(r, page);
@@ -2749,19 +3598,34 @@ function _updateModalContent(idx) {
   idEl.textContent = r.id || '';
   idEl.style.color = catColor(r.category || '');
   document.getElementById('risk-modal-name').textContent = r.name || '';
-  // Reset page nav to Overview, colour tabs to match this risk's category
-  _modalPage = 0;
+  // Preserve current page when switching risk tabs (so Tasks stays on Tasks, etc.)
+  // _modalPage is only reset to 0 by openModal() on first open
   const col = catColor(r.category || '') || '#FF671F';
   document.getElementById('modal-page-nav').style.setProperty('--mpn-color', col);
+  document.getElementById('risk-modal-box').style.setProperty('--mpn-color', col);
+  // Update modal width for the current page + new risk's task count
+  const _box = document.getElementById('risk-modal-box');
+  if (_modalPage === 3) {
+    const taskCount = (TASKS[r.id] || []).filter(t => t.task).length;
+    const needed = taskCount * 354 + 100;
+    const MIN_W  = 808; // floor: exact 2-card width, avoids jarring collapse
+    const target = Math.min(Math.max(needed, MIN_W), window.innerWidth - 48);
+    _box.style.width     = target + 'px';
+    _box.style.maxWidth  = target + 'px';
+  } else {
+    _box.style.width     = '';
+    _box.style.maxWidth  = '';
+  }
   const isOverdue = String(r.review_overdue).toLowerCase() === 'true';
   document.querySelectorAll('.mpn-btn').forEach(b => {
-    b.classList.toggle('active', +b.dataset.page === 0);
+    b.classList.toggle('active', +b.dataset.page === _modalPage);
     if (+b.dataset.page === 1) b.classList.toggle('tab-overdue', isOverdue);
   });
   const area = document.getElementById('modal-page-area');
-  area.innerHTML = _buildPageContent(r, 0);
+  area.innerHTML = _buildPageContent(r, _modalPage);
   area.classList.remove('page-in');
-  _updateIndicator(true); // snap indicator to Overview without animating
+  document.getElementById('task-sort-bar').classList.toggle('visible', _modalPage === 3);
+  _updateIndicator(true); // snap indicator to current page without animating
 }
 
 function switchModalTab(idx) {
@@ -2815,7 +3679,7 @@ function switchModalTab(idx) {
   // ── Height animation setup — pin current height before content changes ────
   const box = document.getElementById('risk-modal-box');
   const pinnedH = box.offsetHeight;
-  box.style.transition = 'none';
+  box.style.transition = _W_TRANSITION; // keep width animated, kill height transition for pinning
   box.style.height = pinnedH + 'px';
 
   // ── Content directional slide ─────────────────────────────────────────────
@@ -2839,21 +3703,23 @@ function switchModalTab(idx) {
   }, { once: true });
 }
 
+const _W_TRANSITION = 'width 0.35s cubic-bezier(0.16,1,0.3,1), max-width 0.35s cubic-bezier(0.16,1,0.3,1)';
+
 function _animateBoxToAutoHeight(box, fromH) {
   // Measure the new natural height
   box.style.height = 'auto';
   const toH = box.offsetHeight;
-  if (toH === fromH) { box.style.height = ''; box.style.transition = ''; return; }
-  // Snap back to old height, then transition to new
+  if (toH === fromH) { box.style.height = ''; box.style.transition = _W_TRANSITION; return; }
+  // Snap back to old height, then transition to new — keep width transition alive
   box.style.height = fromH + 'px';
   void box.offsetWidth;
-  box.style.transition = 'height 0.44s cubic-bezier(0.165, 0.84, 0.44, 1)';
+  box.style.transition = `height 0.44s cubic-bezier(0.165, 0.84, 0.44, 1), ${_W_TRANSITION}`;
   box.style.height = toH + 'px';
   box.addEventListener('transitionend', function h(e) {
     if (e.propertyName !== 'height') return;
     box.removeEventListener('transitionend', h);
     box.style.height = '';
-    box.style.transition = '';
+    box.style.transition = _W_TRANSITION;
   });
 }
 
@@ -2872,7 +3738,11 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (_fcmOpen) { closeFilterChipMenu(); return; }
     if (_spotlightOwner) { clearSpotlight(); return; }
-    if (_searchActive) { closeSearch(); return; }
+    // Close all open modals and search at once
+    closeTaskDetail();
+    closePersonModal();
+    closeSearchModal();
+    if (_searchActive) closeSearch();
     if (document.getElementById('risk-modal').classList.contains('open')) closeModal();
     return;
   }
@@ -2884,16 +3754,21 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft')  switchModalTab((cur - 1 + _modalRisks.length) % _modalRisks.length);
 });
 
-// Search input — filter on every keystroke
+// Search input — filter on every keystroke + run extended search + sync full modal
 document.getElementById('rh-search-input').addEventListener('input', e => {
-  applySearchFilter(e.target.value.trim());
+  const q = e.target.value.trim();
+  applySearchFilter(q);
+  _runExtendedSearch(q);
+  _syncModalSearchIfOpen(q);
 });
 
-// Click outside search bar closes it
+// Click outside search bar closes it — but not when clicking results panel or modals
 document.addEventListener('click', e => {
   if (!_searchActive) return;
   if (document.getElementById('rh-search-bar').contains(e.target)) return;
   if (document.getElementById('rh-search-btn').contains(e.target)) return;
+  if (document.getElementById('search-results-panel').contains(e.target)) return;
+  if (document.getElementById('search-modal').contains(e.target)) return;
   closeSearch();
 });
 
@@ -3279,6 +4154,501 @@ try { renderStatic(); renderRisks(); renderLegend(); } catch(e) { console.error(
 buildCatDropdown();
 updateCatFilterBtn();
 setTimeout(() => { positionCtrl(); positionRiskHeader(); runEntranceAnimation(); }, 0);
+
+// ── Extended search: tasks + people ──────────────────────────────────────────
+
+let _peopleIndex = null;
+
+function _buildEmail(name) {
+  const parts = name.trim().split(/\s+/).filter(p => p.length > 1 && !/^\w\.$/.test(p));
+  if (parts.length < 2) return null;
+  const first = parts[0].replace(/[^a-zA-Z]/g, '');
+  const last  = parts[parts.length - 1].replace(/[^a-zA-Z]/g, '');
+  if (!first || !last) return null;
+  return `${first}.${last}@allegion.com`.toLowerCase();
+}
+
+function _getPeopleIndex() {
+  if (_peopleIndex) return _peopleIndex;
+  _peopleIndex = new Map(); // key=normalizedName → {display, email, ownerOf[], eltOwnerOf[], managerOf[], tasksOf[]}
+
+  function _addPerson(rawNames, confirmedEmail, role, riskId, taskRef) {
+    if (!rawNames) return;
+    // Split on comma or slash (handles "Bilyeu/Spitz" and "Nick Musial, Paul Bilyeu")
+    const names = rawNames.split(/[,\/]/).map(n => n.trim()).filter(Boolean);
+    names.forEach(name => {
+      const key = name.toLowerCase();
+      if (!_peopleIndex.has(key)) {
+        const email = confirmedEmail && confirmedEmail.includes('@') ? confirmedEmail
+                      : _buildEmail(name);
+        _peopleIndex.set(key, { display: name, email: email || '', ownerOf: [], eltOwnerOf: [], managerOf: [], tasksOf: [] });
+      }
+      const p = _peopleIndex.get(key);
+      if (confirmedEmail && !p.email) p.email = confirmedEmail;
+      if (role === 'owner')   p.ownerOf.push(riskId);
+      if (role === 'elt')     p.eltOwnerOf.push(riskId);
+      if (role === 'manager') { if (!p.managerOf.includes(riskId)) p.managerOf.push(riskId); }
+      if (role === 'task')    p.tasksOf.push(taskRef);
+    });
+  }
+
+  RISKS.forEach(r => {
+    if (r.owner)          _addPerson(r.owner,          r.owner_email,   'owner',   r.id);
+    if (r.elt_owner)      _addPerson(r.elt_owner,       '',              'elt',     r.id);
+    if (r.managers)       _addPerson(r.managers,        r.manager_email, 'manager', r.id);
+    if (r.other_managers) _addPerson(r.other_managers,  '',              'manager', r.id);
+  });
+  Object.entries(TASKS).forEach(([riskId, tasks]) => {
+    tasks.forEach(t => {
+      const ref = { riskId, taskName: t.task, taskStatus: t.task_status };
+      if (t.responsible) _addPerson(t.responsible, '', 'task', riskId, ref);
+      if (t.managers)    _addPerson(t.managers,    '', 'task', riskId, ref);
+    });
+  });
+  return _peopleIndex;
+}
+
+function _hlHtml(text, query) {
+  if (!query || !text) return text || '';
+  const lo = text.toLowerCase(), qi = lo.indexOf(query.toLowerCase());
+  if (qi < 0) return text;
+  return text.slice(0, qi) +
+    `<span style="color:#FF671F;font-weight:600">${text.slice(qi, qi + query.length)}</span>` +
+    text.slice(qi + query.length);
+}
+
+function _srpStatusClass(status) {
+  if (!status) return 'tss-not-started';
+  const s = status.toLowerCase();
+  if (s.includes('complete'))  return 'tss-completed';
+  if (s.includes('progress'))  return 'tss-in-progress';
+  if (s.includes('monitor'))   return 'tss-monitoring';
+  if (s.includes('risk'))      return 'tss-at-risk';
+  return 'tss-not-started';
+}
+
+function _runExtendedSearch(query) {
+  const panel = document.getElementById('search-results-panel');
+  const q = query.toLowerCase().trim();
+  if (q.length < 2) { panel.classList.remove('srp-visible'); return; }
+
+  // Task search — quick panel matches NAMES only (definition matches shown in full modal)
+  const taskMatches = [];
+  Object.entries(TASKS).forEach(([riskId, tasks]) => {
+    tasks.forEach(t => {
+      if (!t.task) return;
+      if ((t.task||'').toLowerCase().includes(q))
+        taskMatches.push({ riskId, t });
+    });
+  });
+
+  // People search — match display name
+  const idx = _getPeopleIndex();
+  const peopleMatches = [...idx.values()].filter(p => p.display.toLowerCase().includes(q));
+
+  if (!taskMatches.length && !peopleMatches.length) { panel.classList.remove('srp-visible'); return; }
+
+  // Build tasks section
+  const MAX = 5;
+  const tasksEl  = document.getElementById('srp-tasks-list');
+  const peopleEl = document.getElementById('srp-people-list');
+  document.getElementById('srp-tasks-section').style.display  = taskMatches.length  ? '' : 'none';
+  document.getElementById('srp-people-section').style.display = peopleMatches.length ? '' : 'none';
+
+  tasksEl.innerHTML = taskMatches.slice(0, MAX).map(({ riskId, t }) => {
+    const risk = RISKS.find(r => r.id === riskId);
+    const col  = risk ? catColor(risk.category || '') : '#666';
+    return `<div class="srp-row" data-srp-task-risk="${riskId}" data-srp-task-name="${(t.task||'').replace(/"/g,'&quot;')}">
+      <span class="srp-row-name">${_hlHtml(t.task, query)}</span>
+      <div class="srp-row-right">
+        <span class="srp-risk-badge" style="color:${col}">${riskId}</span>
+        ${t.task_status ? `<span class="srp-status-badge ${_srpStatusClass(t.task_status)}">${t.task_status}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  const qEnc = query.replace(/"/g, '&quot;');
+  if (taskMatches.length > MAX)
+    tasksEl.innerHTML += `<div class="srp-more srp-more-link" onclick="openSearchModal('${qEnc}')">Show all ${taskMatches.length} tasks →</div>`;
+
+  peopleEl.innerHTML = peopleMatches.slice(0, MAX).map(p =>
+    `<div class="srp-row" data-srp-person="${p.display.replace(/"/g,'&quot;')}">
+      <span class="material-symbols-outlined" style="font-size:16px;color:var(--allegion-muted);font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">person</span>
+      <span class="srp-row-name">${_hlHtml(p.display, query)}</span>
+    </div>`
+  ).join('');
+  if (peopleMatches.length > MAX)
+    peopleEl.innerHTML += `<div class="srp-more srp-more-link" onclick="openSearchModal('${qEnc}')">Show all ${peopleMatches.length} people →</div>`;
+
+  // Position panel to the LEFT of the search bar (over chart area, not risk list)
+  const bar = document.getElementById('rh-search-bar');
+  if (bar) {
+    const rect = bar.getBoundingClientRect();
+    panel.style.top  = (rect.bottom + 6) + 'px';
+    panel.style.right = (window.innerWidth - rect.left + 8) + 'px';
+  }
+  panel.classList.add('srp-visible');
+}
+
+// Delegated click handler for search results panel
+document.getElementById('search-results-panel').addEventListener('click', e => {
+  const row = e.target.closest('.srp-row');
+  if (!row) return;
+
+  if (row.dataset.srpTaskRisk) {
+    const risk  = RISKS.find(r => r.id === row.dataset.srpTaskRisk);
+    const query = document.getElementById('rh-search-input').value.trim();
+    if (risk) openModal([risk], 0, 3, row.dataset.srpTaskName || '', query);
+    closeSearch();
+    return;
+  }
+  if (row.dataset.srpPerson !== undefined) {
+    openPersonModal(row.dataset.srpPerson);
+    return;
+  }
+});
+
+// ── Person profile modal ──────────────────────────────────────────────────────
+
+function openPersonModal(personName) {
+  const idx   = _getPeopleIndex();
+  const key   = personName.toLowerCase();
+  const p     = idx.get(key);
+  if (!p) return;
+
+  const content = document.getElementById('person-modal-content');
+
+  function _riskRow(riskId, onClick) {
+    const r = RISKS.find(r => r.id === riskId);
+    if (!r) return '';
+    const col = catColor(r.category || '') || '#666';
+    return `<div class="pm-row" onclick="${onClick}">
+      <span class="pm-row-badge" style="color:${col}">${r.id}</span>
+      <span class="pm-row-name">${r.name}</span>
+    </div>`;
+  }
+
+  const ownerRows   = [...new Set(p.ownerOf)].map(id   => _riskRow(id, `openModal([RISKS.find(r=>r.id==='${id}')],0,2);closePersonModal()`)).join('');
+  const eltRows     = [...new Set(p.eltOwnerOf)].map(id => _riskRow(id, `openModal([RISKS.find(r=>r.id==='${id}')],0,2);closePersonModal()`)).join('');
+  const managerRows = [...new Set(p.managerOf)].map(id  => _riskRow(id, `openModal([RISKS.find(r=>r.id==='${id}')],0,2);closePersonModal()`)).join('');
+
+  const taskRows = p.tasksOf.map(ref => {
+    const risk = RISKS.find(r => r.id === ref.riskId);
+    const col  = risk ? catColor(risk.category || '') : '#666';
+    return `<div class="pm-row" onclick="openModal([RISKS.find(r=>r.id==='${ref.riskId}')],0,3);closePersonModal()">
+      <span class="pm-row-badge" style="color:${col}">${ref.riskId}</span>
+      <span class="pm-row-name">${ref.taskName || '—'}</span>
+    </div>`;
+  }).slice(0, 12).join('');
+
+  const emailHtml = p.email
+    ? `<a class="pm-email-link" href="mailto:${p.email}">
+        <span class="material-symbols-outlined" style="font-size:14px;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">mail</span>
+        ${p.email}
+       </a>`
+    : '';
+
+  content.innerHTML = `
+    <div class="pm-name">${p.display}</div>
+    ${emailHtml}
+    ${ownerRows  ? `<div class="pm-section-head">Risk Owner</div>${ownerRows}` : ''}
+    ${eltRows    ? `<div class="pm-section-head">ELT Owner</div>${eltRows}` : ''}
+    ${managerRows? `<div class="pm-section-head">Managing</div>${managerRows}` : ''}
+    ${taskRows   ? `<div class="pm-section-head">Mitigation Tasks</div>${taskRows}` : ''}
+    ${!ownerRows && !eltRows && !managerRows && !taskRows
+      ? `<div class="pm-no-data">No linked risks or tasks found.</div>` : ''}
+  `;
+
+  document.getElementById('person-modal').classList.add('open');
+}
+
+function closePersonModal() {
+  document.getElementById('person-modal').classList.remove('open');
+}
+
+// ── Task detail modal ─────────────────────────────────────────────────────────
+
+let _tdmRiskId   = null;
+let _tdmTaskIdx  = 0;
+
+function _tdmTaskList() {
+  const r = RISKS.find(r => r.id === _tdmRiskId);
+  return r ? _sortedTasks(r) : [];
+}
+
+function _buildTaskDetailHTML(t, riskId) {
+  const risk    = RISKS.find(r => r.id === riskId);
+  const col     = risk ? catColor(risk.category || '') : '#FF671F';
+  const trend   = _trendLabel(t.trend || '');
+  const pct     = t.progress   != null ? Math.min(100, Math.max(0, t.progress)) : null;
+  const sevNum  = t.severity   != null ? parseFloat(t.severity).toFixed(1)   : null;
+  const likeNum = t.likelihood != null ? parseFloat(t.likelihood).toFixed(1) : null;
+
+  const stats = [
+    sevNum   ? { label: 'Severity',          value: sevNum }      : null,
+    likeNum  ? { label: 'Likelihood',         value: likeNum }     : null,
+    t.responsible     ? { label: 'Responsible',      value: t.responsible,     wide: true  } : null,
+    t.target_date     ? { label: 'Target Date',       value: t.target_date }    : null,
+    t.start_date      ? { label: 'Start Date',        value: t.start_date }     : null,
+    trend.label       ? { label: 'Trend',             value: `<span style="${trend.cls}">${trend.icon} ${trend.label}</span>`, raw: true } : null,
+    t.managers        ? { label: 'Manager(s)',         value: t.managers,        wide: true  } : null,
+    t.mitigation_type ? { label: 'Mitigation Type',   value: t.mitigation_type } : null,
+    t.gov_compliance  ? { label: 'Gov/Compliance',    value: t.gov_compliance }  : null,
+    t.status          ? { label: 'Status',             value: t.status }         : null,
+  ].filter(Boolean);
+
+  const statsHtml = stats.length ? `
+    <div class="tdm-stats">
+      ${stats.map(s => `<div class="tdm-stat">
+        <div class="tdm-stat-label">${s.label}</div>
+        <div class="tdm-stat-value${s.wide ? ' wide' : ''}">${s.value}</div>
+      </div>`).join('')}
+    </div>` : '';
+
+  const progressHtml = pct != null ? `
+    <div class="tdm-progress-section">
+      <div class="tdm-progress-label"><span>Completion</span><span class="tdm-progress-pct">${pct}%</span></div>
+      <div class="tdm-progress-track">
+        <div class="tdm-progress-fill ${_taskProgressFillClass(t.task_status)}" style="width:${pct}%"></div>
+      </div>
+    </div>` : '';
+
+  const sec = (label, text) => text ? `
+    <div class="tdm-section">
+      <div class="tdm-section-label">${label}</div>
+      <div class="tdm-section-text">${text}</div>
+    </div>` : '';
+
+  return `
+    <div class="tdm-risk-line">
+      <span class="tdm-risk-badge" style="color:${col}">${riskId}</span>
+      ${risk ? `<span class="tdm-risk-name">${risk.name}</span>` : ''}
+    </div>
+    <div class="tdm-header">
+      <div class="tdm-task-name">${t.task}</div>
+      ${t.task_status ? `<span class="tdm-status-badge ${_taskStatusClass(t.task_status)}">${t.task_status}</span>` : ''}
+    </div>
+    ${progressHtml}${statsHtml}
+    ${sec('Definition', t.definition)}
+    ${sec('Mitigation Strategy', t.mitigation_strategy)}
+    ${sec('Trend Analysis', t.trend_analysis)}`;
+}
+
+function _updateTdmScroll() {
+  // Only enable scroll if content is genuinely taller than the viewport (>4px tolerance
+  // prevents spurious scrollbars from sub-pixel rounding differences)
+  const vp = document.getElementById('task-detail-viewport');
+  if (!vp) return;
+  vp.style.overflowY = (vp.scrollHeight > vp.clientHeight + 4) ? 'auto' : 'hidden';
+}
+
+function _updateTdmArrows() {
+  const tasks = _tdmTaskList();
+  const prev  = document.getElementById('tdm-prev');
+  const next  = document.getElementById('tdm-next');
+  const ctr   = document.getElementById('tdm-counter');
+  prev.disabled = _tdmTaskIdx <= 0;
+  next.disabled = _tdmTaskIdx >= tasks.length - 1;
+  ctr.textContent = tasks.length > 1 ? `${_tdmTaskIdx + 1} / ${tasks.length}` : '';
+  // Hide nav entirely if only one task
+  document.getElementById('task-detail-nav').style.display = tasks.length > 1 ? '' : 'none';
+}
+
+function _renderTdmContent(direction) {
+  const tasks   = _tdmTaskList();
+  const t       = tasks[_tdmTaskIdx];
+  if (!t) return;
+  const content = document.getElementById('task-detail-content');
+
+  if (!direction) {
+    // Initial open — no animation
+    content.style.cssText = '';
+    content.innerHTML = _buildTaskDetailHTML(t, _tdmRiskId);
+    requestAnimationFrame(() => _updateTdmScroll());
+  } else {
+    const outX = direction === 'next' ? '-36px' : '36px';
+    const inX  = direction === 'next' ?  '36px' : '-36px';
+    // Slide out
+    content.style.transition = 'transform 0.18s ease, opacity 0.18s ease';
+    content.style.transform  = `translateX(${outX})`;
+    content.style.opacity    = '0';
+    setTimeout(() => {
+      content.innerHTML = _buildTaskDetailHTML(t, _tdmRiskId);
+      content.scrollTop = 0;
+      // Snap to entry position (no transition)
+      content.style.transition = 'none';
+      content.style.transform  = `translateX(${inX})`;
+      content.style.opacity    = '0';
+      void content.offsetWidth;
+      // Slide in
+      content.style.transition = 'transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.22s ease';
+      content.style.transform  = 'translateX(0)';
+      content.style.opacity    = '1';
+      // Clear inline transform after animation completes, then re-check scroll need
+      setTimeout(() => {
+        content.style.cssText = '';
+        _updateTdmScroll();
+      }, 320);
+    }, 170);
+  }
+  _updateTdmArrows();
+}
+
+function openTaskDetail(riskId, taskName) {
+  _tdmRiskId  = riskId;
+  const tasks = _tdmTaskList();
+  _tdmTaskIdx = Math.max(0, tasks.findIndex(t => t.task === taskName));
+  _renderTdmContent(null);
+  document.getElementById('task-detail-modal').classList.add('open');
+}
+
+function prevTaskDetail() {
+  if (_tdmTaskIdx <= 0) return;
+  _tdmTaskIdx--;
+  _renderTdmContent('prev');
+}
+
+function nextTaskDetail() {
+  if (_tdmTaskIdx >= _tdmTaskList().length - 1) return;
+  _tdmTaskIdx++;
+  _renderTdmContent('next');
+}
+
+function closeTaskDetail() {
+  document.getElementById('task-detail-modal').classList.remove('open');
+}
+
+function _closeSearchPanel() {
+  document.getElementById('search-results-panel').classList.remove('srp-visible');
+}
+
+// ── Full search modal ─────────────────────────────────────────────────────────
+
+let _smcSearchContent = false; // when true, also searches definition/strategy/analysis
+
+function _toggleSmcContent() {
+  _smcSearchContent = !_smcSearchContent;
+  const btn = document.getElementById('smc-content-toggle');
+  btn.classList.toggle('smc-toggle-on', _smcSearchContent);
+  _renderSearchModalResults(document.getElementById('search-modal-input').value.trim());
+}
+
+function _smcAllTaskMatches(q) {
+  const matches = [];
+  Object.entries(TASKS).forEach(([riskId, tasks]) => {
+    tasks.forEach(t => {
+      if (!t.task) return;
+      const nameMatch = (t.task||'').toLowerCase().includes(q);
+      const defMatch  = _smcSearchContent && !nameMatch &&
+                        !!(t.definition||'').toLowerCase().includes(q);
+      if (nameMatch || defMatch) matches.push({ riskId, t, nameMatch, defMatch });
+    });
+  });
+  return matches;
+}
+
+function _smcAllPeopleMatches(q) {
+  const idx = _getPeopleIndex();
+  return [...idx.values()].filter(p => p.display.toLowerCase().includes(q));
+}
+
+function _renderSearchModalResults(query) {
+  const content = document.getElementById('search-modal-content');
+  const q = (query || '').toLowerCase().trim();
+
+  if (!q) {
+    content.innerHTML = `
+      <div class="smc-col" style="display:flex;align-items:center;justify-content:center">
+        <div class="smc-empty">Start typing to search tasks and people…</div>
+      </div>
+      <div class="smc-col"></div>`;
+    return;
+  }
+
+  const taskMatches   = _smcAllTaskMatches(q);
+  const peopleMatches = _smcAllPeopleMatches(q);
+
+  // ── Tasks column ──────────────────────────────────────────────────────────
+  let tasksHtml = `<div class="smc-section-head">Tasks${taskMatches.length ? ` (${taskMatches.length})` : ''}</div>`;
+  if (taskMatches.length) {
+    tasksHtml += taskMatches.map(({ riskId, t, nameMatch, defMatch }) => {
+      const risk = RISKS.find(r => r.id === riskId);
+      const col  = risk ? catColor(risk.category || '') : '#666';
+      let snippet = '';
+      if (!nameMatch && defMatch && t.definition) {
+        const di    = (t.definition||'').toLowerCase().indexOf(q);
+        const start = Math.max(0, di - 35);
+        const end   = Math.min(t.definition.length, di + q.length + 55);
+        const raw   = (start > 0 ? '…' : '') + t.definition.slice(start, end) + (end < t.definition.length ? '…' : '');
+        snippet = `<div class="smc-snippet">${_hlHtml(raw, query)}</div>`;
+      }
+      const safeTask = (t.task||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return `<div class="smc-row" onclick="openModal([RISKS.find(r=>r.id==='${riskId}')],0,3,'${safeTask}',document.getElementById('search-modal-input').value.trim());closeSearchModal()">
+        <div style="flex:1;min-width:0">
+          <div class="smc-name">${_hlHtml(t.task, query)}</div>${snippet}
+        </div>
+        <div class="smc-right">
+          <span class="smc-risk-badge" style="color:${col}">${riskId}</span>
+          ${t.task_status ? `<span class="smc-status-badge ${_srpStatusClass(t.task_status)}">${t.task_status}</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    tasksHtml += `<div class="smc-empty">No matching tasks</div>`;
+  }
+
+  // ── People column ─────────────────────────────────────────────────────────
+  let peopleHtml = `<div class="smc-section-head">People${peopleMatches.length ? ` (${peopleMatches.length})` : ''}</div>`;
+  if (peopleMatches.length) {
+    peopleHtml += peopleMatches.map(p =>
+      `<div class="smc-row" onclick="openPersonModal('${p.display.replace(/'/g,"\\'")}');closeSearchModal()">
+        <span class="material-symbols-outlined" style="font-size:18px;color:var(--allegion-muted);font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300;flex-shrink:0;margin-top:1px">person</span>
+        <span class="smc-name">${_hlHtml(p.display, query)}</span>
+      </div>`
+    ).join('');
+  } else {
+    peopleHtml += `<div class="smc-empty">No matching people</div>`;
+  }
+
+  content.innerHTML = `
+    <div class="smc-col">${tasksHtml}</div>
+    <div class="smc-col">${peopleHtml}</div>`;
+}
+
+function openSearchModal(query) {
+  const modal = document.getElementById('search-modal');
+  const input = document.getElementById('search-modal-input');
+  // Reset content toggle to off each time modal opens
+  _smcSearchContent = false;
+  const toggleBtn = document.getElementById('smc-content-toggle');
+  if (toggleBtn) toggleBtn.classList.remove('smc-toggle-on');
+  input.value = query || '';
+  _renderSearchModalResults(query || '');
+  modal.classList.add('open');
+  setTimeout(() => input.focus(), 80);
+}
+
+function closeSearchModal() {
+  document.getElementById('search-modal').classList.remove('open');
+}
+
+// Bidirectional sync: modal input ↔ main search input
+document.getElementById('search-modal-input').addEventListener('input', e => {
+  const q = e.target.value;
+  // Sync to main bar
+  document.getElementById('rh-search-input').value = q;
+  // Update risk list highlights + quick panel + modal results
+  applySearchFilter(q.trim());
+  _runExtendedSearch(q.trim());
+  _renderSearchModalResults(q.trim());
+});
+
+// close search modal when person modal or risk modal opens
+function _syncModalSearchIfOpen(query) {
+  const modal = document.getElementById('search-modal');
+  if (!modal || !modal.classList.contains('open')) return;
+  document.getElementById('search-modal-input').value = query;
+  _renderSearchModalResults(query);
+}
 </script>
 </body>
 </html>
