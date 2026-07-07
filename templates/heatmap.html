@@ -311,6 +311,24 @@
       padding: 8px 10px 18px 4px;
       align-items: flex-start;
     }
+    /* ── Tasks-mode: cards fill modal height and scroll individually ────────── */
+    #modal-page-area.tasks-mode {
+      overflow-y: hidden;  /* row handles its own horizontal scroll; cards handle vertical */
+      display: flex; flex-direction: column; padding: 0;
+    }
+    #modal-page-area.tasks-mode .tasks-scroll-row {
+      flex: 1; min-height: 0;
+      align-items: stretch; /* cards grow to fill the available height */
+      padding-top: 6px; padding-bottom: 10px;
+    }
+    #modal-page-area.tasks-mode .task-card {
+      overflow-y: auto; min-height: 0;
+    }
+    #modal-page-area.tasks-mode .task-card::-webkit-scrollbar { width: 4px; }
+    #modal-page-area.tasks-mode .task-card::-webkit-scrollbar-track { background: transparent; }
+    #modal-page-area.tasks-mode .task-card::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2); border-radius: 999px;
+    }
     /* Scrollbar — thick enough to grab, thin enough to stay subtle */
     .tasks-scroll-row::-webkit-scrollbar { height: 7px; }
     .tasks-scroll-row::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 999px; }
@@ -3232,17 +3250,24 @@ document.getElementById('modal-page-area').addEventListener('click', e => {
   block.querySelector(`[data-panel="${btn.dataset.field}"]`).style.display = '';
 });
 
-// Mouse-wheel scroll: vertical inside text panels, horizontal on task row
+// Mouse-wheel: vertical inside cards/panels (natural), horizontal on task row
 document.getElementById('modal-page-area').addEventListener('wheel', e => {
-  // If inside a text panel, let it scroll vertically (natural behavior)
-  const panel = e.target.closest('.task-content-panel');
-  if (panel) {
-    // Only intercept if panel is at its scroll limit — then fall through to row scroll
-    const atTop    = panel.scrollTop === 0 && e.deltaY < 0;
-    const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 1 && e.deltaY > 0;
-    if (!atTop && !atBottom) return; // let panel scroll naturally
+  function _scrolledOut(el) {
+    const atTop    = el.scrollTop === 0 && e.deltaY < 0;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1 && e.deltaY > 0;
+    return atTop || atBottom;
   }
-  // Otherwise scroll the task row horizontally
+  // Text panel: scroll it vertically; fall through to row only at its limits
+  const panel = e.target.closest('.task-content-panel');
+  if (panel) { if (!_scrolledOut(panel)) return; }
+
+  // Task card (tasks-mode): scroll card vertically; fall through to row at limits
+  const card = e.target.closest('.task-card');
+  if (card && document.getElementById('modal-page-area').classList.contains('tasks-mode')) {
+    if (!_scrolledOut(card)) return;
+  }
+
+  // Scroll the task row horizontally
   const row = e.target.closest('.tasks-scroll-row');
   if (!row) return;
   e.preventDefault();
@@ -3583,6 +3608,7 @@ function _setModalPage(page, animate) {
   document.getElementById('task-sort-bar').classList.toggle('visible', page === 3);
   _updateIndicator(false); // slide to new tab
   const area = document.getElementById('modal-page-area');
+  area.classList.toggle('tasks-mode', page === 3);
   area.innerHTML = _buildPageContent(r, page);
   if (animate) {
     area.classList.remove('page-in');
@@ -3625,6 +3651,7 @@ function _updateModalContent(idx) {
   area.innerHTML = _buildPageContent(r, _modalPage);
   area.classList.remove('page-in');
   document.getElementById('task-sort-bar').classList.toggle('visible', _modalPage === 3);
+  document.getElementById('modal-page-area').classList.toggle('tasks-mode', _modalPage === 3);
   _updateIndicator(true); // snap indicator to current page without animating
 }
 
