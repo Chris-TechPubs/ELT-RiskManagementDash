@@ -1167,8 +1167,91 @@
       background: rgba(255,103,31,0.16); border-color: rgba(255,103,31,0.7);
       box-shadow: 0 0 0 2px rgba(255,103,31,0.22);
     }
-    #cat-filter-chevron { font-size: 0.75em; transition: transform 0.2s; display: inline-block; opacity: 0.7; }
-    #cat-filter-btn.open #cat-filter-chevron { transform: rotate(180deg); }
+    /* cat-filter-btn is now an icon circle — dot indicator when categories filtered */
+    #cat-filter-btn { position: relative; }
+    #cat-active-dot {
+      display: none; position: absolute; top: 4px; right: 4px;
+      width: 7px; height: 7px; border-radius: 50%; background: #FF671F;
+      border: 1.5px solid rgba(28,28,30,0.9);
+    }
+    #cat-filter-btn.filtered #cat-active-dot { display: block; }
+    /* ── Owner filter — icon circle matching search button ───────────────── */
+    #owner-filter-btn {
+      display: flex; align-items: center; justify-content: center; position: relative;
+      background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.16);
+      border-radius: var(--rh-btn-r, 10px); padding: var(--rh-btn-p, 8px 14px);
+      color: #FF671F; cursor: pointer; flex-shrink: 0;
+      transition: filter 0.15s, border-color 0.15s;
+    }
+    #owner-filter-btn:hover { filter: brightness(1.22); border-color: rgba(255,255,255,0.28); }
+    #owner-filter-btn.open { background: rgba(255,103,31,0.16); border-color: rgba(255,103,31,0.7); box-shadow: 0 0 0 2px rgba(255,103,31,0.22); }
+    /* Small indicator dot when an owner is selected */
+    #owner-active-dot {
+      display: none; position: absolute; top: 4px; right: 4px;
+      width: 7px; height: 7px; border-radius: 50%; background: #FF671F;
+      border: 1.5px solid rgba(28,28,30,0.9);
+    }
+    #owner-filter-btn.filtered #owner-active-dot { display: block; }
+    #owner-dropdown {
+      display: none; position: absolute; top: calc(100% + 6px);
+      right: 0; flex-direction: column; gap: 2px;
+      min-width: var(--rh-dd-min-w, 240px); max-width: 300px; max-height: 360px;
+      overflow-x: hidden; overflow-y: auto; z-index: 300; transform-origin: top right;
+      max-height: 70vh;
+      background: rgba(20,20,22,0.97);
+      border: 1px solid rgba(255,103,31,0.38); border-top-color: rgba(255,103,31,0.65);
+      border-radius: 20px; padding: 8px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 16px 48px rgba(0,0,0,0.72);
+    }
+    #owner-dropdown.open    { display: flex; flex-direction: column; animation: menuSlideIn  0.30s cubic-bezier(0.16,1,0.3,1) both; }
+    #owner-dropdown.closing { display: flex; flex-direction: column; animation: menuSlideOut 0.16s cubic-bezier(0.4,0,1,1)    both; }
+    #owner-dropdown::-webkit-scrollbar { width: 4px; }
+    #owner-dropdown::-webkit-scrollbar-track { background: transparent; }
+    #owner-dropdown::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 999px; }
+    .owner-dd-row {
+      padding: 8px 14px; border-radius: 8px; cursor: pointer;
+      font-size: var(--rh-btn-font, 13px); font-weight: 600;
+      color: var(--allegion-text); transition: background 0.12s;
+      white-space: nowrap; /* container clips via overflow-x: hidden */
+    }
+    .owner-dd-row:hover { background: rgba(255,255,255,0.09); }
+    .owner-dd-row.active { background: rgba(255,103,31,0.15); color: #FF671F; }
+    /* ── Top 10 panel — always visible, anchored bottom of risk list area ─── */
+    #top10-panel {
+      position: fixed; z-index: 500; display: none;
+      background: rgba(22,22,24,0.95);
+      backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%);
+      border: 1px solid rgba(255,255,255,0.12); border-top-color: rgba(255,255,255,0.28);
+      border-radius: 12px 12px 0 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.18);
+      overflow: hidden;
+    }
+    #top10-panel.visible { display: block; }
+    #top10-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px 8px; border-bottom: 1px solid rgba(255,255,255,0.1);
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      font-family: var(--antenna); color: #FF671F;
+    }
+    #top10-close {
+      background: none; border: none; color: var(--allegion-muted); font-size: 18px;
+      cursor: pointer; line-height: 1; transition: color 0.15s;
+    }
+    #top10-close:hover { color: #E53935; }
+    #top10-list { overflow-y: auto; }
+    #top10-list::-webkit-scrollbar { width: 3px; }
+    #top10-list::-webkit-scrollbar-track { background: transparent; }
+    #top10-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 999px; }
+    .top10-row {
+      display: flex; align-items: center; gap: 10px; padding: 7px 14px;
+      cursor: pointer; transition: background 0.12s; border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .top10-row:last-child { border-bottom: none; }
+    .top10-row:hover { background: rgba(255,255,255,0.07); }
+    .top10-rank { font-size: 11px; font-weight: 700; color: var(--allegion-muted); font-family: var(--antenna); width: 18px; text-align: right; flex-shrink: 0; }
+    .top10-badge { font-size: 11px; font-weight: 700; font-family: var(--antenna); padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.1); flex-shrink: 0; }
+    .top10-name { flex: 1; font-size: 13px; color: var(--allegion-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .top10-sev { font-size: 13px; font-weight: 700; color: var(--allegion-muted); flex-shrink: 0; }
     #cat-dropdown {
       display: none; position: absolute; top: calc(100% + 6px);
       left: 50%; margin-left: calc(var(--rh-dd-min-w, 240px) * -0.5);
@@ -1251,9 +1334,9 @@
     <span id="filter-chip-label"></span>
     <button class="chip-close" onclick="clearAllFilters()" title="Clear filters">✕</button>
   </div>
-  <div id="reset-all-chip" class="status-chip" onclick="resetAllFilters()" style="cursor:pointer">
+  <div id="reset-all-chip" class="status-chip" style="cursor:pointer">
     <span class="chip-icon" style="font-size:14px">restart_alt</span>
-    <span>Reset All</span>
+    <span id="rac-label">Reset All</span>
   </div>
 </div>
 <div id="zoom-ctrl">
@@ -1320,6 +1403,14 @@
   </div>
 </div>
 
+<!-- ── Top 10 panel ──────────────────────────────────────────────────── -->
+<div id="top10-panel">
+  <div id="top10-header">
+    <span>Top 10 — Highest Severity</span>
+  </div>
+  <div id="top10-list"></div>
+</div>
+
 <div id="risk-modal">
   <div id="risk-modal-overlay" onclick="closeModal()"></div>
   <div id="risk-modal-box">
@@ -1360,12 +1451,19 @@
     </button>
     <div id="mf-dropdown"></div>
   </div>
-  <div id="rh-cat-wrap" style="position:relative;flex-shrink:0">
-    <button id="cat-filter-btn">
-      <span id="cat-filter-label">All Categories</span>
-      <span id="cat-filter-chevron">▾</span>
+  <div id="rh-cat-wrap" style="position:relative;flex-shrink:0;margin-right:var(--rh-div-mx,9px)">
+    <button id="cat-filter-btn" title="Filter by category">
+      <span class="material-symbols-outlined" style="font-size:calc(var(--rh-btn-font,13px) * 1.35);line-height:1;font-family:'Material Symbols Outlined';font-weight:400;font-variation-settings:'wght' 400">layers</span>
+      <span id="cat-active-dot"></span>
     </button>
     <div id="cat-dropdown"></div>
+  </div>
+  <div id="rh-owner-wrap" style="position:relative;flex-shrink:0;margin-right:var(--rh-div-mx,9px)">
+    <button id="owner-filter-btn" title="Filter by owner">
+      <span class="material-symbols-outlined" style="font-size:calc(var(--rh-btn-font,13px) * 1.35);line-height:1;font-family:'Material Symbols Outlined';font-weight:400;font-variation-settings:'wght' 400">person</span>
+      <span id="owner-active-dot"></span>
+    </button>
+    <div id="owner-dropdown"></div>
   </div>
   <div id="rh-search-bar">
     <span class="material-symbols-outlined" style="font-size:calc(var(--rh-btn-font,13px) * 1.35);line-height:1;font-family:'Material Symbols Outlined';font-weight:400;font-variation-settings:'wght' 400;color:#FF671F;flex-shrink:0">search</span>
@@ -1418,6 +1516,7 @@ function _isRiskVisible(r) {
   if (_activeFilters.health.size > 0 && !_activeFilters.health.has(r.mitigation_health || '')) return false;
   if (_activeFilters.overdue && String(r.review_overdue).toLowerCase() !== 'true') return false;
   if (_activeFilters.quarter.size > 0 && !_activeFilters.quarter.has(r.quarter || '')) return false;
+  if (_ownerFilter && !_isOwnerMatch(r)) return false;
   return true;
 }
 const catKeyElByColor   = {};        // color → category key card <g> element
@@ -2217,7 +2316,7 @@ function renderRisks() {
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
-const RH_ITEMS = ['rh-id','rh-name','rh-divider','rh-search-btn','rh-mf-wrap','cat-filter-btn'];
+const RH_ITEMS = ['rh-id','rh-name','rh-divider','rh-search-btn','rh-mf-wrap','rh-cat-wrap','rh-owner-wrap'];
 let _searchActive = false;
 const _searchHighlighted = new Set();  // row elements highlighted by search
 const _searchTextEls     = new Map();  // risk id → { el, original } for tspan cleanup
@@ -2325,27 +2424,36 @@ function clearSearchFilter() {
 }
 
 function updateCatFilterBtn() {
-  const btn = document.getElementById('cat-filter-btn');
-  const lbl = document.getElementById('cat-filter-label');
+  const btn    = document.getElementById('cat-filter-btn');
   const hidden = _hiddenCatColors.size;
-  if (hidden === 0) {
-    lbl.textContent = 'All Categories';
-    btn.classList.remove('filtered');
-  } else {
-    lbl.textContent = `${CAT_LABELS.length - hidden} of ${CAT_LABELS.length} shown`;
-    btn.classList.add('filtered');
-  }
+  btn.classList.toggle('filtered', hidden > 0);
+  btn.title = hidden === 0
+    ? 'Filter by category'
+    : `Categories: ${CAT_LABELS.length - hidden} of ${CAT_LABELS.length} shown`;
   _updateResetBtn();
 }
 
 let _morphing = false; // prevent both menus opening during morph transition
+
+// Helpers so _switchToDropdown works for any of the three dropdowns
+function _ddBtn(id) {
+  return id === 'cat'   ? document.getElementById('cat-filter-btn')
+       : id === 'mf'    ? document.getElementById('rh-mf-btn')
+       : id === 'owner' ? document.getElementById('owner-filter-btn')
+       : null;
+}
+function _buildDdContent(id) {
+  if (id === 'mf')    buildMfDropdown();
+  if (id === 'owner') buildOwnerDropdown();
+  // cat is rebuilt inside openCatDropdown itself
+}
 
 function _switchToDropdown(closeId, openId) {
   if (_morphing) return;
   _morphing = true;
   const closeDd = document.getElementById(closeId + '-dropdown');
   const openDd  = document.getElementById(openId  + '-dropdown');
-  if (openId === 'mf') buildMfDropdown();
+  _buildDdContent(openId);
 
   // Measure both rects before any mutations
   const cr = closeDd.getBoundingClientRect();
@@ -2389,8 +2497,7 @@ function _switchToDropdown(closeId, openId) {
 
     // Hide source dropdown (morph panel covers it — overlay stays active throughout)
     closeDd.classList.remove('open', 'closing');
-    if (closeId === 'cat') document.getElementById('cat-filter-btn').classList.remove('open');
-    else                   document.getElementById('rh-mf-btn').classList.remove('open');
+    _ddBtn(closeId)?.classList.remove('open');
     // Ensure overlay is active for the entire morph transition
     document.getElementById('cat-list-overlay').classList.add('dd-open');
 
@@ -2410,8 +2517,7 @@ function _switchToDropdown(closeId, openId) {
       openDd.style.animationDuration = '0s';
       openDd.classList.add('open');
       document.getElementById('cat-list-overlay').classList.add('dd-open');
-      if (openId === 'cat') document.getElementById('cat-filter-btn').classList.add('open');
-      else                  document.getElementById('rh-mf-btn').classList.add('open');
+      _ddBtn(openId)?.classList.add('open');
 
       const openKids = [...openDd.children];
       openKids.forEach(el => { el.style.opacity = '0'; el.style.transform = 'translateY(5px)'; });
@@ -2436,11 +2542,14 @@ function _switchToDropdown(closeId, openId) {
 
 function openCatDropdown() {
   if (_morphing) return;
-  const mfDd = document.getElementById('mf-dropdown');
-  // Also intercept when mf is mid-close-animation (closing class, no open class)
+  const mfDd    = document.getElementById('mf-dropdown');
+  const ownerDd = document.getElementById('owner-dropdown');
   if (mfDd.classList.contains('open') || mfDd.classList.contains('closing')) {
-    mfDd.classList.remove('closing'); // cancel in-progress close so morph has a clean element
+    mfDd.classList.remove('closing');
     _switchToDropdown('mf', 'cat'); return;
+  }
+  if (ownerDd.classList.contains('open') || ownerDd.classList.contains('closing')) {
+    closeOwnerDropdown(); // close owner without morphing before opening cat
   }
   const dd  = document.getElementById('cat-dropdown');
   const btn = document.getElementById('cat-filter-btn');
@@ -2457,7 +2566,8 @@ function closeCatDropdown() {
   if (!dd.classList.contains('open')) return;
   dd.classList.add('closing');
   btn.classList.remove('open');
-  if (!document.getElementById('mf-dropdown').classList.contains('open'))
+  if (!document.getElementById('mf-dropdown').classList.contains('open') &&
+      !document.getElementById('owner-dropdown').classList.contains('open'))
     document.getElementById('cat-list-overlay').classList.remove('dd-open');
   // Guard: only act if still mid-close. Prevents stale listeners (left over when
   // resetAllFilters() force-removed 'open' before animation completed) from firing
@@ -2571,10 +2681,14 @@ function updateMfBtn() {
 
 function openMfDropdown() {
   if (_morphing) return;
-  const catDd = document.getElementById('cat-dropdown');
+  const catDd   = document.getElementById('cat-dropdown');
+  const ownerDd = document.getElementById('owner-dropdown');
   if (catDd.classList.contains('open') || catDd.classList.contains('closing')) {
     catDd.classList.remove('closing');
     _switchToDropdown('cat', 'mf'); return;
+  }
+  if (ownerDd.classList.contains('open') || ownerDd.classList.contains('closing')) {
+    closeOwnerDropdown(); // close owner without morphing before opening mf
   }
   const dd = document.getElementById('mf-dropdown');
   buildMfDropdown();
@@ -2590,8 +2704,8 @@ function closeMfDropdown() {
   if (!dd.classList.contains('open')) return;
   dd.classList.add('closing');
   document.getElementById('rh-mf-btn').classList.remove('open');
-  // Only remove overlay if cat-dropdown is also closed
-  if (!document.getElementById('cat-dropdown').classList.contains('open'))
+  if (!document.getElementById('cat-dropdown').classList.contains('open') &&
+      !document.getElementById('owner-dropdown').classList.contains('open'))
     document.getElementById('cat-list-overlay').classList.remove('dd-open');
   dd.addEventListener('animationend', () => {
     if (dd.classList.contains('closing'))
@@ -2732,7 +2846,15 @@ function renderLegend() {
   const CARD_BPAD = 8;   // snug below last row
   const CARD_W    = 490;
   const HDR_H     = 18;  // gap below header bar — must clear chevron circle tops
-  const RISK_H    = (P.h - CARD_TPAD - HDR_H - CARD_BPAD) / sorted.length;
+  // Top 5/10 only shows when ALL risks are visible (no filters active)
+  const _allRisksVisible = sorted.length >= RISKS.length;
+  const _top10WasVis     = typeof _top10SectionVisible !== 'undefined' ? _top10SectionVisible : true;
+  _top10SectionVisible   = _allRisksVisible;
+  // Reserve bottom of the panel for the Top 5/10 section
+  const TOP10_H   = _allRisksVisible ? (_top10Expanded ? 175 : 135) : 0; // hide when filtered
+  const TOP10_GAP = 10;  // separator gap between list and top 10
+  const listAvail = P.h - TOP10_H - TOP10_GAP; // height available for the risk list
+  const RISK_H    = (listAvail - CARD_TPAD - HDR_H - CARD_BPAD) / sorted.length;
   const fontSize  = Math.min(11, Math.max(8.5, RISK_H * 0.78));
   const cardListH = P.h;  // always matches graph height exactly (top + bottom edges flush)
 
@@ -2819,6 +2941,125 @@ function renderLegend() {
     y += RISK_H;
   });
   _reapplySpotlight(); // restore spotlight highlights on newly created row elements
+
+  // Animate legend when top10 section appears/disappears
+  // No animation here — top10 section simply appears/disappears with filter changes
+  // (animation was causing white flash from SVG layer compositing)
+
+  // ── Top 10 — rendered in reserved space, only when all risks are visible ──
+  if (!_allRisksVisible) return; // no top10 section when filters are active
+  const t10y0   = P.y + listAvail + TOP10_GAP; // top of the top-10 section
+  const t10Count = _top10Expanded ? 10 : 5;
+  const t10Rows = [...RISKS]
+    .filter(r => _isRiskVisible(r))
+    .sort((a, b) => (b.severity || 0) - (a.severity || 0) || (b.likelihood || 0) - (a.likelihood || 0))
+    .slice(0, t10Count);
+  const t10RowH  = (TOP10_H - 40) / t10Count; // 40 = header(24) + expand-btn(16)
+  const t10X0    = lx - CARD_PADX;
+  const t10Font  = Math.min(10, Math.max(8, t10RowH * 0.72));
+
+  // Named wrapper group — animated independently from the risk list above
+  const t10g = mk('g', { id: 'top10-layer-group' }, layer);
+
+  // Separator line
+  mk('line', { x1: t10X0 + 10, y1: t10y0, x2: t10X0 + CARD_W - 10, y2: t10y0,
+               stroke: 'rgba(255,255,255,0.12)', 'stroke-width': 0.8 }, t10g);
+
+  // Section header
+  mktxt(`TOP ${t10Count} — HIGHEST SEVERITY`, {
+    x: t10X0 + CARD_W / 2, y: t10y0 + 14,
+    'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 700,
+    fill: '#FF671F', 'font-family': AXIS_FONT, 'letter-spacing': 1
+  }, t10g);
+
+  // Rows
+  t10Rows.forEach((r, i) => {
+    // Hairline separator between rows (skip before first)
+    if (i > 0) {
+      const sepY = t10y0 + 24 + i * t10RowH;
+      mk('line', {
+        x1: t10X0 + 8, y1: sepY, x2: t10X0 + CARD_W - 8, y2: sepY,
+        stroke: 'rgba(255,255,255,0.07)', 'stroke-width': 0.6
+      }, layer);
+    }
+    const rowY   = t10y0 + 24 + i * t10RowH + t10RowH * 0.72;
+    const col    = catColor(r.category || '') || '#666';
+    const sev    = r.severity != null ? parseFloat(r.severity).toFixed(1) : '—';
+    const maxLen = 36;
+    const name   = r.name.length > maxLen ? r.name.slice(0, maxLen - 1) + '…' : r.name;
+    const rowG   = mk('g', { style: 'cursor:pointer' }, t10g);
+
+    // Hover hit area
+    mk('rect', { x: t10X0, y: rowY - t10RowH * 0.7, width: CARD_W, height: t10RowH,
+                 fill: 'transparent', rx: 4 }, rowG);
+    rowG.addEventListener('mouseenter', () =>
+      rowG.querySelector('rect').setAttribute('fill', 'rgba(255,255,255,0.06)'));
+    rowG.addEventListener('mouseleave', () =>
+      rowG.querySelector('rect').setAttribute('fill', 'transparent'));
+    rowG.addEventListener('click', () =>
+      openModal([RISKS.find(x => x.id === r.id)], 0));
+
+    // Rank
+    mktxt(String(i + 1), {
+      x: t10X0 + 14, y: rowY, 'text-anchor': 'middle',
+      'font-size': t10Font * 0.85, fill: 'rgba(168,168,170,0.7)', 'font-family': AXIS_FONT
+    }, rowG);
+    // Colored ID badge
+    mktxt(r.id, {
+      x: t10X0 + 38, y: rowY, 'text-anchor': 'middle',
+      'font-size': t10Font, 'font-weight': 700, fill: col, 'font-family': AXIS_FONT
+    }, rowG);
+    // Risk name
+    mktxt(name, {
+      x: t10X0 + 65, y: rowY,
+      'font-size': t10Font, fill: '#BEC0C6', 'font-family': AXIS_FONT
+    }, rowG);
+    // Severity (right-aligned)
+    // Subtle vertical tick before severity value
+    mk('line', {
+      x1: t10X0 + CARD_W - 50, y1: rowY - t10Font * 0.7,
+      x2: t10X0 + CARD_W - 50, y2: rowY + t10Font * 0.2,
+      stroke: 'rgba(255,255,255,0.12)', 'stroke-width': 0.7
+    }, rowG);
+    mktxt(sev, {
+      x: t10X0 + CARD_W - 28, y: rowY, 'text-anchor': 'end',
+      'font-size': t10Font, 'font-weight': 700, fill: '#E8EAED', 'font-family': AXIS_FONT
+    }, rowG);
+  });
+
+  // Expand / collapse toggle button
+  const expandBtnY = t10y0 + TOP10_H - 6;
+  const expandG = mk('g', { style: 'cursor:pointer' }, t10g);
+  mk('rect', {
+    x: t10X0 + CARD_W / 2 - 52, y: expandBtnY - 9,
+    width: 104, height: 14, rx: 7, fill: 'rgba(255,103,31,0.12)'
+  }, expandG);
+  mktxt(_top10Expanded ? '▼  Show Top 5' : '▲  Show Top 10', {
+    x: t10X0 + CARD_W / 2, y: expandBtnY,
+    'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 700,
+    fill: '#FF671F', 'font-family': AXIS_FONT, 'letter-spacing': 0.5
+  }, expandG);
+  expandG.addEventListener('click', () => {
+    const expanding = !_top10Expanded;
+    _top10Expanded = expanding;
+    renderLegend(); // rebuild with new row count
+    // Animate ONLY the top10 group — no opacity, no full-layer flash
+    const g = document.getElementById('top10-layer-group');
+    if (!g) return;
+    g.style.transition = 'none';
+    g.style.transform  = expanding ? 'translateY(20px)' : 'translateY(-14px)';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      g.style.transition = expanding
+        ? 'transform 0.58s cubic-bezier(0.16,1,0.3,1)'
+        : 'transform 0.38s cubic-bezier(0.4,0,0.2,1)';
+      g.style.transform  = 'translateY(0)';
+      setTimeout(() => { g.style.transition = g.style.transform = ''; }, 620);
+    }));
+  });
+  expandG.addEventListener('mouseenter', () =>
+    expandG.querySelector('rect').setAttribute('fill', 'rgba(255,103,31,0.22)'));
+  expandG.addEventListener('mouseleave', () =>
+    expandG.querySelector('rect').setAttribute('fill', 'rgba(255,103,31,0.12)'));
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -2841,7 +3082,6 @@ function showTip(e, risks) {
   ).join('') + `<div class="tt-div"></div>
   <div class="tt-stat">Likelihood: <span class="tt-val">${snap(l).toFixed(1)}</span>
     &nbsp;|&nbsp; Severity: <span class="tt-val">${snap(s).toFixed(1)}</span></div>
-  <div class="tt-stat">Risk Score: <span class="tt-val">${(snap(l)*snap(s)).toFixed(2)}</span></div>
   ${alerts}`;
   moveTip(e);  // position while invisible so it won't jump when it appears
   const seq = ++_tipSeq;
@@ -3191,14 +3431,127 @@ function clearAllFilters() {
 }
 
 function _updateResetBtn() {
-  const anyActive =
-    _hiddenCatColors.size > 0 ||
-    _activeFilters.status.size > 0 ||
-    _activeFilters.health.size > 0 ||
-    _activeFilters.quarter.size > 0 ||
-    _activeFilters.overdue ||
-    !!_spotlightOwner;
-  document.getElementById('reset-all-chip').classList.toggle('visible', anyActive);
+  const multiActive =
+    _hiddenCatColors.size > 0 || _activeFilters.status.size > 0 ||
+    _activeFilters.health.size > 0 || _activeFilters.quarter.size > 0 ||
+    _activeFilters.overdue || !!_spotlightOwner;
+  const anyActive  = multiActive || !!_ownerFilter;
+  const chip       = document.getElementById('reset-all-chip');
+  chip.classList.toggle('visible', anyActive);
+
+  if (!anyActive) return;
+
+  // Owner-only mode: show person name + × button
+  const onlyOwner = !!_ownerFilter && !multiActive;
+  if (onlyOwner) {
+    chip.innerHTML = `
+      <span class="chip-icon">person</span>
+      <span>${_ownerFilter}</span>
+      <button class="chip-close" title="Clear owner filter"
+              onclick="setOwnerFilter(null);event.stopPropagation()">✕</button>`;
+    chip.onclick   = null;
+    chip.style.cursor = 'default';
+  } else {
+    chip.innerHTML = `
+      <span class="chip-icon" style="font-size:14px">restart_alt</span>
+      <span>Reset All</span>`;
+    chip.onclick      = resetAllFilters;
+    chip.style.cursor = 'pointer';
+  }
+}
+
+let _top10Expanded       = false; // false = show top 5, true = show top 10
+let _top10SectionVisible = true;  // tracks whether top10 section was rendered last time
+
+// ── Owner Filter ──────────────────────────────────────────────────────────────
+let _ownerFilter = null; // currently selected owner name (null = All Owners)
+
+function _getAllOwners() {
+  const names = new Set();
+  RISKS.forEach(r => {
+    [r.owner, r.elt_owner, r.managers, r.other_managers].forEach(field => {
+      if (!field) return;
+      field.split(/[,\/]/).map(n => n.trim()).filter(n => n.length > 1)
+           .forEach(n => names.add(n));
+    });
+  });
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+function _isOwnerMatch(r) {
+  if (!_ownerFilter) return true;
+  const q = _ownerFilter.toLowerCase();
+  return [r.owner, r.elt_owner, r.managers, r.other_managers]
+    .filter(Boolean)
+    .some(field => field.split(/[,\/]/).map(n => n.trim().toLowerCase()).includes(q));
+}
+
+function buildOwnerDropdown() {
+  const dd = document.getElementById('owner-dropdown');
+  dd.innerHTML = '';
+  // "All Owners" reset row
+  const allRow = document.createElement('div');
+  allRow.className = 'owner-dd-row' + (!_ownerFilter ? ' active' : '');
+  allRow.textContent = 'All Owners';
+  allRow.addEventListener('click', e => { e.stopPropagation(); setOwnerFilter(null); });
+  dd.appendChild(allRow);
+  // One row per unique owner
+  _getAllOwners().forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'owner-dd-row' + (_ownerFilter === name ? ' active' : '');
+    row.textContent = name;
+    row.addEventListener('click', e => { e.stopPropagation(); setOwnerFilter(name); });
+    dd.appendChild(row);
+  });
+}
+
+function setOwnerFilter(name) {
+  _ownerFilter = name || null;
+  updateOwnerBtn();
+  closeOwnerDropdown();
+  const prev = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+  _applyFilterWithAnimation(prev);
+  _updateResetBtn();
+}
+
+function updateOwnerBtn() {
+  const btn = document.getElementById('owner-filter-btn');
+  btn.classList.toggle('filtered', !!_ownerFilter);
+  btn.title = _ownerFilter ? `Owner: ${_ownerFilter}` : 'Filter by owner';
+}
+
+function openOwnerDropdown() {
+  if (_morphing) return;
+  // Close other dropdowns cleanly (no morph — owner is an icon button, different size)
+  closeCatDropdown();
+  closeMfDropdown();
+  buildOwnerDropdown();
+  const dd = document.getElementById('owner-dropdown');
+  dd.classList.remove('closing');
+  void dd.offsetWidth;
+  dd.classList.add('open');
+  document.getElementById('owner-filter-btn').classList.add('open');
+  document.getElementById('cat-list-overlay').classList.add('dd-open');
+}
+
+function closeOwnerDropdown() {
+  const dd  = document.getElementById('owner-dropdown');
+  const btn = document.getElementById('owner-filter-btn');
+  if (!dd.classList.contains('open')) return;
+  dd.classList.add('closing');
+  btn.classList.remove('open');
+  if (!document.getElementById('cat-dropdown').classList.contains('open') &&
+      !document.getElementById('mf-dropdown').classList.contains('open'))
+    document.getElementById('cat-list-overlay').classList.remove('dd-open');
+  dd.addEventListener('animationend', () => {
+    if (dd.classList.contains('closing')) dd.classList.remove('open', 'closing');
+  }, { once: true });
+}
+
+function toggleOwnerDropdown(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('owner-dropdown');
+  dd.classList.contains('open') ? closeOwnerDropdown() : openOwnerDropdown();
 }
 
 function resetAllFilters() {
@@ -3227,6 +3580,9 @@ function resetAllFilters() {
   _activeFilters.overdue = false;
   updateFilterChip();
   updateMfBtn();
+  // Clear owner filter
+  _ownerFilter = null;
+  updateOwnerBtn();
   // Clear search and spotlight
   if (_searchActive) closeSearch();
   if (_spotlightOwner) clearSpotlight();
@@ -3347,14 +3703,22 @@ function _field(label, value) {
   </div>`;
 }
 
+// "At Risk" renamed at display time — items are already called Risks, the label is confusing
+function _displayStatus(s) {
+  if (!s) return s;
+  // "At Risk" renamed — items are already called Risks, the label is redundant and confusing
+  return s.toLowerCase().trim() === 'at risk' ? 'Needs Attention' : s;
+}
+
 function _badge(text) {
   if (!text || text === 'None') return '—';
-  const t = text.toLowerCase();
+  const display = _displayStatus(text);
+  const t = text.toLowerCase(); // keep original for color logic
   const cls = t.includes('overdue') || t.includes('at risk') || t === 'true'   ? 'red'
             : t.includes('on track') || t.includes('complete') || t === 'false' ? 'green'
             : t.includes('monitor') || t.includes('behind')                     ? 'yellow'
             : 'grey';
-  return `<span class="modal-badge ${cls}">${text}</span>`;
+  return `<span class="modal-badge ${cls}">${display}</span>`;
 }
 
 function _scoreCell(label, value, color) {
@@ -3389,17 +3753,9 @@ function _buildPageContent(r, page) {
       <div class="modal-data-grid">
         ${_scoreCell('Likelihood', l)}
         ${_scoreCell('Severity',   s)}
-        ${_scoreCell('Risk Score', score)}
       </div>`;
 
-    const residual = (r.residual_likelihood || r.residual_impact || r.residual_score)
-      ? `<div class="modal-section-head">Residual Risk</div>
-         <div class="modal-data-grid">
-           ${_scoreCell('Likelihood', r.residual_likelihood)}
-           ${_scoreCell('Impact',     r.residual_impact)}
-           ${_scoreCell('Score',      r.residual_score)}
-         </div>`
-      : '';
+    const residual = ''; // removed per ELT feedback
 
     const isOverdueFlag = String(r.review_overdue).toLowerCase() === 'true';
     const reviewOverdue = isOverdueFlag ? _badge('Overdue') : r.review_overdue === 'false' ? _badge('On Track') : '';
@@ -3426,7 +3782,15 @@ function _buildPageContent(r, page) {
          ${reviewOverdue ? `<div class="modal-field"><div class="modal-label">Status</div><div class="modal-value">${reviewOverdue}</div></div>` : ''}`
       : '';
 
-    return inherent + residual + reviewBlock;
+    const metaBlock = (r.date_added || r.date_modified)
+      ? `<div class="modal-section-head">Record</div>
+         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+           ${r.date_added    ? `<div class="modal-field"><div class="modal-label">Date Added</div><div class="modal-value">${r.date_added}</div></div>` : ''}
+           ${r.date_modified ? `<div class="modal-field"><div class="modal-label">Last Modified</div><div class="modal-value">${r.date_modified}</div></div>` : ''}
+         </div>`
+      : '';
+
+    return inherent + residual + reviewBlock + metaBlock;
   }
 
   if (page === 2) {
@@ -3491,7 +3855,7 @@ function _taskProgressFillClass(status) {
 function _trendLabel(trend) {
   if (!trend) return '';
   // Map emoji shortcuts to readable labels
-  if (trend.includes('⚠') || trend.includes('risk'))    return { icon: '⚠️', label: 'At Risk',    cls: 'color:#EF5350' };
+  if (trend.includes('⚠') || trend.includes('risk'))    return { icon: '⚠️', label: 'Needs Attention', cls: 'color:#EF5350' };
   if (trend.includes('►') || trend.includes('▶'))  return { icon: '▶',  label: 'On Track',  cls: 'color:#8BC34A' };
   if (trend.includes('\U0001f441') || trend.includes('👁'))  return { icon: '👁', label: 'Monitoring', cls: 'color:#74B8F5' };
   return { icon: '', label: trend, cls: '' };
@@ -3567,7 +3931,7 @@ function _buildTasksPage(r) {
         </button>
         <div class="task-card-header" style="padding-right:34px">
           <span class="task-card-name">${t.task}</span>
-          ${t.task_status ? `<span class="task-status-badge ${statusCls}">${t.task_status}</span>` : ''}
+          ${t.task_status ? `<span class="task-status-badge ${statusCls}">${_displayStatus(t.task_status)}</span>` : ''}
         </div>
         ${progressBar}
         ${meta}
@@ -3845,9 +4209,10 @@ function positionCtrl() {
   ctrl.style.top       = pillTop + 'px';
   ctrl.style.bottom    = 'auto';
   ctrl.style.transform = 'translateX(-50%)';
-  // Position the chips container — centred on the pill, stacks upward
+  // Position chips centred on the same axis as the zoom pill, stacking upward
   const chips = document.getElementById('active-chips');
-  chips.style.left      = (pillLeft - ctrl.offsetWidth / 2) + 'px';
+  chips.style.left      = pillLeft + 'px';
+  chips.style.transform = 'translateX(-50%)';
   chips.style.top       = 'auto';
   chips.style.bottom    = (window.innerHeight - pillTop + 10) + 'px';
 }
@@ -4197,6 +4562,13 @@ function runEntranceAnimation() {
 // error can never prevent zoom/pan/labels from working
 try { renderStatic(); renderRisks(); renderLegend(); } catch(e) { console.error('render error', e); }
 buildCatDropdown();
+// Register owner-dropdown handler ONCE
+document.getElementById('owner-filter-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  const dd = document.getElementById('owner-dropdown');
+  dd.classList.contains('open') ? closeOwnerDropdown() : openOwnerDropdown();
+});
+document.addEventListener('click', () => closeOwnerDropdown());
 // Register cat-dropdown handlers ONCE here (not inside buildCatDropdown which is called on every open/reset)
 document.getElementById('cat-filter-btn').addEventListener('click', e => {
   e.stopPropagation();
@@ -4314,7 +4686,7 @@ function _runExtendedSearch(query) {
       <span class="srp-row-name">${_hlHtml(t.task, query)}</span>
       <div class="srp-row-right">
         <span class="srp-risk-badge" style="color:${col}">${riskId}</span>
-        ${t.task_status ? `<span class="srp-status-badge ${_srpStatusClass(t.task_status)}">${t.task_status}</span>` : ''}
+        ${t.task_status ? `<span class="srp-status-badge ${_srpStatusClass(t.task_status)}">${_displayStatus(t.task_status)}</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -4446,6 +4818,7 @@ function _buildTaskDetailHTML(t, riskId) {
     t.mitigation_type ? { label: 'Mitigation Type',   value: t.mitigation_type } : null,
     t.gov_compliance  ? { label: 'Gov/Compliance',    value: t.gov_compliance }  : null,
     t.status          ? { label: 'Status',             value: t.status }         : null,
+    t.date_added      ? { label: 'Task Added',         value: t.date_added }     : null,
   ].filter(Boolean);
 
   const statsHtml = stats.length ? `
@@ -4477,7 +4850,7 @@ function _buildTaskDetailHTML(t, riskId) {
     </div>
     <div class="tdm-header">
       <div class="tdm-task-name">${t.task}</div>
-      ${t.task_status ? `<span class="tdm-status-badge ${_taskStatusClass(t.task_status)}">${t.task_status}</span>` : ''}
+      ${t.task_status ? `<span class="tdm-status-badge ${_taskStatusClass(t.task_status)}">${_displayStatus(t.task_status)}</span>` : ''}
     </div>
     ${progressHtml}${statsHtml}
     ${sec('Definition', t.definition)}
@@ -4569,6 +4942,47 @@ function closeTaskDetail() {
   document.getElementById('task-detail-modal').classList.remove('open');
 }
 
+// ── Top 10 by Severity — always-visible panel below risk list ────────────────
+
+function positionTop10() {
+  const panel = document.getElementById('top10-panel');
+  const svg   = document.querySelector('#wrap svg');
+  const ctrl  = document.getElementById('zoom-ctrl'); // nav pill reference
+  if (!svg || !ctrl) return;
+  const svgR  = svg.getBoundingClientRect();
+  const ctrlR = ctrl.getBoundingClientRect();
+  const legFrac  = 760 / 1300; // legend starts at SVG x=760 of 1300
+  const panelLeft  = Math.round(svgR.left + svgR.width * legFrac);
+  const panelWidth = Math.round(svgR.width * (1 - legFrac));
+  const bottomEdge = Math.round(window.innerHeight - ctrlR.top + 6); // flush above nav pill
+  // Max height: at most 55% of the svg height so it doesn't crowd the list
+  const maxH = Math.round(svgR.height * 0.52);
+  panel.style.left      = panelLeft + 'px';
+  panel.style.width     = panelWidth + 'px';
+  panel.style.bottom    = bottomEdge + 'px';
+  panel.style.maxHeight = maxH + 'px';
+  panel.classList.add('visible');
+}
+
+function buildTop10() {
+  const list = document.getElementById('top10-list');
+  const top  = [...RISKS]
+    .filter(r => _isRiskVisible(r))
+    .sort((a, b) => (b.severity || 0) - (a.severity || 0) || (b.likelihood || 0) - (a.likelihood || 0))
+    .slice(0, 10);
+  list.innerHTML = top.map((r, i) => {
+    const col  = catColor(r.category || '') || '#666';
+    const sev  = r.severity != null ? parseFloat(r.severity).toFixed(1) : '—';
+    const safe = r.name.replace(/"/g, '&quot;');
+    return `<div class="top10-row" onclick="openModal([RISKS.find(x=>x.id==='${r.id}')],0)">
+      <span class="top10-rank">${i + 1}</span>
+      <span class="top10-badge" style="color:${col}">${r.id}</span>
+      <span class="top10-name" title="${safe}">${r.name}</span>
+      <span class="top10-sev">${sev}</span>
+    </div>`;
+  }).join('') || '<div style="padding:10px 14px;color:var(--allegion-muted);font-size:12px">No risks match current filters.</div>';
+}
+
 function _closeSearchPanel() {
   document.getElementById('search-results-panel').classList.remove('srp-visible');
 }
@@ -4640,7 +5054,7 @@ function _renderSearchModalResults(query) {
         </div>
         <div class="smc-right">
           <span class="smc-risk-badge" style="color:${col}">${riskId}</span>
-          ${t.task_status ? `<span class="smc-status-badge ${_srpStatusClass(t.task_status)}">${t.task_status}</span>` : ''}
+          ${t.task_status ? `<span class="smc-status-badge ${_srpStatusClass(t.task_status)}">${_displayStatus(t.task_status)}</span>` : ''}
         </div>
       </div>`;
     }).join('');

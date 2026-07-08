@@ -27,6 +27,16 @@ _REQUIRED = ["Risk ID", "Risk Name", "Overall Likelihood", "Overall Severity"]
 _TASK_SHEET_NAME = "Mitigation Tasks"
 
 
+def _fmt_date(dt) -> str:
+    """Format a SmartSheet row datetime to a readable date string."""
+    if dt is None:
+        return ""
+    try:
+        return dt.strftime("%d %b %Y")
+    except Exception:
+        return str(dt)[:10]
+
+
 def get_task_data() -> dict[str, list[dict]]:
     """Return tasks grouped by Risk ID: { 'R01': [{...}, ...], 'R02': [...], ... }"""
     client = smartsheet.Smartsheet(os.environ["SMARTSHEET_ACCESS_TOKEN"])
@@ -78,6 +88,7 @@ def get_task_data() -> dict[str, list[dict]]:
             "likelihood":         cell_by_col.get(col_map.get("Likelihood", -1)),
             "mitigation_type":    _val(cell_by_col, "Mitigation Type"),
             "gov_compliance":     _val(cell_by_col, "Governance/Compliance Risk"),
+            "date_added":         _fmt_date(getattr(row, "created_at", None)),
         }
 
         tasks_by_risk.setdefault(risk_id, []).append(task)
@@ -191,6 +202,9 @@ def get_risk_data() -> list[dict]:
                 "mitigation_pct":     get_optional("Mitigation Completion %"),
                 "tasks_total":        get_optional("Total Migitation Tasks"),
                 "tasks_done":         get_optional("Completed Mitigation Tasks"),
+                # Row metadata (SmartSheet system fields)
+                "date_added":         _fmt_date(getattr(row, "created_at", None)),
+                "date_modified":      _fmt_date(getattr(row, "modified_at", None)),
             })
         except (ValueError, TypeError):
             continue
