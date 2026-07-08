@@ -1388,7 +1388,9 @@ const dotGroupByRiskId   = {};
 const legendRowByRiskId  = {};
 const dotRisksGroupById  = {};
 let _dimCount = 0;
+let _suppressHoverDim = false; // blocks mouseenter dim during DOM rebuild window
 function dimLegend(on) {
+  if (on && _suppressHoverDim) return; // ignore hover-triggered dims during rebuild
   _dimCount = Math.max(0, _dimCount + (on ? 1 : -1));
   document.getElementById('legend-layer').classList.toggle('legend-dimmed', _dimCount > 0);
 }
@@ -2080,8 +2082,8 @@ function renderStatic() {
   mktxt('Likelihood',{x:x+w/2,y:y+h+34,'text-anchor':'middle','font-size':13,'font-weight':600,fill:'#333','font-family':AXIS_FONT},layer);
   const sev=mktxt('Severity',{'text-anchor':'middle','font-size':13,'font-weight':600,fill:'#333','font-family':AXIS_FONT,transform:`rotate(-90,${x-44},${y+h/2})`},layer);
   sev.setAttribute('x',x-44); sev.setAttribute('y',y+h/2);
-  // Subtle "data as of" timestamp — bottom-right of chart area
-  if (LAST_UPDATED && LAST_UPDATED !== 'Unknown') {
+  // Timestamp hidden until live-updating data is available
+  if (false && LAST_UPDATED && LAST_UPDATED !== 'Unknown') {
     mktxt(`Data as of ${LAST_UPDATED}`, {
       x: x + w, y: y + h + 50, 'text-anchor': 'end',
       'font-size': 9.5, fill: '#666', 'font-family': AXIS_FONT, opacity: 0.7
@@ -2401,6 +2403,9 @@ function _switchToDropdown(closeId, openId) {
       if (e.propertyName !== 'transform') return;
       morph.removeEventListener('transitionend', onMorphDone);
       morph.remove();
+      // Guard: if resetAllFilters() ran during the morph it set _morphing=false;
+      // skip reopening the destination dropdown to avoid it popping back up after reset.
+      if (!_morphing) return;
       openDd.classList.remove('closing');
       openDd.style.animationDuration = '0s';
       openDd.classList.add('open');
@@ -2454,8 +2459,12 @@ function closeCatDropdown() {
   btn.classList.remove('open');
   if (!document.getElementById('mf-dropdown').classList.contains('open'))
     document.getElementById('cat-list-overlay').classList.remove('dd-open');
+  // Guard: only act if still mid-close. Prevents stale listeners (left over when
+  // resetAllFilters() force-removed 'open' before animation completed) from firing
+  // on the *next* open animation and instantly re-closing the dropdown.
   dd.addEventListener('animationend', () => {
-    dd.classList.remove('open', 'closing');
+    if (dd.classList.contains('closing'))
+      dd.classList.remove('open', 'closing');
   }, { once: true });
 }
 
@@ -2584,7 +2593,10 @@ function closeMfDropdown() {
   // Only remove overlay if cat-dropdown is also closed
   if (!document.getElementById('cat-dropdown').classList.contains('open'))
     document.getElementById('cat-list-overlay').classList.remove('dd-open');
-  dd.addEventListener('animationend', () => dd.classList.remove('open','closing'), { once: true });
+  dd.addEventListener('animationend', () => {
+    if (dd.classList.contains('closing'))
+      dd.classList.remove('open', 'closing');
+  }, { once: true });
 }
 
 function toggleMfDropdown(e) {
@@ -2616,13 +2628,8 @@ function buildCatDropdown() {
     dd.appendChild(row);
   });
 
-  // Open/close toggle
-  document.getElementById('cat-filter-btn').addEventListener('click', e => {
-    e.stopPropagation();
-    dd.classList.contains('open') ? closeCatDropdown() : openCatDropdown();
-  });
-  // Click outside closes dropdown
-  document.addEventListener('click', () => closeCatDropdown());
+  // NOTE: button click handler and document close handler are registered ONCE
+  // below (not here), so rebuilding the dropdown doesn't stack duplicate listeners.
 }
 
 function positionRiskHeader() {
@@ -3190,7 +3197,6 @@ function _updateResetBtn() {
     _activeFilters.health.size > 0 ||
     _activeFilters.quarter.size > 0 ||
     _activeFilters.overdue ||
-    _searchActive ||
     !!_spotlightOwner;
   document.getElementById('reset-all-chip').classList.toggle('visible', anyActive);
 }
@@ -3201,6 +3207,14 @@ function resetAllFilters() {
   _dimCount = 0;
   const ll = document.getElementById('legend-layer');
   ll.classList.remove('legend-dimmed', 'search-active');
+  // Force-reset morph/dropdown state — _morphing can get stuck if reset interrupts
+  // a mid-flight morph animation (transitionend never fires, flag stays true forever)
+  _morphing = false;
+  ['cat-dropdown', 'mf-dropdown'].forEach(id =>
+    document.getElementById(id).classList.remove('open', 'closing'));
+  document.getElementById('cat-filter-btn').classList.remove('open');
+  document.getElementById('rh-mf-btn') && document.getElementById('rh-mf-btn').classList.remove('open');
+  document.getElementById('cat-list-overlay').classList.remove('dd-open');
   // Clear category filter
   _hiddenCatColors.clear();
   Object.entries(catKeyElByColor).forEach(([, el]) => el.classList.remove('off'));
@@ -3850,6 +3864,10 @@ function rerender() {
   updateResetBtn();
   _dimCount = 0;
   document.getElementById('legend-layer').classList.remove('legend-dimmed');
+  // Briefly suppress hover-dim so mouseenter on newly-created dot elements
+  // can't immediately re-dim the legend before the cursor has settled
+  _suppressHoverDim = true;
+  setTimeout(() => { _suppressHoverDim = false; }, 180);
   ['static-layer','risks-layer'].forEach(id => {
     const el = document.getElementById(id);
     while (el.firstChild) el.removeChild(el.firstChild);
@@ -4179,6 +4197,13 @@ function runEntranceAnimation() {
 // error can never prevent zoom/pan/labels from working
 try { renderStatic(); renderRisks(); renderLegend(); } catch(e) { console.error('render error', e); }
 buildCatDropdown();
+// Register cat-dropdown handlers ONCE here (not inside buildCatDropdown which is called on every open/reset)
+document.getElementById('cat-filter-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  const dd = document.getElementById('cat-dropdown');
+  dd.classList.contains('open') ? closeCatDropdown() : openCatDropdown();
+});
+document.addEventListener('click', () => closeCatDropdown());
 updateCatFilterBtn();
 setTimeout(() => { positionCtrl(); positionRiskHeader(); runEntranceAnimation(); }, 0);
 
