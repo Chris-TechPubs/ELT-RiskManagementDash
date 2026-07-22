@@ -4627,8 +4627,62 @@ function closeModal() {
 }
 
 // ── USER GUIDE ───────────────────────────────────────────────────────────
+function _renderGuideNav(filterText) {
+  const q    = (filterText || '').trim().toLowerCase();
+  const list = document.getElementById('guide-nav-list');
+  let html = '';
+  let totalMatches = 0;
+  GUIDE_CATEGORY_ORDER.forEach(cat => {
+    const items = GUIDE_FEATURES.filter(f => {
+      if (f.category !== cat) return false;
+      if (!q) return true;
+      const haystack = (f.title + ' ' + f.description + ' ' + f.tips.join(' ')).toLowerCase();
+      return haystack.includes(q);
+    });
+    if (!items.length) return;
+    totalMatches += items.length;
+    html += `<div class="guide-nav-category">${cat}</div>`;
+    items.forEach(f => {
+      html += `<div class="guide-nav-item${f.id === _guideSelectedId ? ' active' : ''}" data-id="${f.id}">${f.icon} ${f.title}</div>`;
+    });
+  });
+  if (!totalMatches) {
+    html = '<div class="guide-nav-empty">No matching features</div>';
+  }
+  list.innerHTML = html;
+}
+
+function _renderGuideDetail(id) {
+  const f = GUIDE_FEATURES.find(x => x.id === id);
+  const detail = document.getElementById('guide-detail');
+  if (!f) { detail.innerHTML = ''; return; }
+  let h = `<div class="guide-detail-icon">${f.icon}</div>`;
+  h += `<div class="guide-detail-title">${f.title}</div>`;
+  h += `<div class="guide-detail-desc">${f.description}</div>`;
+  h += '<div class="guide-detail-tips-label">Tips</div>';
+  h += '<ul class="guide-detail-tips">';
+  f.tips.forEach(t => { h += `<li>${t}</li>`; });
+  h += '</ul>';
+  h += '<button class="guide-inspect-btn" id="guide-inspect-btn">🎯 Click something on the page</button>';
+  detail.innerHTML = h;
+  const inspectBtn = document.getElementById('guide-inspect-btn');
+  if (inspectBtn) inspectBtn.addEventListener('click', _startGuideInspect);
+}
+
+function _selectGuideFeature(id) {
+  _guideSelectedId = id;
+  document.querySelectorAll('.guide-nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === id);
+  });
+  _renderGuideDetail(id);
+}
+
 function _openGuide() {
   document.getElementById('guide-modal').classList.add('open');
+  if (!_guideSelectedId) _guideSelectedId = GUIDE_FEATURES[0].id;
+  document.getElementById('guide-search-input').value = '';
+  _renderGuideNav('');
+  _selectGuideFeature(_guideSelectedId);
 }
 
 function _closeGuide() {
@@ -4638,6 +4692,11 @@ function _closeGuide() {
 document.getElementById('guide-btn').addEventListener('click', _openGuide);
 document.getElementById('guide-modal-close').addEventListener('click', _closeGuide);
 document.getElementById('guide-modal-overlay').addEventListener('click', _closeGuide);
+document.getElementById('guide-nav-list').addEventListener('click', function(e) {
+  const item = e.target.closest('.guide-nav-item');
+  if (!item) return;
+  _selectGuideFeature(item.dataset.id);
+});
 
 // Keyboard: Escape closes, Left/Right arrows switch tabs
 document.addEventListener('keydown', e => {
