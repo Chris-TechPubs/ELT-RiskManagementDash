@@ -861,7 +861,22 @@
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     /* ── Floating fullscreen corner button ──────────────────────────────────── */
+    /* Hidden until the app is hosted on company servers — it currently reveals
+       the Netlify URL. #guide-btn below takes over this same corner slot.
+       To restore: change "display: none" back to "display: flex" and give
+       #guide-btn a left offset (e.g. right: 54px) so both sit side by side. */
     #fullscreen-btn {
+      display: none;
+      position: fixed; top: 10px; right: 10px; z-index: 900;
+      background: rgba(22,22,24,0.70); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 9px; padding: 7px; cursor: pointer; color: var(--allegion-muted);
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    #fullscreen-btn:hover { background: rgba(255,255,255,0.1); color: var(--allegion-text); border-color: rgba(255,255,255,0.3); }
+    /* ── Floating user guide button — same corner slot as #fullscreen-btn ───── */
+    #guide-btn {
       position: fixed; top: 10px; right: 10px; z-index: 900;
       background: rgba(22,22,24,0.70); border: 1px solid rgba(255,255,255,0.18);
       border-radius: 9px; padding: 7px; cursor: pointer; color: var(--allegion-muted);
@@ -869,7 +884,7 @@
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
-    #fullscreen-btn:hover { background: rgba(255,255,255,0.1); color: var(--allegion-text); border-color: rgba(255,255,255,0.3); }
+    #guide-btn:hover { background: rgba(255,255,255,0.1); color: var(--allegion-text); border-color: rgba(255,255,255,0.3); }
 
     /* ── Controls ───────────────────────────────────────────────────────────── */
     #zoom-ctrl {
@@ -1467,9 +1482,13 @@
     <span id="rac-label">Reset All</span>
   </div>
 </div>
-<!-- ── Floating fullscreen button — top-right corner ────────────────── -->
+<!-- ── Floating fullscreen button — top-right corner (hidden, see CSS) ─── -->
 <button id="fullscreen-btn" onclick="window.open(window.location.href,'_blank')" title="Open fullscreen in new tab">
   <span class="material-symbols-outlined" style="font-size:16px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">open_in_new</span>
+</button>
+<!-- ── Floating user guide button — top-right corner ────────────────── -->
+<button id="guide-btn" title="Open the user guide">
+  <span class="material-symbols-outlined" style="font-size:16px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">help</span>
 </button>
 
 <!-- ── Chart pill buttons + shared panel ─────────────────────────────── -->
