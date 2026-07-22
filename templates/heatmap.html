@@ -4697,6 +4697,9 @@ document.getElementById('guide-nav-list').addEventListener('click', function(e) 
   if (!item) return;
   _selectGuideFeature(item.dataset.id);
 });
+document.getElementById('guide-search-input').addEventListener('input', function() {
+  _renderGuideNav(this.value);
+});
 
 // Keyboard: Escape closes, Left/Right arrows switch tabs
 document.addEventListener('keydown', e => {
