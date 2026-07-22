@@ -1664,6 +1664,258 @@ const LAST_UPDATED = "{{ last_updated }}";
 const dotGroupByRiskId   = {};
 const legendRowByRiskId  = {};
 const dotRisksGroupById  = {};
+
+// ── USER GUIDE CONTENT ───────────────────────────────────────────────────
+const GUIDE_CATEGORY_ORDER = [
+  'Getting Started', 'Reading the Chart', 'Filtering & Search',
+  'The Risk Modal', 'Tasks', 'Trend Overlays', 'People', 'Chart Panels',
+];
+
+const GUIDE_FEATURES = [
+  {
+    id: 'overview', category: 'Getting Started', icon: '👋',
+    title: 'What this chart shows',
+    description: 'This chart plots every ELT risk by Likelihood (horizontal) and Severity (vertical), each scored 0–5. A risk further toward the top-right is more urgent — higher chance of happening and worse impact if it does. The background gradient shows the same thing in color: green is low risk, red is high.',
+    tips: [
+      'Click any dot on the chart or any row in the list on the right to open that risk's full detail.',
+      'Dots are colored by category — Strategic, Operational, Technology/Cybersecurity, Human Capital, Governance/Compliance, Environmental/External, and Financial.',
+      'Everything on this page respects whatever filters are currently active — category, status, quarter, and so on.',
+    ],
+    selector: null,
+  },
+  {
+    id: 'reading-grid', category: 'Reading the Chart', icon: '📈',
+    title: 'The gradient grid & axes',
+    description: 'The horizontal axis is Overall Likelihood, the vertical axis is Overall Severity, both scored 0–5. The diagonal color gradient — green, yellow, orange, red — reflects the same risk-level scale used across ELT reporting, so a risk's position alone tells you roughly how serious it is before you even open it.',
+    tips: [
+      'Risks near the bottom-left are low likelihood and low severity — the safest zone.',
+      'Risks near the top-right need the most attention — high likelihood and high severity together.',
+      'The grid lines mark whole-number scores to make a risk's exact position easier to read.',
+    ],
+    selector: null,
+  },
+  {
+    id: 'legend-list', category: 'Reading the Chart', icon: '📋',
+    title: 'Legend / risk list',
+    description: 'The scrollable list next to the chart shows every risk currently visible on the grid, with its ID and name. It stays in sync with the chart at all times — hover a row to highlight its dot, or click either one to open that risk.',
+    tips: [
+      'Hovering a row highlights its matching dot on the chart so you can find it visually.',
+      'The list re-sorts and re-filters automatically whenever you change a filter, search, or spotlight.',
+      'Risks sharing the exact same rounded score are grouped into one dot on the chart but still each get their own row here.',
+    ],
+    selector: '#legend-layer',
+  },
+  {
+    id: 'category-key', category: 'Reading the Chart', icon: '🎨',
+    title: 'Category color key',
+    description: 'Every risk belongs to one of seven categories, and each has a fixed color used consistently for its dots and its ID number in the list: Strategic (orange), Operational (teal), Technology/Cybersecurity (olive/gold), Human Capital (green), Governance/Compliance (magenta), Environmental/External (sky blue), and Financial (navy).',
+    tips: [
+      'The category color also appears on the risk ID number in the legend list, not just the dot.',
+      'These same seven colors are exactly what you toggle on/off with the category filter.',
+    ],
+    selector: null,
+  },
+  {
+    id: 'grouped-dots', category: 'Reading the Chart', icon: '🥧',
+    title: 'Grouped "pie" dots',
+    description: 'When two or more risks round to the exact same Likelihood/Severity position, they share a single dot instead of overlapping invisibly. That shared dot splits into colored wedges — one per risk — like a small pie chart, so you can still tell at a glance how many risks and which categories are stacked there.',
+    tips: [
+      'Click a grouped dot to open a modal with tabs for each risk in that group.',
+      'Scores are rounded to the nearest 0.5 before grouping, so risks don't need to match exactly to end up sharing a dot.',
+    ],
+    selector: null,
+  },
+  {
+    id: 'zoom-pan', category: 'Reading the Chart', icon: '🔍',
+    title: 'Zoom & pan',
+    description: 'The zoom controls in the top-left let you zoom into a crowded corner of the chart or reset back to the full view. Once zoomed in, click-drag anywhere on the chart to pan around.',
+    tips: [
+      'The refresh icon resets back to the default 0–5 range on both axes in one click.',
+      'Labels can be toggled off if a zoomed-in area gets too cluttered with text.',
+    ],
+    selector: '#zoom-ctrl',
+  },
+  {
+    id: 'category-filter', category: 'Filtering & Search', icon: '🏷️',
+    title: 'Category filter',
+    description: 'Click the layers icon to open a dropdown of all seven risk categories. Toggling a category off hides every risk in that category from the chart, the legend list, and search — everywhere at once.',
+    tips: [
+      'Turn multiple categories off at once to isolate just the ones you care about.',
+      'A small dot on the button itself shows when any category filter is currently active.',
+    ],
+    selector: '#cat-filter-btn',
+  },
+  {
+    id: 'multi-filter', category: 'Filtering & Search', icon: '⚙️',
+    title: 'Filters (status / health / quarter / overdue)',
+    description: 'The Filters dropdown narrows the chart by Risk Status, Mitigation Health, Quarter, or overdue-review risks only. These combine with each other and with the category filter for a very specific view.',
+    tips: [
+      'A badge on the Filters button shows how many filters are currently active.',
+      'Filters here combine with the category filter and with an active search or spotlight.',
+    ],
+    selector: '#rh-mf-btn',
+  },
+  {
+    id: 'quick-search', category: 'Filtering & Search', icon: '🔎',
+    title: 'Search bar',
+    description: 'Click the search icon to open a quick search bar. Type any part of a risk name or task name to instantly filter the chart and list down to matches.',
+    tips: [
+      'Search matches as you type — no need to press Enter.',
+      'Click Advanced next to the search bar to open the full search modal for a deeper look, including people.',
+      'Click the ✕ to close the search bar and clear the filter.',
+    ],
+    selector: '#rh-search-btn',
+  },
+  {
+    id: 'full-search-modal', category: 'Filtering & Search', icon: '🗂️',
+    title: 'Advanced search modal',
+    description: 'Opens a full two-column view — Tasks on the left, People on the right — with everything matching your search term. Toggle "Include Task Content" to also search inside task definitions, not just names.',
+    tips: [
+      'Clicking a task result opens that risk's modal directly to the matching task, with a brief highlight pulse so it's easy to spot.',
+      'Clicking a person opens their profile modal with everything they own or manage.',
+    ],
+    selector: '#rh-search-advanced',
+  },
+  {
+    id: 'spotlight', category: 'Filtering & Search', icon: '🎯',
+    title: 'Spotlight a person',
+    description: 'The person icon opens a dropdown to spotlight one person — dimming every risk except the ones they own, manage, or have tasks on. Useful for quickly seeing one person's full workload across the whole risk register.',
+    tips: [
+      'You can also spotlight someone directly by clicking their name inside a risk or person profile modal.',
+      'A small dot on the button shows when a spotlight is currently active.',
+    ],
+    selector: '#owner-filter-btn',
+  },
+  {
+    id: 'reset-all', category: 'Filtering & Search', icon: '↺',
+    title: 'Reset All chip',
+    description: 'A red Reset All chip appears automatically whenever any filter, search, or spotlight is active. Click it to clear everything in one step and return to the full, unfiltered chart.',
+    tips: [
+      'This only appears when something is actually active — no need to hunt for it otherwise.',
+      'It clears category filters, the Filters dropdown, search, and spotlight all together.',
+    ],
+    selector: '#reset-all-chip',
+  },
+  {
+    id: 'opening-risk', category: 'The Risk Modal', icon: '🟦',
+    title: 'Opening a risk',
+    description: 'Click any dot on the chart or any row in the legend list to open that risk's detail modal, with everything ELT needs to know about it in one place.',
+    tips: [
+      'Grouped dots (multiple risks in one spot) open with tabs at the top — one per risk in the group.',
+      'Press Escape or click outside the modal to close it.',
+    ],
+    selector: null,
+  },
+  {
+    id: 'multi-risk-tabs', category: 'The Risk Modal', icon: '🗂️',
+    title: 'Multi-risk tabs',
+    description: 'When a dot represents more than one risk, its modal opens with a row of tabs across the top, one per risk, so you can flip between all of them without closing and reopening the modal.',
+    tips: [
+      'This only appears for grouped dots — a risk with a unique position opens straight to its own detail.',
+      'Use the Left/Right arrow keys to switch tabs without touching the mouse.',
+    ],
+    selector: null,
+  },
+  {
+    id: 'page-nav', category: 'The Risk Modal', icon: '📑',
+    title: 'Overview / Risk Data / Ownership / Tasks',
+    description: 'Every risk modal has four pages you can switch between: Overview (summary + definition), Risk Data (scores, category, status), Ownership (owners and managers), and Tasks (mitigation tasks for that risk).',
+    tips: [
+      'The underline slides to whichever page is active.',
+      'The modal automatically widens when you switch to the Tasks page to fit the task cards.',
+    ],
+    selector: '#modal-page-nav',
+  },
+  {
+    id: 'tasks-tab', category: 'Tasks', icon: '✅',
+    title: 'Tasks tab & cards',
+    description: 'The Tasks page of a risk modal shows every mitigation task tied to that risk as its own card — status, progress bar, severity, likelihood, responsible person, dates, and a trend indicator.',
+    tips: [
+      'Cards scroll horizontally as a row; each card also scrolls independently if its own content is tall.',
+      'Click a card's expand icon to open its full detail in a separate modal.',
+    ],
+    selector: null,
+  },
+  {
+    id: 'sort-bar', category: 'Tasks', icon: '↕️',
+    title: 'Task sort bar',
+    description: 'Slides out from behind the Tasks label with three sort options: % Done, A-Z, and Severity. Use it to reorder the task cards without leaving the modal.',
+    tips: [
+      'The active sort option stays highlighted so you can see which order you're viewing.',
+      'Sort resets to % Done (completion order) each time you open a new risk's modal.',
+    ],
+    selector: '#task-sort-bar',
+  },
+  {
+    id: 'task-detail-modal', category: 'Tasks', icon: '↗️',
+    title: 'Task detail modal',
+    description: 'Click the expand icon on any task card to open a larger modal with the task's full detail: a stats grid, plus Definition, Mitigation Strategy, and Trend Analysis in full text.',
+    tips: [
+      'Prev/Next arrows step through every task on that risk without closing the modal.',
+      'It opens directly above the risk modal, so closing it returns you to exactly where you were.',
+    ],
+    selector: '.task-expand-btn',
+  },
+  {
+    id: 'trend-toggle', category: 'Trend Overlays', icon: '📉',
+    title: 'Turning on trend for a risk',
+    description: 'The Trend button inside a risk's modal (and the + icon next to its row in the legend once trend mode is already active for any risk) toggles historical trend tracking for that specific risk, overlaying its past positions on the chart.',
+    tips: [
+      'You can have trend active for multiple risks at once — each gets its own dashed trail color.',
+      'Turning trend off for a risk removes just its trail and ghost dots, leaving other tracked risks untouched.',
+    ],
+    selector: '#risk-modal-trend-btn',
+  },
+  {
+    id: 'ghost-dots', category: 'Trend Overlays', icon: '👻',
+    title: 'Ghost dots & trail lines',
+    description: 'While trend mode is active, each tracked risk shows faint dashed trail lines connecting its past positions, with a small "ghost" dot at each historical point. The rest of the chart dims slightly so the trails stand out.',
+    tips: [
+      'Ghost dots are clickable — click one to see that exact historical snapshot.',
+      'These only exist while trend mode is on for at least one risk — they disappear completely once trend is cleared.',
+    ],
+    selector: null,
+  },
+  {
+    id: 'hist-card', category: 'Trend Overlays', icon: '🕰️',
+    title: 'Historical snapshot card',
+    description: 'Clicking a ghost dot opens a small card showing that risk's severity, likelihood, and score exactly as they were at that historical point, with colored deltas showing whether each got better or worse since then.',
+    tips: [
+      'Red deltas mean that value got worse over time; green means it improved.',
+      'Click anywhere outside the card, or another ghost dot, to close or switch it.',
+    ],
+    selector: '#hist-card',
+  },
+  {
+    id: 'person-profile', category: 'People', icon: '👤',
+    title: 'Person profile modal',
+    description: 'Clicking a person's name anywhere in the app — search results, a risk's Ownership page, anywhere — opens their profile: every risk they own, every risk they're the ELT Owner for, everything they manage, and every mitigation task assigned to them.',
+    tips: [
+      'Every item in the profile is itself clickable and opens that risk or task directly.',
+      'Their email is generated automatically from their name and shown at the top.',
+    ],
+    selector: null,
+  },
+  {
+    id: 'chart-risks-pill', category: 'Chart Panels', icon: '📊',
+    title: 'Risks panel',
+    description: 'Opens a side panel listing the Top 10 highest-severity risks currently on the chart, for a quick ranked view without scrolling the full list.',
+    tips: [
+      'This respects whatever filters are currently active, same as the main chart.',
+    ],
+    selector: '#pill-top10',
+  },
+  {
+    id: 'chart-tasks-pill', category: 'Chart Panels', icon: '✅',
+    title: 'Tasks panel',
+    description: 'Opens a side panel summarizing mitigation tasks across all visible risks — a quick way to see overall task status without opening each risk individually.',
+    tips: [
+      'This also respects whatever filters are currently active.',
+    ],
+    selector: '#pill-tasks',
+  },
+];
+
 let _dimCount = 0;
 let _suppressHoverDim = false; // blocks mouseenter dim during DOM rebuild window
 function dimLegend(on) {
