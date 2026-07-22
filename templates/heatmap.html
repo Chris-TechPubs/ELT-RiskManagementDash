@@ -1677,7 +1677,7 @@ const GUIDE_FEATURES = [
     title: 'What this chart shows',
     description: 'This chart plots every ELT risk by Likelihood (horizontal) and Severity (vertical), each scored 0–5. A risk further toward the top-right is more urgent — higher chance of happening and worse impact if it does. The background gradient shows the same thing in color: green is low risk, red is high.',
     tips: [
-      'Click any dot on the chart or any row in the list on the right to open that risk's full detail.',
+      'Click any dot on the chart or any row in the list on the right to open that risk’s full detail.',
       'Dots are colored by category — Strategic, Operational, Technology/Cybersecurity, Human Capital, Governance/Compliance, Environmental/External, and Financial.',
       'Everything on this page respects whatever filters are currently active — category, status, quarter, and so on.',
     ],
@@ -1686,11 +1686,11 @@ const GUIDE_FEATURES = [
   {
     id: 'reading-grid', category: 'Reading the Chart', icon: '📈',
     title: 'The gradient grid & axes',
-    description: 'The horizontal axis is Overall Likelihood, the vertical axis is Overall Severity, both scored 0–5. The diagonal color gradient — green, yellow, orange, red — reflects the same risk-level scale used across ELT reporting, so a risk's position alone tells you roughly how serious it is before you even open it.',
+    description: 'The horizontal axis is Overall Likelihood, the vertical axis is Overall Severity, both scored 0–5. The diagonal color gradient — green, yellow, orange, red — reflects the same risk-level scale used across ELT reporting, so a risk’s position alone tells you roughly how serious it is before you even open it.',
     tips: [
       'Risks near the bottom-left are low likelihood and low severity — the safest zone.',
       'Risks near the top-right need the most attention — high likelihood and high severity together.',
-      'The grid lines mark whole-number scores to make a risk's exact position easier to read.',
+      'The grid lines mark whole-number scores to make a risk’s exact position easier to read.',
     ],
     selector: null,
   },
@@ -1721,7 +1721,7 @@ const GUIDE_FEATURES = [
     description: 'When two or more risks round to the exact same Likelihood/Severity position, they share a single dot instead of overlapping invisibly. That shared dot splits into colored wedges — one per risk — like a small pie chart, so you can still tell at a glance how many risks and which categories are stacked there.',
     tips: [
       'Click a grouped dot to open a modal with tabs for each risk in that group.',
-      'Scores are rounded to the nearest 0.5 before grouping, so risks don't need to match exactly to end up sharing a dot.',
+      'Scores are rounded to the nearest 0.5 before grouping, so risks don’t need to match exactly to end up sharing a dot.',
     ],
     selector: null,
   },
@@ -1771,7 +1771,7 @@ const GUIDE_FEATURES = [
     title: 'Advanced search modal',
     description: 'Opens a full two-column view — Tasks on the left, People on the right — with everything matching your search term. Toggle "Include Task Content" to also search inside task definitions, not just names.',
     tips: [
-      'Clicking a task result opens that risk's modal directly to the matching task, with a brief highlight pulse so it's easy to spot.',
+      'Clicking a task result opens that risk’s modal directly to the matching task, with a brief highlight pulse so it’s easy to spot.',
       'Clicking a person opens their profile modal with everything they own or manage.',
     ],
     selector: '#rh-search-advanced',
@@ -1779,7 +1779,7 @@ const GUIDE_FEATURES = [
   {
     id: 'spotlight', category: 'Filtering & Search', icon: '🎯',
     title: 'Spotlight a person',
-    description: 'The person icon opens a dropdown to spotlight one person — dimming every risk except the ones they own, manage, or have tasks on. Useful for quickly seeing one person's full workload across the whole risk register.',
+    description: 'The person icon opens a dropdown to spotlight one person — dimming every risk except the ones they own, manage, or have tasks on. Useful for quickly seeing one person’s full workload across the whole risk register.',
     tips: [
       'You can also spotlight someone directly by clicking their name inside a risk or person profile modal.',
       'A small dot on the button shows when a spotlight is currently active.',
@@ -1799,7 +1799,7 @@ const GUIDE_FEATURES = [
   {
     id: 'opening-risk', category: 'The Risk Modal', icon: '🟦',
     title: 'Opening a risk',
-    description: 'Click any dot on the chart or any row in the legend list to open that risk's detail modal, with everything ELT needs to know about it in one place.',
+    description: 'Click any dot on the chart or any row in the legend list to open that risk’s detail modal, with everything ELT needs to know about it in one place.',
     tips: [
       'Grouped dots (multiple risks in one spot) open with tabs at the top — one per risk in the group.',
       'Press Escape or click outside the modal to close it.',
@@ -1832,7 +1832,7 @@ const GUIDE_FEATURES = [
     description: 'The Tasks page of a risk modal shows every mitigation task tied to that risk as its own card — status, progress bar, severity, likelihood, responsible person, dates, and a trend indicator.',
     tips: [
       'Cards scroll horizontally as a row; each card also scrolls independently if its own content is tall.',
-      'Click a card's expand icon to open its full detail in a separate modal.',
+      'Click a card’s expand icon to open its full detail in a separate modal.',
     ],
     selector: null,
   },
@@ -1841,15 +1841,15 @@ const GUIDE_FEATURES = [
     title: 'Task sort bar',
     description: 'Slides out from behind the Tasks label with three sort options: % Done, A-Z, and Severity. Use it to reorder the task cards without leaving the modal.',
     tips: [
-      'The active sort option stays highlighted so you can see which order you're viewing.',
-      'Sort resets to % Done (completion order) each time you open a new risk's modal.',
+      'The active sort option stays highlighted so you can see which order you’re viewing.',
+      'Sort resets to % Done (completion order) each time you open a new risk’s modal.',
     ],
     selector: '#task-sort-bar',
   },
   {
     id: 'task-detail-modal', category: 'Tasks', icon: '↗️',
     title: 'Task detail modal',
-    description: 'Click the expand icon on any task card to open a larger modal with the task's full detail: a stats grid, plus Definition, Mitigation Strategy, and Trend Analysis in full text.',
+    description: 'Click the expand icon on any task card to open a larger modal with the task’s full detail: a stats grid, plus Definition, Mitigation Strategy, and Trend Analysis in full text.',
     tips: [
       'Prev/Next arrows step through every task on that risk without closing the modal.',
       'It opens directly above the risk modal, so closing it returns you to exactly where you were.',
@@ -1859,7 +1859,7 @@ const GUIDE_FEATURES = [
   {
     id: 'trend-toggle', category: 'Trend Overlays', icon: '📉',
     title: 'Turning on trend for a risk',
-    description: 'The Trend button inside a risk's modal (and the + icon next to its row in the legend once trend mode is already active for any risk) toggles historical trend tracking for that specific risk, overlaying its past positions on the chart.',
+    description: 'The Trend button inside a risk’s modal (and the + icon next to its row in the legend once trend mode is already active for any risk) toggles historical trend tracking for that specific risk, overlaying its past positions on the chart.',
     tips: [
       'You can have trend active for multiple risks at once — each gets its own dashed trail color.',
       'Turning trend off for a risk removes just its trail and ghost dots, leaving other tracked risks untouched.',
@@ -1879,7 +1879,7 @@ const GUIDE_FEATURES = [
   {
     id: 'hist-card', category: 'Trend Overlays', icon: '🕰️',
     title: 'Historical snapshot card',
-    description: 'Clicking a ghost dot opens a small card showing that risk's severity, likelihood, and score exactly as they were at that historical point, with colored deltas showing whether each got better or worse since then.',
+    description: 'Clicking a ghost dot opens a small card showing that risk’s severity, likelihood, and score exactly as they were at that historical point, with colored deltas showing whether each got better or worse since then.',
     tips: [
       'Red deltas mean that value got worse over time; green means it improved.',
       'Click anywhere outside the card, or another ghost dot, to close or switch it.',
@@ -1889,7 +1889,7 @@ const GUIDE_FEATURES = [
   {
     id: 'person-profile', category: 'People', icon: '👤',
     title: 'Person profile modal',
-    description: 'Clicking a person's name anywhere in the app — search results, a risk's Ownership page, anywhere — opens their profile: every risk they own, every risk they're the ELT Owner for, everything they manage, and every mitigation task assigned to them.',
+    description: 'Clicking a person’s name anywhere in the app — search results, a risk’s Ownership page, anywhere — opens their profile: every risk they own, every risk they’re the ELT Owner for, everything they manage, and every mitigation task assigned to them.',
     tips: [
       'Every item in the profile is itself clickable and opens that risk or task directly.',
       'Their email is generated automatically from their name and shown at the top.',
