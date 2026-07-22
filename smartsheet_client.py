@@ -37,6 +37,53 @@ def _fmt_date(dt) -> str:
         return str(dt)[:10]
 
 
+_TREND_HISTORY_SHEET_ID = 1794037649461124  # Risk Trend History
+
+
+def get_trend_history() -> dict[str, list[dict]]:
+    """Return quarterly snapshots grouped by Risk ID, deduplicated and sorted chronologically.
+    { 'R01': [{'period':'2025-Q4','year':2025,'quarter':'Q4','severity':1.0,'likelihood':1.0}, ...] }
+    """
+    client = smartsheet.Smartsheet(os.environ["SMARTSHEET_ACCESS_TOKEN"])
+    client.errors_as_exceptions(True)
+    sheet = client.Sheets.get_sheet(_TREND_HISTORY_SHEET_ID)
+    col_map = {col.title: col.id for col in sheet.columns}
+
+    def _v(cell_by_col, name):
+        raw = cell_by_col.get(col_map.get(name, -1))
+        return raw if raw is not None else None
+
+    by_risk: dict[str, dict[str, dict]] = {}  # riskId → periodKey → snapshot
+    for row in sheet.rows:
+        cb = {cell.column_id: cell.value for cell in row.cells}
+        rid    = str(_v(cb, 'Risk ID') or '').strip()
+        period = str(_v(cb, 'Period Key') or '').strip()
+        sev    = _v(cb, 'Severity')
+        lik    = _v(cb, 'Likelihood')
+        year   = _v(cb, 'Year')
+        qtr    = str(_v(cb, 'Quarter') or '').strip()
+        if not (rid and period and sev is not None and lik is not None):
+            continue
+        try:
+            snapshot = {
+                'period':    period,
+                'year':      int(float(year)) if year else 0,
+                'quarter':   qtr,
+                'severity':  float(sev),
+                'likelihood': float(lik),
+            }
+        except (ValueError, TypeError):
+            continue
+        # Deduplicate: keep only one snapshot per (riskId, period)
+        by_risk.setdefault(rid, {})[period] = snapshot
+
+    # Flatten and sort each risk's snapshots chronologically
+    return {
+        rid: sorted(snaps.values(), key=lambda x: x['period'])
+        for rid, snaps in by_risk.items()
+    }
+
+
 def get_task_data() -> dict[str, list[dict]]:
     """Return tasks grouped by Risk ID: { 'R01': [{...}, ...], 'R02': [...], ... }"""
     client = smartsheet.Smartsheet(os.environ["SMARTSHEET_ACCESS_TOKEN"])

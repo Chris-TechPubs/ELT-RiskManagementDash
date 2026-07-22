@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from smartsheet_client import get_risk_data, get_task_data
+from smartsheet_client import get_risk_data, get_task_data, get_trend_history
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -21,7 +21,8 @@ def allow_embedding(response):
     return response
 
 _cache: dict = {"data": None, "ts": 0.0}
-_task_cache: dict = {"data": None, "ts": 0.0}
+_task_cache:  dict = {"data": None, "ts": 0.0}
+_trend_cache: dict = {"data": None, "ts": 0.0}
 CACHE_TTL = 300  # 5 minutes — avoids hammering the SmartSheet API
 
 
@@ -39,6 +40,13 @@ def _cached_tasks() -> dict:
     return _task_cache["data"]
 
 
+def _cached_trend_history() -> dict:
+    if _trend_cache["data"] is None or time.time() - _trend_cache["ts"] > CACHE_TTL:
+        _trend_cache["data"] = get_trend_history()
+        _trend_cache["ts"] = time.time()
+    return _trend_cache["data"]
+
+
 @app.route("/")
 def index():
     return redirect(url_for("heatmap"))
@@ -53,12 +61,14 @@ def test_page():
 
 @app.route("/heatmap")
 def heatmap():
-    risks = _cached_risks()
-    tasks = _cached_tasks()
+    risks         = _cached_risks()
+    tasks         = _cached_tasks()
+    trend_history = _cached_trend_history()
     ts = _cache["ts"]
     dt = datetime.datetime.fromtimestamp(ts)
     last_updated = dt.strftime('%d %b %Y, %I:%M %p').replace(', 0', ', ') if ts else 'Unknown'
-    return render_template("heatmap.html", risks=risks, tasks=tasks, last_updated=last_updated)
+    return render_template("heatmap.html", risks=risks, tasks=tasks,
+                           trend_history=trend_history, last_updated=last_updated)
 
 
 @app.route("/refresh")
@@ -66,8 +76,10 @@ def refresh():
     """Force a cache bust — useful after updating data in SmartSheet."""
     _cache["data"] = None
     _cache["ts"] = 0.0
-    _task_cache["data"] = None
-    _task_cache["ts"] = 0.0
+    _task_cache["data"]  = None
+    _task_cache["ts"]    = 0.0
+    _trend_cache["data"] = None
+    _trend_cache["ts"]   = 0.0
     return redirect(url_for("heatmap"))
 
 

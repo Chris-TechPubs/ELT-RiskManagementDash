@@ -10,7 +10,8 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; background: #e2f1fc; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; }
-    #wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 6px; }
+    #wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 6px;
+            position: relative; z-index: 2; /* stacking context so pills can slide behind SVG */ }
     svg { width: 100%; height: 100%; }
     .risk-group { cursor: pointer; }
     .risk-group:hover .r-dot { opacity: 0.7; }
@@ -70,6 +71,73 @@
     .tt-alert.overdue { background: rgba(229,57,53,0.22); color: #ef9a9a; border: 1px solid rgba(229,57,53,0.45); }
     .tt-alert.health  { background: rgba(255,152,0,0.22);  color: #ffcc80; border: 1px solid rgba(255,152,0,0.45); }
     .tt-val  { color: #ffd060; font-weight: 600; }
+
+    /* ── Historical snapshot card ────────────────────────────────────────────── */
+    #hist-card {
+      position: fixed; z-index: 1050; pointer-events: auto;
+      background: rgba(28, 28, 30, 0.82);
+      backdrop-filter: blur(15px) saturate(180%) brightness(1.06);
+      -webkit-backdrop-filter: blur(15px) saturate(180%) brightness(1.06);
+      color: var(--allegion-text);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-top-color: rgba(255,255,255,0.44);
+      border-radius: 20px; padding: 36px 44px;
+      width: 90vw; max-width: 740px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.28),
+        inset 1px 0 0 rgba(255,255,255,0.09),
+        inset -1px 0 0 rgba(255,255,255,0.09),
+        inset 0 -1px 0 rgba(0,0,0,0.24),
+        0 24px 64px rgba(0,0,0,0.65);
+      opacity: 0; transform: scale(0.94) translateY(6px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      display: none; box-sizing: border-box;
+      font-family: 'Roboto', sans-serif;
+    }
+    #hist-card.hc-visible {
+      opacity: 1; transform: scale(1) translateY(0);
+      transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+      display: block;
+    }
+    #hist-card::before {
+      content: ''; position: absolute; inset: 0; border-radius: 19px; pointer-events: none;
+      background:
+        radial-gradient(ellipse 90% 42% at 50% 0%, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.04) 55%, transparent 80%),
+        linear-gradient(90deg, rgba(255,255,255,0.07) 0px, transparent 24px, transparent calc(100% - 80px), rgba(255,255,255,0.07) 100%);
+      mix-blend-mode: screen;
+    }
+    .hc-close {
+      position: absolute; top: 16px; right: 20px;
+      background: none; border: none; color: var(--allegion-muted);
+      font-size: 28px; cursor: pointer; line-height: 1; transition: color 0.18s;
+    }
+    .hc-close:hover { color: #E53935; }
+    .hc-header { display: flex; align-items: flex-start; gap: 14px; padding-right: 32px; margin-bottom: 4px; }
+    .hc-badge {
+      font-size: 15px; font-weight: 700; padding: 3px 10px; border-radius: 8px;
+      background: rgba(255,255,255,0.08); white-space: nowrap; flex-shrink: 0; margin-top: 3px;
+    }
+    .hc-title-wrap { display: flex; flex-direction: column; gap: 4px; }
+    .hc-name   { font-size: 26px; font-weight: 700; color: #fff; line-height: 1.2; }
+    .hc-period { font-size: 13px; color: var(--allegion-muted); font-weight: 500; letter-spacing: 0.03em; }
+    .hc-div    { margin: 18px 0 16px; border-top: 1px solid var(--allegion-border); }
+    .hc-stats  { display: flex; gap: 0; margin-bottom: 18px; }
+    .hc-stat   { flex: 1; text-align: center; padding: 12px 0; }
+    .hc-stat + .hc-stat { border-left: 1px solid var(--allegion-border); }
+    .hc-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--allegion-muted); margin-bottom: 6px; }
+    .hc-stat-val   { font-size: 32px; font-weight: 700; color: #ffd060; }
+    .hc-delta { font-size: 14px; color: var(--allegion-muted); margin-bottom: 20px; min-height: 20px; font-weight: 500; }
+    .hc-delta.hc-improved { color: #81c784; }
+    .hc-delta.hc-worsened  { color: #ef9a9a; }
+    .hc-delta.hc-unchanged { color: var(--allegion-muted); }
+    .hc-btn {
+      display: block; width: 100%;
+      background: rgba(255,103,31,0.18); border: 1px solid rgba(255,103,31,0.4);
+      color: #FF671F; font-size: 14px; font-weight: 700; padding: 12px 16px;
+      border-radius: 10px; cursor: pointer; text-align: center;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .hc-btn:hover { background: rgba(255,103,31,0.32); border-color: rgba(255,103,31,0.7); }
 
     /* ── Status ring pulse ───────────────────────────────────────────────────── */
     @keyframes statusRingPulse {
@@ -170,7 +238,7 @@
     #risk-modal-close {
       position: absolute; top: 16px; right: 20px; background: none; border: none;
       color: var(--allegion-muted); font-size: 28px; cursor: pointer; line-height: 1;
-      transition: color 0.18s;
+      transition: color 0.18s; padding: 0;
     }
     #risk-modal-close:hover { color: #E53935; }
     #risk-modal-id   { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
@@ -517,6 +585,15 @@
       font-size: 16px; color: rgba(232,234,237,0.88); line-height: 1.7;
       background: rgba(255,255,255,0.03); border-radius: 10px; padding: 16px 18px;
     }
+    /* ── Trend mode ──────────────────────────────────────────────────────── */
+    #risk-modal-trend-btn {
+      display: inline-flex; align-items: center; vertical-align: middle;
+      margin-left: 10px; margin-bottom: 4px;
+      background: none; border: none; color: var(--allegion-muted); cursor: pointer;
+      padding: 0; transition: color 0.18s;
+    }
+    #risk-modal-trend-btn:hover   { color: #FF671F; }
+    #risk-modal-trend-btn.active  { color: #FF671F; }
     /* Task card highlight pulse (from search result click) ─────────────── */
     /* outline is used for the main stroke because it bypasses overflow:hidden
        clipping on ancestor containers; box-shadow provides the inner glow. */
@@ -708,6 +785,91 @@
     .labels-off .label-text,
     .labels-off .conn-line { display: none; }
 
+
+    /* ── Chart panel system — pill buttons + shared full-size panel ─────────── */
+    /* Pill and panel match the SVG risk list card exactly — same solid #2D2D2E fill */
+    #cp-panel, .cp-pill {
+      background: #2D2D2E;  /* matches SVG card fill: '#2D2D2E' */
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    /* Compact pill buttons — row at bottom of the risk panel area */
+    #cp-pills {
+      position: fixed; z-index: 1; opacity: 0; /* hidden until entrance animation completes */
+      display: flex; flex-direction: row; gap: 6px;
+      align-items: center; justify-content: flex-start;
+    }
+    .cp-pill {
+      display: flex; align-items: center; gap: 7px;
+      padding: 7px 14px; border-radius: 999px; cursor: pointer; border: none;
+      font-family: var(--antenna); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.07em; text-transform: uppercase;
+      color: var(--allegion-muted); /* explicit text color so it shows on dark bg */
+      white-space: nowrap; transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+    .cp-pill:hover { color: #FF671F; }
+    .cp-pill.active { opacity: 0; pointer-events: none; }
+    /* Small "10" badge indicating Top 10 */
+    .cp-badge {
+      font-size: 9px; font-weight: 800; letter-spacing: 0.04em;
+      padding: 1px 5px; border-radius: 4px;
+      background: rgba(255,103,31,0.22); color: #FF671F;
+      line-height: 1.5; flex-shrink: 0;
+    }
+    .cp-pill:hover .cp-badge { background: rgba(255,103,31,0.35); }
+    /* Full panel — FLIP-morphed from pill, exactly fills the risk-panel area */
+    #cp-panel {
+      position: fixed; z-index: 500; display: flex; flex-direction: column;
+      overflow: hidden; border-radius: 14px;
+      /* transform-origin: center (default) matches the centering FLIP math */
+    }
+    #cp-panel-header {
+      display: flex; align-items: center; gap: 9px; flex-shrink: 0;
+      padding: 10px 16px 9px; border-bottom: 1px solid rgba(255,255,255,0.09);
+      font-family: var(--antenna); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #FF671F;
+    }
+    #cp-panel-close {
+      margin-left: auto; background: none; border: none; color: var(--allegion-muted);
+      font-size: 20px; cursor: pointer; line-height: 1; transition: color 0.15s; flex-shrink: 0;
+    }
+    #cp-panel-close:hover { color: #E53935; }
+    #cp-panel-body {
+      flex: 1; display: flex; flex-direction: row;
+      align-items: center; justify-content: space-evenly;
+      padding: 0 8px;
+    }
+    /* Individual badge in the expanded top-10 body */
+    .t10-item {
+      flex: 1; min-width: 0; overflow: hidden; /* prevent items exceeding equal share */
+      display: flex; flex-direction: column; align-items: center;
+      gap: 4px; cursor: pointer; border-radius: 8px; padding: 8px 4px;
+      transition: background 0.12s, transform 0.15s; position: relative;
+    }
+    .t10-item:hover { background: rgba(255,255,255,0.08); transform: translateY(-2px); }
+    .t10-item + .t10-item::before {
+      content: ''; position: absolute; left: 0; top: 20%; height: 60%;
+      width: 1px; background: rgba(255,255,255,0.09);
+    }
+    .t10-rank { font-size: 9px; color: rgba(168,168,170,0.5); font-family: var(--antenna); font-weight: 700; line-height: 1; }
+    .t10-id   { font-size: 16px; font-weight: 800; font-family: var(--antenna); line-height: 1; }
+    .t10-sev  { font-size: 10px; color: rgba(200,202,205,0.6); font-family: var(--antenna); line-height: 1; }
+    /* Task name label — small subtitle shown in the tasks panel */
+    .t10-task-lbl {
+      font-size: 8.5px; color: rgba(190,192,196,0.7); font-family: var(--antenna);
+      line-height: 1.2; max-width: 100%; text-align: center;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    /* ── Floating fullscreen corner button ──────────────────────────────────── */
+    #fullscreen-btn {
+      position: fixed; top: 10px; right: 10px; z-index: 900;
+      background: rgba(22,22,24,0.70); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 9px; padding: 7px; cursor: pointer; color: var(--allegion-muted);
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    #fullscreen-btn:hover { background: rgba(255,255,255,0.1); color: var(--allegion-text); border-color: rgba(255,255,255,0.3); }
 
     /* ── Controls ───────────────────────────────────────────────────────────── */
     #zoom-ctrl {
@@ -1216,42 +1378,7 @@
     }
     .owner-dd-row:hover { background: rgba(255,255,255,0.09); }
     .owner-dd-row.active { background: rgba(255,103,31,0.15); color: #FF671F; }
-    /* ── Top 10 panel — always visible, anchored bottom of risk list area ─── */
-    #top10-panel {
-      position: fixed; z-index: 500; display: none;
-      background: rgba(22,22,24,0.95);
-      backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%);
-      border: 1px solid rgba(255,255,255,0.12); border-top-color: rgba(255,255,255,0.28);
-      border-radius: 12px 12px 0 0;
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.18);
-      overflow: hidden;
-    }
-    #top10-panel.visible { display: block; }
-    #top10-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 16px 8px; border-bottom: 1px solid rgba(255,255,255,0.1);
-      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
-      font-family: var(--antenna); color: #FF671F;
-    }
-    #top10-close {
-      background: none; border: none; color: var(--allegion-muted); font-size: 18px;
-      cursor: pointer; line-height: 1; transition: color 0.15s;
-    }
-    #top10-close:hover { color: #E53935; }
-    #top10-list { overflow-y: auto; }
-    #top10-list::-webkit-scrollbar { width: 3px; }
-    #top10-list::-webkit-scrollbar-track { background: transparent; }
-    #top10-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 999px; }
-    .top10-row {
-      display: flex; align-items: center; gap: 10px; padding: 7px 14px;
-      cursor: pointer; transition: background 0.12s; border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    .top10-row:last-child { border-bottom: none; }
-    .top10-row:hover { background: rgba(255,255,255,0.07); }
-    .top10-rank { font-size: 11px; font-weight: 700; color: var(--allegion-muted); font-family: var(--antenna); width: 18px; text-align: right; flex-shrink: 0; }
-    .top10-badge { font-size: 11px; font-weight: 700; font-family: var(--antenna); padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.1); flex-shrink: 0; }
-    .top10-name { flex: 1; font-size: 13px; color: var(--allegion-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .top10-sev { font-size: 13px; font-weight: 700; color: var(--allegion-muted); flex-shrink: 0; }
+    /* stale top10 CSS removed — see new #top10-panel rule above */
     #cat-dropdown {
       display: none; position: absolute; top: calc(100% + 6px);
       left: 50%; margin-left: calc(var(--rh-dd-min-w, 240px) * -0.5);
@@ -1316,6 +1443,7 @@
       <g id="static-layer"></g>
       <!-- Clip wrapper never transforms — keeps clip fixed in plot space -->
       <g clip-path="url(#chartClip)">
+        <g id="trend-layer"></g>   <!-- ghost dots + dotted trails, behind current dots -->
         <g id="risks-layer"></g>
       </g>
     </g>
@@ -1339,6 +1467,33 @@
     <span id="rac-label">Reset All</span>
   </div>
 </div>
+<!-- ── Floating fullscreen button — top-right corner ────────────────── -->
+<button id="fullscreen-btn" onclick="window.open(window.location.href,'_blank')" title="Open fullscreen in new tab">
+  <span class="material-symbols-outlined" style="font-size:16px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">open_in_new</span>
+</button>
+
+<!-- ── Chart pill buttons + shared panel ─────────────────────────────── -->
+<div id="cp-pills">
+  <button class="cp-pill" id="pill-top10" onclick="openChartPanel('top10')">
+    <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">bar_chart</span>
+    Risks
+    <span class="cp-badge">10</span>
+  </button>
+  <button class="cp-pill" id="pill-tasks" onclick="openChartPanel('tasks')">
+    <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">task_alt</span>
+    Tasks
+    <span class="cp-badge">10</span>
+  </button>
+</div>
+<div id="cp-panel" style="display:none">
+  <div id="cp-panel-header">
+    <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300" id="cp-panel-icon">bar_chart</span>
+    <span id="cp-panel-title">Top 10 — Highest Severity</span>
+    <button id="cp-panel-close" onclick="closeChartPanel()">&#215;</button>
+  </div>
+  <div id="cp-panel-body"></div>
+</div>
+
 <div id="zoom-ctrl">
   <button class="icon-btn" onclick="doZoom(1.3)" title="Zoom in">+</button>
   <button id="zoom-reset" class="icon-btn" onclick="resetView()" title="Reset view">
@@ -1419,7 +1574,7 @@
     <div id="modal-sep"><div id="modal-sep-sweep"></div></div>
     <div id="modal-tab-content">
       <div id="risk-modal-id"></div>
-      <div id="risk-modal-name"></div>
+      <div id="risk-modal-name"><button id="risk-modal-trend-btn" title="Show trend history on chart" onclick="_onModalTrendClick()"><svg width="24" height="18" viewBox="0 0 22 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block"><polyline points="1,14 5,8 8,12 12,6 15,10 19,4"/></svg></button></div>
       <div id="modal-page-nav">
         <button class="mpn-btn active" data-page="0">Overview</button>
         <button class="mpn-btn"        data-page="1">Risk Data</button>
@@ -1477,9 +1632,33 @@
 <div id="cat-list-overlay"></div>
 <div id="tooltip"></div>
 
+<!-- Historical snapshot card — appears on ghost dot click -->
+<div id="hist-card">
+  <button class="hc-close" onclick="_hideHistCard()">✕</button>
+  <div class="hc-header">
+    <span class="hc-badge" id="hc-badge">R26</span>
+    <div class="hc-title-wrap">
+      <div class="hc-name" id="hc-name">Risk Name</div>
+      <div class="hc-period" id="hc-period">Q4 2025 · Historical Snapshot</div>
+    </div>
+  </div>
+  <div class="hc-div"></div>
+  <div class="hc-stats">
+    <div class="hc-stat"><div class="hc-stat-label">Severity</div><div class="hc-stat-val" id="hc-sev">—</div></div>
+    <div class="hc-stat"><div class="hc-stat-label">Likelihood</div><div class="hc-stat-val" id="hc-lik">—</div></div>
+    <div class="hc-stat"><div class="hc-stat-label">Risk Score</div><div class="hc-stat-val" id="hc-score">—</div></div>
+  </div>
+  <div class="hc-delta" id="hc-delta"></div>
+  <button class="hc-btn" id="hc-view-btn">View current risk →</button>
+</div>
+
 <script>
 const RISKS        = {{ risks | tojson }};
-const TASKS        = {{ tasks | tojson }};  // { 'R01': [{task, task_status, ...}, ...], ... }
+const TASKS         = {{ tasks | tojson }};
+const TREND_HISTORY = {{ trend_history | tojson }}; // {'R01':[{period,year,quarter,severity,likelihood},...] }
+// Trend state — must be defined here (before the renderLegend init block) to avoid temporal dead zone
+const _trendRisks       = new Set();
+const _hasTrendHistory  = Object.keys(TREND_HISTORY).length > 0;
 const LOGO_SRC     = "{{ url_for('static', filename='AllegionLogo_Official.png') }}";
 const LAST_UPDATED = "{{ last_updated }}";
 const dotGroupByRiskId   = {};
@@ -2134,6 +2313,12 @@ function renderStatic() {
   const rRight = _graphAllRounded ? 20 : 0;
   mk('path', { d: roundedRectPath(x,y,w,h, 20,rRight,rRight,20), fill: 'url(#gDiag)' }, layer);
 
+  // Trend mode: dim the gradient so trail lines stay readable against any heatmap color.
+  // Placed after gradient rect but before grid lines — grid/quadrant lines stay unaffected.
+  if (_trendRisks.size > 0) {
+    mk('path', { d: roundedRectPath(x,y,w,h, 20,rRight,rRight,20), fill: 'rgba(10,10,14,0.45)' }, layer);
+  }
+
   // Allegion logo watermark — 80% of plot size, centred, above gradient, below grid lines
   const logoW = w * 0.8, logoH = h * 0.8;
   mk('image', {
@@ -2156,7 +2341,7 @@ function renderStatic() {
     const sx = svgX(v);
     if (sx < x-1 || sx > x+w+1) return;
     mk('line',{x1:sx,y1:y,x2:sx,y2:y+h,stroke:gcol,'stroke-width':v===Math.round(v)?1.0:0.4},layer);
-    if (v >= 0.99)
+    if (v >= 0.99 && v < VR.xMax - 0.01) // skip rightmost tick (space used by panel pills)
       mktxt(v.toFixed(1),{x:sx,y:y+h+16,'text-anchor':'middle','font-size':10,fill:'#444','font-family':AXIS_FONT},layer);
   });
   rangeTicks(VR.yMin, VR.yMax).forEach(v => {
@@ -2198,7 +2383,8 @@ function renderRisks() {
   Object.keys(dotGroupByRiskId).forEach(k => delete dotGroupByRiskId[k]);
   Object.keys(dotRisksGroupById).forEach(k => delete dotRisksGroupById[k]);
   const layer  = document.getElementById('risks-layer');
-  const groups = groupRisks(RISKS);
+  const visibleRisks = _trendRisks.size > 0 ? RISKS.filter(r => _trendRisks.has(r.id)) : RISKS;
+  const groups = groupRisks(visibleRisks);
   let items    = buildItems(groups);
   resolveCollisions(items);
   items = mergeClose(items);
@@ -2719,8 +2905,12 @@ function toggleMfDropdown(e) {
   dd.classList.contains('open') ? closeMfDropdown() : openMfDropdown();
 }
 
-// Close mf dropdown on outside click
-document.addEventListener('click', () => closeMfDropdown());
+// Close mf dropdown and hist-card on outside click
+document.addEventListener('click', e => {
+  closeMfDropdown();
+  const hc = document.getElementById('hist-card');
+  if (hc && hc.classList.contains('hc-visible') && !hc.contains(e.target)) _hideHistCard();
+});
 
 function buildCatDropdown() {
   const dd = document.getElementById('cat-dropdown');
@@ -2846,15 +3036,8 @@ function renderLegend() {
   const CARD_BPAD = 8;   // snug below last row
   const CARD_W    = 490;
   const HDR_H     = 18;  // gap below header bar — must clear chevron circle tops
-  // Top 5/10 only shows when ALL risks are visible (no filters active)
-  const _allRisksVisible = sorted.length >= RISKS.length;
-  const _top10WasVis     = typeof _top10SectionVisible !== 'undefined' ? _top10SectionVisible : true;
-  _top10SectionVisible   = _allRisksVisible;
-  // Reserve bottom of the panel for the Top 5/10 section
-  const TOP10_H   = _allRisksVisible ? (_top10Expanded ? 175 : 135) : 0; // hide when filtered
-  const TOP10_GAP = 10;  // separator gap between list and top 10
-  const listAvail = P.h - TOP10_H - TOP10_GAP; // height available for the risk list
-  const RISK_H    = (listAvail - CARD_TPAD - HDR_H - CARD_BPAD) / sorted.length;
+  // Risk list fills the full panel height — Top 10 is now a separate floating panel
+  const RISK_H    = (P.h - CARD_TPAD - HDR_H - CARD_BPAD) / sorted.length;
   const fontSize  = Math.min(11, Math.max(8.5, RISK_H * 0.78));
   const cardListH = P.h;  // always matches graph height exactly (top + bottom edges flush)
 
@@ -2913,7 +3096,42 @@ function renderLegend() {
     // ID in category color (accent); name in neutral — corporate data-table convention
     mktxt(r.id,  {x:lx,    y,'font-size':fontSize,'font-weight':700,fill:col,      'font-family':FONT}, rowG);
     mktxt(name,  {x:lx+38, y,'font-size':fontSize,'font-weight':500,fill:'#BEC0C6','font-family':FONT}, rowG);
+    // Trend toggle +/- icon — only shown when trend mode is active
+    if (_trendRisks.size > 0) {
+      const isActive = _trendRisks.has(r.id);
+      const tBtn = mk('g', {}, rowG);
+      const btnX = lx - CARD_PADX + CARD_W - 14;
+      const btnY = y - fontSize * 0.15;
+      const btnR = Math.max(5, fontSize * 0.6);
+      tBtn.style.cursor = 'pointer';
+      const tCircle = mk('circle', { cx: btnX, cy: btnY, r: btnR,
+                     fill: isActive ? col : 'rgba(255,255,255,0.07)',
+                     stroke: isActive ? col : 'rgba(255,255,255,0.22)',
+                     'stroke-width': 0.8 }, tBtn);
+      const sign = mk('text', { x: btnX, y: btnY + btnR * 0.45,
+                                 'text-anchor': 'middle', 'font-size': fontSize * 0.95,
+                                 'font-weight': 700,
+                                 fill: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
+                                 'font-family': FONT }, tBtn);
+      sign.textContent = isActive ? String.fromCharCode(8722) : '+';
+      // Hover: just change the button color, not the whole row
+      if (!isActive) {
+        tBtn.addEventListener('mouseenter', () => {
+          tCircle.setAttribute('fill', col);
+          tCircle.setAttribute('stroke', col);
+          sign.setAttribute('fill', '#fff');
+        });
+        tBtn.addEventListener('mouseleave', () => {
+          tCircle.setAttribute('fill', 'rgba(255,255,255,0.07)');
+          tCircle.setAttribute('stroke', 'rgba(255,255,255,0.22)');
+          sign.setAttribute('fill', 'rgba(255,255,255,0.5)');
+        });
+      }
+      const _rid = r.id;
+      tBtn.addEventListener('click', function(e) { e.stopPropagation(); toggleTrendRisk(_rid); });
+    }
     rowG.addEventListener('mouseenter', () => {
+      if (_trendRisks.size > 0) return; // suppress row hover in trend mode
       _activeLegendRows.add(r.id);
       rowG.classList.add('legend-row-hl');
       const dg = dotGroupByRiskId[r.id];
@@ -2923,9 +3141,9 @@ function renderLegend() {
       _panDelay = setTimeout(() => panToRisk(r), 500);
     });
     rowG.addEventListener('mouseleave', () => {
+      if (_trendRisks.size > 0) return;
       _activeLegendRows.delete(r.id);
       clearTimeout(_panDelay); _panDelay = null;
-      // Keep highlight/dim if spotlight is active for this risk
       if (_spotlightOwner && _isSpotlightRisk(r)) return;
       rowG.classList.remove('legend-row-hl');
       const dg = dotGroupByRiskId[r.id];
@@ -2943,123 +3161,7 @@ function renderLegend() {
   _reapplySpotlight(); // restore spotlight highlights on newly created row elements
 
   // Animate legend when top10 section appears/disappears
-  // No animation here — top10 section simply appears/disappears with filter changes
-  // (animation was causing white flash from SVG layer compositing)
-
-  // ── Top 10 — rendered in reserved space, only when all risks are visible ──
-  if (!_allRisksVisible) return; // no top10 section when filters are active
-  const t10y0   = P.y + listAvail + TOP10_GAP; // top of the top-10 section
-  const t10Count = _top10Expanded ? 10 : 5;
-  const t10Rows = [...RISKS]
-    .filter(r => _isRiskVisible(r))
-    .sort((a, b) => (b.severity || 0) - (a.severity || 0) || (b.likelihood || 0) - (a.likelihood || 0))
-    .slice(0, t10Count);
-  const t10RowH  = (TOP10_H - 40) / t10Count; // 40 = header(24) + expand-btn(16)
-  const t10X0    = lx - CARD_PADX;
-  const t10Font  = Math.min(10, Math.max(8, t10RowH * 0.72));
-
-  // Named wrapper group — animated independently from the risk list above
-  const t10g = mk('g', { id: 'top10-layer-group' }, layer);
-
-  // Separator line
-  mk('line', { x1: t10X0 + 10, y1: t10y0, x2: t10X0 + CARD_W - 10, y2: t10y0,
-               stroke: 'rgba(255,255,255,0.12)', 'stroke-width': 0.8 }, t10g);
-
-  // Section header
-  mktxt(`TOP ${t10Count} — HIGHEST SEVERITY`, {
-    x: t10X0 + CARD_W / 2, y: t10y0 + 14,
-    'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 700,
-    fill: '#FF671F', 'font-family': AXIS_FONT, 'letter-spacing': 1
-  }, t10g);
-
-  // Rows
-  t10Rows.forEach((r, i) => {
-    // Hairline separator between rows (skip before first)
-    if (i > 0) {
-      const sepY = t10y0 + 24 + i * t10RowH;
-      mk('line', {
-        x1: t10X0 + 8, y1: sepY, x2: t10X0 + CARD_W - 8, y2: sepY,
-        stroke: 'rgba(255,255,255,0.07)', 'stroke-width': 0.6
-      }, layer);
-    }
-    const rowY   = t10y0 + 24 + i * t10RowH + t10RowH * 0.72;
-    const col    = catColor(r.category || '') || '#666';
-    const sev    = r.severity != null ? parseFloat(r.severity).toFixed(1) : '—';
-    const maxLen = 36;
-    const name   = r.name.length > maxLen ? r.name.slice(0, maxLen - 1) + '…' : r.name;
-    const rowG   = mk('g', { style: 'cursor:pointer' }, t10g);
-
-    // Hover hit area
-    mk('rect', { x: t10X0, y: rowY - t10RowH * 0.7, width: CARD_W, height: t10RowH,
-                 fill: 'transparent', rx: 4 }, rowG);
-    rowG.addEventListener('mouseenter', () =>
-      rowG.querySelector('rect').setAttribute('fill', 'rgba(255,255,255,0.06)'));
-    rowG.addEventListener('mouseleave', () =>
-      rowG.querySelector('rect').setAttribute('fill', 'transparent'));
-    rowG.addEventListener('click', () =>
-      openModal([RISKS.find(x => x.id === r.id)], 0));
-
-    // Rank
-    mktxt(String(i + 1), {
-      x: t10X0 + 14, y: rowY, 'text-anchor': 'middle',
-      'font-size': t10Font * 0.85, fill: 'rgba(168,168,170,0.7)', 'font-family': AXIS_FONT
-    }, rowG);
-    // Colored ID badge
-    mktxt(r.id, {
-      x: t10X0 + 38, y: rowY, 'text-anchor': 'middle',
-      'font-size': t10Font, 'font-weight': 700, fill: col, 'font-family': AXIS_FONT
-    }, rowG);
-    // Risk name
-    mktxt(name, {
-      x: t10X0 + 65, y: rowY,
-      'font-size': t10Font, fill: '#BEC0C6', 'font-family': AXIS_FONT
-    }, rowG);
-    // Severity (right-aligned)
-    // Subtle vertical tick before severity value
-    mk('line', {
-      x1: t10X0 + CARD_W - 50, y1: rowY - t10Font * 0.7,
-      x2: t10X0 + CARD_W - 50, y2: rowY + t10Font * 0.2,
-      stroke: 'rgba(255,255,255,0.12)', 'stroke-width': 0.7
-    }, rowG);
-    mktxt(sev, {
-      x: t10X0 + CARD_W - 28, y: rowY, 'text-anchor': 'end',
-      'font-size': t10Font, 'font-weight': 700, fill: '#E8EAED', 'font-family': AXIS_FONT
-    }, rowG);
-  });
-
-  // Expand / collapse toggle button
-  const expandBtnY = t10y0 + TOP10_H - 6;
-  const expandG = mk('g', { style: 'cursor:pointer' }, t10g);
-  mk('rect', {
-    x: t10X0 + CARD_W / 2 - 52, y: expandBtnY - 9,
-    width: 104, height: 14, rx: 7, fill: 'rgba(255,103,31,0.12)'
-  }, expandG);
-  mktxt(_top10Expanded ? '▼  Show Top 5' : '▲  Show Top 10', {
-    x: t10X0 + CARD_W / 2, y: expandBtnY,
-    'text-anchor': 'middle', 'font-size': 8.5, 'font-weight': 700,
-    fill: '#FF671F', 'font-family': AXIS_FONT, 'letter-spacing': 0.5
-  }, expandG);
-  expandG.addEventListener('click', () => {
-    const expanding = !_top10Expanded;
-    _top10Expanded = expanding;
-    renderLegend(); // rebuild with new row count
-    // Animate ONLY the top10 group — no opacity, no full-layer flash
-    const g = document.getElementById('top10-layer-group');
-    if (!g) return;
-    g.style.transition = 'none';
-    g.style.transform  = expanding ? 'translateY(20px)' : 'translateY(-14px)';
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      g.style.transition = expanding
-        ? 'transform 0.58s cubic-bezier(0.16,1,0.3,1)'
-        : 'transform 0.38s cubic-bezier(0.4,0,0.2,1)';
-      g.style.transform  = 'translateY(0)';
-      setTimeout(() => { g.style.transition = g.style.transform = ''; }, 620);
-    }));
-  });
-  expandG.addEventListener('mouseenter', () =>
-    expandG.querySelector('rect').setAttribute('fill', 'rgba(255,103,31,0.22)'));
-  expandG.addEventListener('mouseleave', () =>
-    expandG.querySelector('rect').setAttribute('fill', 'rgba(255,103,31,0.12)'));
+  // Top 10 is now a separate floating panel — nothing more to render here
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -3139,6 +3241,7 @@ let _modalRisks = [];  // risks currently shown in the modal
 
 function openModal(risks, initialTab, initialPage, targetTask, searchQuery) {
   hideTip();
+  _hideHistCard();       // close historical snapshot card if open
   closePersonModal();    // close person card if open
   _activeTabIdx = null;  // reset so first switchModalTab call skips animation
   _modalPage = initialPage || 0; // use caller's page (e.g. Tasks tab from search result)
@@ -3435,7 +3538,7 @@ function _updateResetBtn() {
     _hiddenCatColors.size > 0 || _activeFilters.status.size > 0 ||
     _activeFilters.health.size > 0 || _activeFilters.quarter.size > 0 ||
     _activeFilters.overdue || !!_spotlightOwner;
-  const anyActive  = multiActive || !!_ownerFilter;
+  const anyActive  = multiActive || !!_ownerFilter || _trendRisks.size > 0;
   const chip       = document.getElementById('reset-all-chip');
   chip.classList.toggle('visible', anyActive);
 
@@ -3583,9 +3686,10 @@ function resetAllFilters() {
   // Clear owner filter
   _ownerFilter = null;
   updateOwnerBtn();
-  // Clear search and spotlight
+  // Clear search, spotlight, and trend overlays
   if (_searchActive) closeSearch();
   if (_spotlightOwner) clearSpotlight();
+  clearAllTrends(true); // skip animation — _applyFilterWithAnimation handles the rerender
   _applyFilterWithAnimation(prev);
   _updateResetBtn();
 }
@@ -4001,7 +4105,10 @@ function _updateModalContent(idx) {
   const idEl = document.getElementById('risk-modal-id');
   idEl.textContent = r.id || '';
   idEl.style.color = catColor(r.category || '');
-  document.getElementById('risk-modal-name').textContent = r.name || '';
+  const nameEl = document.getElementById('risk-modal-name');
+  const trendBtn = document.getElementById('risk-modal-trend-btn');
+  nameEl.textContent = r.name || ''; // clears children (including button)
+  nameEl.appendChild(trendBtn);      // re-append button inline after the name text
   // Preserve current page when switching risk tabs (so Tasks stays on Tasks, etc.)
   // _modalPage is only reset to 0 by openModal() on first open
   const col = catColor(r.category || '') || '#FF671F';
@@ -4031,6 +4138,7 @@ function _updateModalContent(idx) {
   document.getElementById('task-sort-bar').classList.toggle('visible', _modalPage === 3);
   document.getElementById('modal-page-area').classList.toggle('tasks-mode', _modalPage === 3);
   _updateIndicator(true); // snap indicator to current page without animating
+  _updateTrendBtn();      // sync trend button active state for this risk
 }
 
 function switchModalTab(idx) {
@@ -4144,9 +4252,11 @@ document.addEventListener('keydown', e => {
     if (_fcmOpen) { closeFilterChipMenu(); return; }
     if (_spotlightOwner) { clearSpotlight(); return; }
     // Close all open modals and search at once
+    _hideHistCard();
     closeTaskDetail();
     closePersonModal();
     closeSearchModal();
+    // chart panel is persistent — only ✕ button closes it
     if (_searchActive) closeSearch();
     if (document.getElementById('risk-modal').classList.contains('open')) closeModal();
     return;
@@ -4195,6 +4305,216 @@ function toggleLabels() {
 // Re-rendering updates axis ticks, dots, and labels.
 const hm = document.getElementById('hm');
 
+// ── Chart panel system (modular pill → panel) ─────────────────────────────────
+let _cpActivePill  = null; // currently open pill id
+let _pillsRevealed = false; // false until entrance animation completes
+
+// Panel metadata — title + icon shown in open state
+const _cpMeta = {
+  top10: { icon: 'bar_chart', title: 'Top 10 Risks — Highest Severity' },
+  tasks: { icon: 'task_alt',  title: 'Top 10 Tasks — Highest Severity' },
+};
+
+// Content builders — add entries here for future pill types
+const _cpBuilders = {
+  top10: function(body) {
+    const top = [...RISKS]
+      .filter(r => _isRiskVisible(r))
+      .sort((a, b) => (b.severity||0)-(a.severity||0) || (b.likelihood||0)-(a.likelihood||0))
+      .slice(0, 10);
+    body.innerHTML = top.map((r, i) => {
+      const col = catColor(r.category||'') || '#666';
+      const sev = r.severity != null ? parseFloat(r.severity).toFixed(1) : '';
+      return `<div class="t10-item" onclick="openModal([RISKS.find(x=>x.id==='${r.id}')],0)" title="${r.name}">
+        <span class="t10-rank">#${i+1}</span>
+        <span class="t10-id" style="color:${col}">${r.id}</span>
+        ${sev ? `<span class="t10-sev">${sev}</span>` : ''}
+      </div>`;
+    }).join('');
+  },
+
+  tasks: function(body) {
+    // Flatten all visible tasks, sort by severity, take top 10
+    const allTasks = [];
+    Object.entries(TASKS).forEach(([riskId, tasks]) => {
+      const risk = RISKS.find(r => r.id === riskId);
+      if (risk && !_isRiskVisible(risk)) return; // respect active filters
+      tasks.forEach(t => {
+        if (t.task && t.severity != null)
+          allTasks.push({ ...t, riskId });
+      });
+    });
+    const top = allTasks
+      .sort((a, b) => (b.severity||0) - (a.severity||0) || (b.likelihood||0) - (a.likelihood||0))
+      .slice(0, 10);
+    body.innerHTML = top.map((t, i) => {
+      const risk = RISKS.find(r => r.id === t.riskId);
+      const col  = risk ? catColor(risk.category||'') : '#666';
+      const sev  = t.severity != null ? parseFloat(t.severity).toFixed(1) : '';
+      const name = t.task.length > 20 ? t.task.slice(0, 19) + '…' : t.task;
+      const _st = (t.task||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return `<div class="t10-item" onclick="openModal([RISKS.find(x=>x.id==='${t.riskId}')],0,3,'${_st}')"
+              title="${t.task} (${t.riskId})">
+        <span class="t10-rank">#${i+1}</span>
+        <span class="t10-id" style="color:${col}">${t.riskId}</span>
+        ${sev ? `<span class="t10-sev">${sev}</span>` : ''}
+      </div>`;
+    }).join('');
+  }
+};
+
+function _cpBounds() {
+  const r       = hm.getBoundingClientRect();
+  const scale   = Math.min(r.width/1300, r.height/780);
+  const offsetX = (r.width - 1300*scale)/2;
+  const offsetY = (r.height - 780*scale)/2;
+  // Card: left = P.x+P.w = 730 (LEG_X-CARD_PADX), width = CARD_W = 490, bottom = P.y+P.h = 700
+  const legLeft   = r.left + offsetX + 730 * scale;
+  const legWidth  = 490 * scale;
+  const legBottom = r.top  + offsetY + 700 * scale;
+  const zc        = document.getElementById('zoom-ctrl');
+  const navBot    = zc ? zc.getBoundingClientRect().bottom : window.innerHeight - 6;
+  return { legLeft, legWidth, legBottom, navBot };
+}
+
+const _CP_GAP = 8; // gap between legend card bottom and the pills/panel
+
+function _positionChartPills() {
+  const { legLeft, legWidth, legBottom } = _cpBounds();
+  const pillsBar = document.getElementById('cp-pills');
+  const pillH    = pillsBar.offsetHeight || 34;
+  pillsBar.style.left  = legLeft + 'px';
+  pillsBar.style.width = legWidth + 'px';
+  pillsBar.style.right = 'auto';
+  pillsBar.style.bottom = 'auto';
+  if (_pillsRevealed) {
+    // Normal position: just below the legend card
+    pillsBar.style.top = (legBottom + _CP_GAP) + 'px';
+  } else {
+    // Hidden: within the card bounds, behind SVG (z-index:1 < #wrap z-index:2)
+    pillsBar.style.top = (legBottom - pillH) + 'px';
+  }
+  if (_cpActivePill) _positionOpenPanel();
+}
+
+function _positionOpenPanel() {
+  const { legLeft, legWidth, legBottom, navBot } = _cpBounds();
+  const panel = document.getElementById('cp-panel');
+  panel.style.left   = legLeft + 'px';
+  panel.style.width  = legWidth + 'px';
+  panel.style.top    = (legBottom + _CP_GAP) + 'px';
+  panel.style.height = (navBot - legBottom - _CP_GAP) + 'px';
+}
+
+function openChartPanel(pillId) {
+  _cpActivePill = pillId;
+  const pill  = document.getElementById('pill-' + pillId);
+  const panel = document.getElementById('cp-panel');
+  const body  = document.getElementById('cp-panel-body');
+
+  // Reset any fade-out from previous close
+  document.getElementById('cp-panel-header').style.opacity = '';
+  document.getElementById('cp-panel-header').style.transition = '';
+  document.getElementById('cp-panel-body').style.opacity = '';
+  document.getElementById('cp-panel-body').style.transition = '';
+  // Update panel header to match this pill's metadata
+  const meta = _cpMeta[pillId] || {};
+  const iconEl = document.getElementById('cp-panel-icon');
+  if (iconEl) iconEl.textContent = meta.icon || 'bar_chart';
+  const titleEl = document.getElementById('cp-panel-title');
+  if (titleEl) titleEl.textContent = meta.title || 'Top 10';
+  // Build content
+  if (_cpBuilders[pillId]) _cpBuilders[pillId](body);
+
+  // FLIP — First: capture pill rect BEFORE anything changes
+  const pR = pill.getBoundingClientRect();
+
+  // Position panel at its final size (Last)
+  _positionOpenPanel();
+  panel.style.display = 'flex';
+  const panR = panel.getBoundingClientRect();
+
+  // Invert: start panel looking exactly like the pill (same size, same position, same radius)
+  const sx = pR.width  / panR.width;
+  const sy = pR.height / panR.height;
+  const tx = pR.left - panR.left + (pR.width  - panR.width)  / 2;
+  const ty = pR.top  - panR.top  + (pR.height - panR.height) / 2;
+  panel.style.transition   = 'none';
+  panel.style.transform    = `translate(${tx}px,${ty}px) scale(${sx},${sy})`;
+  panel.style.borderRadius = '999px';
+  panel.style.opacity      = '1';  // start fully opaque — it looks like the pill via transform
+  // Hide pill immediately — panel visually covers it
+  pill.classList.add('active');
+  // Slide other pills up, then drop container z-index so SVG (#wrap z-index:2) covers them
+  const _pillsBar = document.getElementById('cp-pills');
+  const _pillH    = _pillsBar.offsetHeight || 34;
+  document.querySelectorAll('.cp-pill:not(.active)').forEach(p => {
+    p.style.transition    = 'transform 0.38s cubic-bezier(0.4,0,0.2,1)';
+    p.style.transform     = `translateY(-${_pillH + _CP_GAP + 4}px)`;
+    p.style.pointerEvents = 'none';
+  });
+  // Drop container z-index AFTER slide starts so SVG hides them mid-animation
+  setTimeout(() => { _pillsBar.style.zIndex = '1'; }, 120);
+
+  // Play: spring expand from pill shape → full panel (double-rAF ensures start state is painted)
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    panel.style.transition   = 'transform 0.52s cubic-bezier(0.16,1,0.3,1), border-radius 0.4s cubic-bezier(0.16,1,0.3,1)';
+    panel.style.transform    = 'translate(0,0) scale(1,1)';
+    panel.style.borderRadius = '14px';
+    // Items stay fully visible — they scale naturally with the FLIP transform on the panel
+  }));
+}
+
+function closeChartPanel() {
+  if (!_cpActivePill) return;
+  const pill  = document.getElementById('pill-' + _cpActivePill);
+  const panel = document.getElementById('cp-panel');
+  // Re-measure pill (it's invisible/pointer-none but still laid out)
+  pill.classList.remove('active'); // temporarily reveal to measure
+  const pR   = pill.getBoundingClientRect();
+  pill.classList.add('active');
+  const panR = panel.getBoundingClientRect();
+  const sx = pR.width  / panR.width;
+  const sy = pR.height / panR.height;
+  const tx = pR.left - panR.left + (pR.width  - panR.width)  / 2;
+  const ty = pR.top  - panR.top  + (pR.height - panR.height) / 2;
+  // Fade content in the last ~100ms of the 420ms shrink (delay=320ms, duration=100ms)
+  // This way content is visible almost the entire animation, fading only at the very end
+  const header = document.getElementById('cp-panel-header');
+  const body   = document.getElementById('cp-panel-body');
+  header.style.transition = 'opacity 0.1s ease 0.32s'; header.style.opacity = '0';
+  body.style.transition   = 'opacity 0.1s ease 0.32s'; body.style.opacity   = '0';
+
+  // Slide other pills down while still behind SVG (z-index stays at 1 during animation)
+  // Raise z-index AFTER animation completes — pills appear at final position cleanly
+  document.querySelectorAll('.cp-pill:not(.active)').forEach(p => {
+    p.style.pointerEvents = '';
+    p.style.transition    = 'transform 0.48s cubic-bezier(0.16,1,0.3,1)';
+    p.style.transform     = 'translateY(0)';
+  });
+  setTimeout(() => { document.getElementById('cp-pills').style.zIndex = '499'; }, 500);
+  // Animate panel shrinking back to pill shape
+  panel.style.transition   = 'transform 0.42s cubic-bezier(0.4,0,0.2,1), border-radius 0.34s cubic-bezier(0.4,0,0.2,1)';
+  panel.style.transform    = `translate(${tx}px,${ty}px) scale(${sx},${sy})`;
+  panel.style.borderRadius = '999px';
+  setTimeout(() => {
+    panel.style.display = 'none';
+    panel.style.transition = panel.style.transform = panel.style.borderRadius = '';
+    pill.classList.remove('active');
+    // Restore container z-index and clear all inline styles
+    document.getElementById('cp-pills').style.zIndex = '499';
+    document.querySelectorAll('.cp-pill').forEach(p => {
+      p.style.transition    = '';
+      p.style.transform     = '';
+      p.style.pointerEvents = '';
+    });
+    _cpActivePill = null;
+  }, 480);
+}
+
+// Chart panel is persistent — only the ✕ button inside the panel closes it
+function closeTop10Panel() { /* intentionally no-op: panel only closes via its own ✕ */ }
+
 // Pin zoom pill directly below "Likelihood" label in SVG space
 function positionCtrl() {
   const r = hm.getBoundingClientRect();
@@ -4239,6 +4559,7 @@ function rerender() {
   });
   renderStatic();
   renderRisks();
+  renderTrendOverlays();
   positionCtrl();
   _reapplyLegendHighlights();
   _reapplySpotlight();
@@ -4404,7 +4725,7 @@ window.addEventListener('mouseup', () => {
 });
 
 // Pin pill below "Likelihood" and cat-filter button
-window.addEventListener('resize', () => { positionCtrl(); positionRiskHeader(); });
+window.addEventListener('resize', () => { positionCtrl(); positionRiskHeader(); _positionChartPills(); });
 
 // ── Page-load entrance animation ─────────────────────────────────────────────
 function runEntranceAnimation() {
@@ -4560,7 +4881,7 @@ function runEntranceAnimation() {
 
 // Renders run LAST — after all event listeners are registered so a render
 // error can never prevent zoom/pan/labels from working
-try { renderStatic(); renderRisks(); renderLegend(); } catch(e) { console.error('render error', e); }
+try { renderStatic(); renderRisks(); renderTrendOverlays(); renderLegend(); } catch(e) { console.error('render error', e); }
 buildCatDropdown();
 // Register owner-dropdown handler ONCE
 document.getElementById('owner-filter-btn').addEventListener('click', e => {
@@ -4577,7 +4898,24 @@ document.getElementById('cat-filter-btn').addEventListener('click', e => {
 });
 document.addEventListener('click', () => closeCatDropdown());
 updateCatFilterBtn();
-setTimeout(() => { positionCtrl(); positionRiskHeader(); runEntranceAnimation(); }, 0);
+setTimeout(() => {
+  positionCtrl(); positionRiskHeader(); _positionChartPills(); runEntranceAnimation();
+  // After entrance animation: pills are already at legBottom-pillH (hidden, z-index:1)
+  // Raise z-index (same card color, still visually hidden), then spring to final position
+  setTimeout(() => {
+    _pillsRevealed = true;
+    const { legBottom } = _cpBounds();
+    const pills = document.getElementById('cp-pills');
+    pills.style.zIndex = '499';
+    // One rAF to let z-index commit, then make pills visible and start drop
+    requestAnimationFrame(() => {
+      pills.style.opacity    = '1';
+      pills.style.transition = 'top 0.55s cubic-bezier(0.16,1,0.3,1)';
+      pills.style.top        = (legBottom + _CP_GAP) + 'px';
+      setTimeout(() => { pills.style.transition = ''; }, 600);
+    });
+  }, 3800);
+}, 0);
 
 // ── Extended search: tasks + people ──────────────────────────────────────────
 
@@ -4985,6 +5323,252 @@ function buildTop10() {
 
 function _closeSearchPanel() {
   document.getElementById('search-results-panel').classList.remove('srp-visible');
+}
+
+// ── Trend Overlay System ──────────────────────────────────────────────────────
+// _trendRisks and _hasTrendHistory are defined earlier (near TREND_HISTORY const)
+
+// Mirrors _applyFilterWithAnimation — exit-animates dots being hidden by trend mode,
+// then rerenders + enter-animates dots becoming visible (when trend is cleared).
+function _applyTrendWithAnimation() {
+  const STAGGER   = 35;
+  const trendOn   = _trendRisks.size > 0;
+
+  // Exit: groups that contain any risk not in _trendRisks (when activating trend)
+  const toExit = [];
+  const seen   = new Set();
+  if (trendOn) {
+    Object.entries(dotGroupByRiskId).forEach(([id, dg]) => {
+      if (seen.has(dg)) return; seen.add(dg);
+      if (dg._exiting) return;
+      const grp = dotRisksGroupById[id] || [];
+      if (grp.some(r => !_trendRisks.has(r.id))) {
+        dg._exiting = true;
+        toExit.push(dg);
+      }
+    });
+    toExit.forEach((dg, i) => {
+      dg.style.animationDelay = Math.min(i * STAGGER, 200) + 'ms';
+      dg.classList.remove('dot-cat-enter');
+      dg.classList.add('dot-cat-exit');
+    });
+  }
+
+  setTimeout(() => {
+    rerender();
+    requestAnimationFrame(() => {
+      renderLegend();
+      // Enter animation only when trend is cleared — all dots reappear
+      if (!trendOn) {
+        const toEnter = []; const seen2 = new Set(); let idx = 0;
+        Object.entries(dotGroupByRiskId).forEach(([, dg]) => {
+          if (seen2.has(dg)) return; seen2.add(dg);
+          toEnter.push({ dg, i: idx++ });
+        });
+        toEnter.forEach(({ dg, i }) => {
+          dg.style.animationDelay = Math.min(i * STAGGER, 200) + 'ms';
+          dg.classList.add('dot-cat-enter');
+          dg.addEventListener('animationend', () => {
+            dg.classList.remove('dot-cat-enter'); dg.style.animationDelay = '';
+          }, { once: true });
+        });
+      }
+    });
+  }, toExit.length > 0 ? 600 : 0);
+}
+
+function toggleTrendRisk(riskId) {
+  if (_trendRisks.has(riskId)) {
+    _trendRisks.delete(riskId);
+  } else {
+    _trendRisks.add(riskId);
+  }
+  _applyTrendWithAnimation();
+  _updateResetBtn();
+}
+
+function activateTrend(riskId) {
+  // Called from modal trend button — close modal and activate trend for this risk
+  closeModal();
+  if (!_trendRisks.has(riskId)) _trendRisks.add(riskId);
+  _applyTrendWithAnimation();
+  _updateResetBtn();
+}
+
+function clearAllTrends(skipAnimation) {
+  _trendRisks.clear();
+  if (skipAnimation) return; // caller (resetAllFilters) handles rerender
+  _applyTrendWithAnimation();
+}
+
+function _onModalTrendClick() {
+  const r = _modalRisks[_activeTabIdx ?? 0];
+  if (!r) return;
+  const btn = document.getElementById('risk-modal-trend-btn');
+  if (_trendRisks.has(r.id)) {
+    _trendRisks.delete(r.id);
+    btn.classList.remove('active');
+  } else {
+    _trendRisks.add(r.id);
+    btn.classList.add('active');
+    closeModal();
+  }
+  _applyTrendWithAnimation();
+  _updateResetBtn();
+}
+
+function renderTrendOverlays() {
+  const layer = document.getElementById('trend-layer');
+  while (layer.firstChild) layer.removeChild(layer.firstChild);
+
+  if (!_trendRisks.size) return;
+
+  const DOT_R = 5;   // ghost dot radius
+
+  // Distinct dash patterns so overlapping trails from different risks stay visually separate
+  const TRAIL_DASH = ['8 4', '3 5', '12 4', '4 12', '6 2 2 2', '2 6', '10 3 3 3', '5 5'];
+
+  let riskIdx = 0;
+  _trendRisks.forEach(riskId => {
+    const dashPattern = TRAIL_DASH[riskIdx % TRAIL_DASH.length];
+    riskIdx++;
+    const history = TREND_HISTORY[riskId];
+    if (!history || !history.length) return;
+    const risk = RISKS.find(r => r.id === riskId);
+    const col  = risk ? catColor(risk.category || '') : '#888';
+
+    // Build ordered points: all historical + current position
+    const pts = history.map(h => ({
+      x: svgX(h.likelihood), y: svgY(h.severity),
+      label: h.quarter ? `${h.quarter} ${h.year}` : h.period,
+      current: false
+    }));
+    if (risk) pts.push({ x: svgX(risk.likelihood), y: svgY(risk.severity), label: 'Now', current: true });
+
+    // Trail line — each risk gets a unique dash pattern so overlapping trails stay distinct
+    if (pts.length >= 2) {
+      const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      mk('path', {
+        d, fill: 'none', stroke: col,
+        'stroke-width': 2.5, 'stroke-dasharray': dashPattern,
+        opacity: 0.95, 'stroke-linecap': 'round'
+      }, layer);
+    }
+
+    // Ghost dots and period labels for historical points (not current)
+    pts.forEach((p, ptIdx) => {
+      if (p.current) return; // current dot is already rendered in risks-layer
+      const g = mk('g', { style: 'cursor:pointer' }, layer);
+      // Solid fill at full opacity
+      mk('circle', { cx: p.x, cy: p.y, r: DOT_R, fill: col }, g);
+      // Dashed stroke ring to distinguish from current-position dot
+      mk('circle', { cx: p.x, cy: p.y, r: DOT_R + 2, fill: 'none',
+                     stroke: col, 'stroke-dasharray': '3 2', 'stroke-width': 1.5 }, g);
+      // Period label with dark backing for readability
+      const labelG = mk('g', {}, g);
+      mktxt(p.label, {
+        x: p.x, y: p.y - DOT_R - 5,
+        'text-anchor': 'middle', 'font-size': 8, fill: col,
+        'stroke': 'rgba(0,0,0,0.6)', 'stroke-width': 3, 'paint-order': 'stroke',
+        'font-family': AXIS_FONT, 'font-weight': 700
+      }, labelG);
+      // Transparent hit area (larger than visual dot for easier clicking)
+      mk('circle', { cx: p.x, cy: p.y, r: DOT_R + 8, fill: 'transparent' }, g);
+      // Capture snapshot and riskId in closure for click handler
+      const snap = history[ptIdx];
+      g.addEventListener('click', e => {
+        e.stopPropagation();
+        hideTip();
+        const svgEl = document.getElementById('hm');
+        const ctm   = svgEl.getScreenCTM();
+        const pt    = svgEl.createSVGPoint();
+        pt.x = p.x; pt.y = p.y;
+        const screen = pt.matrixTransform(ctm);
+        _showHistCard({ x: screen.x, y: screen.y }, riskId, snap);
+      });
+    });
+  });
+}
+
+// Keep trend button state in sync with open modal
+function _updateTrendBtn() {
+  const btn = document.getElementById('risk-modal-trend-btn');
+  if (!btn) return;
+  const r = _modalRisks && _modalRisks[_activeTabIdx ?? 0];
+  btn.classList.toggle('active', !!(r && _trendRisks.has(r.id)));
+}
+
+// ── Historical snapshot card ──────────────────────────────────────────────────
+let _histCard = null;
+
+function _showHistCard(svgPt, riskId, snapshot) {
+  if (!_histCard) _histCard = document.getElementById('hist-card');
+  // Close risk modal if open — only one detail panel at a time
+  if (document.getElementById('risk-modal').classList.contains('open')) closeModal();
+  const risk = RISKS.find(r => r.id === riskId);
+  const col  = risk ? catColor(risk.category || '') : '#888';
+
+  document.getElementById('hc-badge').textContent = riskId;
+  document.getElementById('hc-badge').style.color = col;
+  document.getElementById('hc-name').textContent  = risk ? risk.name : riskId;
+  document.getElementById('hc-period').textContent =
+    (snapshot.quarter ? `${snapshot.quarter} ${snapshot.year}` : snapshot.period) + ' · Historical Snapshot';
+
+  const sev = parseFloat(snapshot.severity);
+  const lik = parseFloat(snapshot.likelihood);
+  document.getElementById('hc-sev').textContent   = sev.toFixed(1);
+  document.getElementById('hc-lik').textContent   = lik.toFixed(1);
+  document.getElementById('hc-score').textContent = (sev * lik).toFixed(1);
+
+  // Delta: compare historical vs current. Per-field colors — each metric is independent.
+  // ds/dl = historical − current. Negative = value rose since then (worse) → red.
+  const deltaEl = document.getElementById('hc-delta');
+  deltaEl.className = 'hc-delta';
+  if (risk) {
+    const ds = sev - risk.severity, dl = lik - risk.likelihood;
+    if (Math.abs(ds) < 0.05 && Math.abs(dl) < 0.05) {
+      deltaEl.innerHTML = `<span style="color:var(--allegion-muted)">Same position as today</span>`;
+    } else {
+      const fmtAbs  = v  => Math.abs(v).toFixed(1);
+      const clr     = d  => d < -0.04 ? '#ef9a9a' : (d > 0.04 ? '#81c784' : 'var(--allegion-muted)');
+      const arrow   = d  => d < -0.04 ? '▲' : (d > 0.04 ? '▼' : '→');
+      const parts   = [];
+      if (Math.abs(ds) >= 0.05) parts.push(
+        `<span style="color:${clr(ds)}">Severity ${arrow(ds)} ${fmtAbs(ds)}</span>`);
+      if (Math.abs(dl) >= 0.05) parts.push(
+        `<span style="color:${clr(dl)}">Likelihood ${arrow(dl)} ${fmtAbs(dl)}</span>`);
+      const sep = `<span style="color:var(--allegion-muted)"> · </span>`;
+      deltaEl.innerHTML = parts.join(sep) +
+        `<span style="color:var(--allegion-muted)"> since then</span>`;
+    }
+  } else {
+    deltaEl.innerHTML = '';
+  }
+
+  document.getElementById('hc-view-btn').onclick = () => {
+    _hideHistCard();
+    if (risk) openModal([risk], 0);
+  };
+
+  // Position near the dot, keeping within viewport — prefer right side, fall back to left
+  _histCard.style.display = 'block';
+  void _histCard.offsetWidth; // force layout before measuring
+  const cw = _histCard.offsetWidth, ch = _histCard.offsetHeight;
+  const margin = 16;
+  let tx = svgPt.x + margin;
+  if (tx + cw > window.innerWidth - 8) tx = svgPt.x - cw - margin;  // flip to left
+  tx = Math.max(8, Math.min(tx, window.innerWidth - cw - 8));
+  let ty = svgPt.y - ch / 2;
+  ty = Math.max(8, Math.min(ty, window.innerHeight - ch - 8));
+  _histCard.style.left = tx + 'px';
+  _histCard.style.top  = ty + 'px';
+  requestAnimationFrame(() => _histCard.classList.add('hc-visible'));
+}
+
+function _hideHistCard() {
+  if (!_histCard) _histCard = document.getElementById('hist-card');
+  _histCard.classList.remove('hc-visible');
+  setTimeout(() => { if (!_histCard.classList.contains('hc-visible')) _histCard.style.display = 'none'; }, 200);
 }
 
 // ── Full search modal ─────────────────────────────────────────────────────────
