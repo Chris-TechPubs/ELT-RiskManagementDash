@@ -1432,6 +1432,93 @@
       background: transparent;
       border-color: var(--swatch-col);
     }
+    /* ── User guide modal ────────────────────────────────────────────────── */
+    #guide-modal {
+      display: none; position: fixed; inset: 0; z-index: 1200;
+      align-items: center; justify-content: center;
+    }
+    #guide-modal.open { display: flex; }
+    #guide-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); cursor: pointer; }
+    #guide-modal-box {
+      position: relative; z-index: 1; box-sizing: border-box;
+      background: rgba(22,22,24,0.80);
+      backdrop-filter: blur(20px) saturate(180%) brightness(1.08);
+      -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.08);
+      border: 1px solid rgba(255,255,255,0.14); border-top-color: rgba(255,255,255,0.44);
+      border-radius: 20px; padding: 0;
+      width: min(920px, calc(100vw - 48px));
+      max-height: calc(100vh - 60px); display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 24px 64px rgba(0,0,0,0.6);
+      animation: modalBoxIn 0.30s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    #guide-modal-close {
+      position: absolute; top: 14px; right: 18px; background: none; border: none;
+      color: var(--allegion-muted); font-size: 26px; cursor: pointer; line-height: 1;
+      z-index: 2; transition: color 0.18s;
+    }
+    #guide-modal-close:hover { color: #E53935; }
+    #guide-modal-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 18px 52px 18px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      flex-shrink: 0;
+    }
+    #guide-modal-title {
+      font-size: 16px; font-weight: 700; font-family: var(--antenna); color: var(--allegion-text);
+    }
+    #guide-body { display: flex; flex: 1; overflow: hidden; }
+    #guide-nav {
+      width: 260px; flex-shrink: 0;
+      border-right: 1px solid rgba(255,255,255,0.1);
+      overflow-y: auto; padding: 14px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    #guide-search-input {
+      width: 100%; box-sizing: border-box;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 8px; color: var(--allegion-text);
+      padding: 8px 12px; font-size: 13px; font-family: var(--antenna);
+      margin-bottom: 10px;
+    }
+    #guide-search-input::placeholder { color: var(--allegion-muted); }
+    #guide-search-input:focus { outline: none; border-color: #FF671F; }
+    .guide-nav-category {
+      font-size: 10px; font-weight: 700; color: var(--allegion-muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin: 12px 2px 4px;
+    }
+    .guide-nav-category:first-child { margin-top: 0; }
+    .guide-nav-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: 6px;
+      color: var(--allegion-text); font-size: 13px; font-family: var(--antenna);
+      cursor: pointer; transition: background 0.15s, color 0.15s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .guide-nav-item:hover { background: rgba(255,255,255,0.06); }
+    .guide-nav-item.active { background: rgba(255,103,31,0.14); color: #FF671F; font-weight: 600; }
+    .guide-nav-empty { color: var(--allegion-muted); font-size: 13px; padding: 10px 4px; text-align: center; }
+    #guide-detail { flex: 1; overflow-y: auto; padding: 24px 28px; }
+    .guide-detail-icon { font-size: 28px; margin-bottom: 8px; }
+    .guide-detail-title {
+      font-size: 18px; font-weight: 700; font-family: var(--antenna);
+      color: var(--allegion-text); margin-bottom: 12px;
+    }
+    .guide-detail-desc { font-size: 14px; color: var(--allegion-text); line-height: 1.6; margin-bottom: 18px; }
+    .guide-detail-tips-label {
+      font-size: 11px; font-weight: 700; color: var(--allegion-muted);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+    }
+    .guide-detail-tips { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 8px; }
+    .guide-detail-tips li { font-size: 13px; color: var(--allegion-muted); line-height: 1.5; padding-left: 18px; position: relative; }
+    .guide-detail-tips li::before { content: '•'; color: #FF671F; position: absolute; left: 4px; }
+    .guide-inspect-btn {
+      background: rgba(255,103,31,0.1); border: 1px solid rgba(255,103,31,0.4);
+      border-radius: 20px; color: #FF671F;
+      padding: 9px 18px; font-size: 13px; font-weight: 600; font-family: var(--antenna);
+      cursor: pointer; transition: background 0.15s;
+    }
+    .guide-inspect-btn:hover { background: rgba(255,103,31,0.22); }
   </style>
 </head>
 <body>
@@ -1669,6 +1756,24 @@
   </div>
   <div class="hc-delta" id="hc-delta"></div>
   <button class="hc-btn" id="hc-view-btn">View current risk →</button>
+</div>
+
+<!-- User guide modal -->
+<div id="guide-modal" role="dialog" aria-modal="true" aria-label="User Guide">
+  <div id="guide-modal-overlay"></div>
+  <div id="guide-modal-box">
+    <div id="guide-modal-header">
+      <span id="guide-modal-title">📖 User Guide</span>
+    </div>
+    <button id="guide-modal-close" title="Close">✕</button>
+    <div id="guide-body">
+      <div id="guide-nav">
+        <input type="text" id="guide-search-input" placeholder="🔍 Search features…">
+        <div id="guide-nav-list"></div>
+      </div>
+      <div id="guide-detail"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1952,6 +2057,8 @@ const _hiddenCatColors  = new Set(); // hex colors of toggled-off categories
 const _activeFilters = { status: new Set(), health: new Set(), overdue: false, quarter: new Set() };
 let   _listSort       = 'id';     // 'id' | 'score' | 'severity' | 'likelihood'
 let   _spotlightOwner = null;     // owner name string when spotlight is active
+let   _guideSelectedId    = null;  // last-selected guide feature id, persists across opens
+let   _guideInspectActive = false; // true while click-to-inspect mode is armed
 
 function parseResidualVal(v) {
   if (!v || v === 'None') return null;
@@ -4519,6 +4626,19 @@ function closeModal() {
   }, { once: true });
 }
 
+// ── USER GUIDE ───────────────────────────────────────────────────────────
+function _openGuide() {
+  document.getElementById('guide-modal').classList.add('open');
+}
+
+function _closeGuide() {
+  document.getElementById('guide-modal').classList.remove('open');
+}
+
+document.getElementById('guide-btn').addEventListener('click', _openGuide);
+document.getElementById('guide-modal-close').addEventListener('click', _closeGuide);
+document.getElementById('guide-modal-overlay').addEventListener('click', _closeGuide);
+
 // Keyboard: Escape closes, Left/Right arrows switch tabs
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
@@ -4529,6 +4649,7 @@ document.addEventListener('keydown', e => {
     closeTaskDetail();
     closePersonModal();
     closeSearchModal();
+    _closeGuide();
     // chart panel is persistent — only ✕ button closes it
     if (_searchActive) closeSearch();
     if (document.getElementById('risk-modal').classList.contains('open')) closeModal();
