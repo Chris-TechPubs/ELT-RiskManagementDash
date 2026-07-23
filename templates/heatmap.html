@@ -1527,6 +1527,29 @@
     .guide-detail-tips { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 8px; }
     .guide-detail-tips li { font-size: 13px; color: var(--allegion-muted); line-height: 1.5; padding-left: 18px; position: relative; }
     .guide-detail-tips li::before { content: '•'; color: #FF671F; position: absolute; left: 4px; }
+    /* ── GUIDE FEATURE VISUAL PREVIEWS ──────────────── */
+    .guide-preview-frame {
+      background: rgba(0,0,0,0.18);
+      border: 1px dashed var(--allegion-border);
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+    }
+    .guide-preview-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--allegion-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    /* Previews reuse real app classes for pixel-accurate mockups — disable
+       interaction so they read as illustrations, not live controls */
+    .guide-preview-frame button, .guide-preview-frame input { pointer-events: none; }
     .guide-inspect-btn {
       position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
       background: rgba(255,103,31,0.1); border: 1px solid rgba(255,103,31,0.4);
@@ -1842,6 +1865,13 @@ const GUIDE_FEATURES = [
       'Everything on this page respects whatever filters are currently active — category, status, quarter, and so on.',
     ],
     selector: null,
+    preview: `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center">
+      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);border-radius:999px;padding:6px 14px;color:var(--allegion-text);font-family:var(--antenna);font-size:13px;font-weight:600">🔍 Browse</span>
+      <span style="color:var(--allegion-muted)">→</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,103,31,0.14);border:1px solid rgba(255,103,31,0.4);border-radius:999px;padding:6px 14px;color:#FF671F;font-family:var(--antenna);font-size:13px;font-weight:600">🟠 Click a dot</span>
+      <span style="color:var(--allegion-muted)">→</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);border-radius:999px;padding:6px 14px;color:var(--allegion-text);font-family:var(--antenna);font-size:13px;font-weight:600">📋 View risk</span>
+    </div>`,
   },
   {
     id: 'reading-grid', category: 'Reading the Chart', icon: '📈',
@@ -1853,6 +1883,12 @@ const GUIDE_FEATURES = [
       'The grid lines mark whole-number scores to make a risk’s exact position easier to read.',
     ],
     selector: null,
+    preview: `<div style="width:100%;max-width:280px">
+      <div style="height:14px;border-radius:7px;background:linear-gradient(90deg,#8BC34A,#FFEE58,#FF9800,#E53935)"></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--allegion-muted);font-family:var(--antenna)">
+        <span>Low risk</span><span>High risk</span>
+      </div>
+    </div>`,
   },
   {
     id: 'legend-list', category: 'Reading the Chart', icon: '📋',
@@ -1864,6 +1900,18 @@ const GUIDE_FEATURES = [
       'Risks sharing the exact same rounded score are grouped into one dot on the chart but still each get their own row here.',
     ],
     selector: '#legend-layer',
+    preview: `<div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:280px">
+      <div style="display:flex;align-items:center;gap:10px;font-family:var(--antenna);font-size:13px">
+        <span style="width:9px;height:9px;border-radius:50%;background:#c0208c;flex-shrink:0"></span>
+        <span style="color:#c0208c;font-weight:700">R07</span>
+        <span style="color:var(--allegion-text)">Cybersecurity incident response gaps</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;font-family:var(--antenna);font-size:13px">
+        <span style="width:9px;height:9px;border-radius:50%;background:#1a7a1a;flex-shrink:0"></span>
+        <span style="color:#1a7a1a;font-weight:700">R12</span>
+        <span style="color:var(--allegion-text)">Key talent retention</span>
+      </div>
+    </div>`,
   },
   {
     id: 'category-key', category: 'Reading the Chart', icon: '🎨',
@@ -1874,6 +1922,11 @@ const GUIDE_FEATURES = [
       'These same seven colors are exactly what you toggle on/off with the category filter.',
     ],
     selector: null,
+    preview: `<div style="display:flex;flex-direction:column;gap:2px;width:100%;max-width:260px">
+      <div class="cat-dd-row" style="cursor:default"><span class="cat-dd-swatch" style="--swatch-col:#e07020"></span><span class="cat-dd-label">Strategic</span></div>
+      <div class="cat-dd-row" style="cursor:default"><span class="cat-dd-swatch" style="--swatch-col:#007A8A"></span><span class="cat-dd-label">Operational</span></div>
+      <div class="cat-dd-row" style="cursor:default"><span class="cat-dd-swatch" style="--swatch-col:#c0208c"></span><span class="cat-dd-label">Governance/Compliance</span></div>
+    </div>`,
   },
   {
     id: 'grouped-dots', category: 'Reading the Chart', icon: '🥧',
@@ -1884,6 +1937,11 @@ const GUIDE_FEATURES = [
       'Scores are rounded to the nearest 0.5 before grouping, so risks don’t need to match exactly to end up sharing a dot.',
     ],
     selector: null,
+    preview: `<svg width="56" height="56" viewBox="0 0 56 56">
+      <circle cx="28" cy="28" r="24" fill="none" stroke="#e07020" stroke-width="16" stroke-dasharray="50.3 100.5" stroke-dashoffset="0"/>
+      <circle cx="28" cy="28" r="24" fill="none" stroke="#007A8A" stroke-width="16" stroke-dasharray="50.3 100.5" stroke-dashoffset="-50.3"/>
+      <circle cx="28" cy="28" r="24" fill="none" stroke="#1a7a1a" stroke-width="16" stroke-dasharray="50.3 100.5" stroke-dashoffset="-100.6"/>
+    </svg>`,
   },
   {
     id: 'zoom-pan', category: 'Reading the Chart', icon: '🔍',
@@ -1894,6 +1952,11 @@ const GUIDE_FEATURES = [
       'Labels can be toggled off if a zoomed-in area gets too cluttered with text.',
     ],
     selector: '#zoom-ctrl',
+    preview: `<div style="display:flex;gap:6px">
+      <button style="height:34px;width:34px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:var(--allegion-text);font-size:19px;font-family:var(--antenna)">+</button>
+      <button style="height:34px;width:34px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:var(--allegion-text);font-size:19px;font-family:var(--antenna)">−</button>
+      <button style="height:34px;border-radius:17px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:var(--allegion-text);font-size:13px;font-family:var(--antenna);padding:0 14px">Labels</button>
+    </div>`,
   },
   {
     id: 'category-filter', category: 'Filtering & Search', icon: '🏷️',
@@ -1904,6 +1967,10 @@ const GUIDE_FEATURES = [
       'A small dot on the button itself shows when any category filter is currently active.',
     ],
     selector: '#cat-filter-btn',
+    preview: `<button style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:5px 11px;color:#FF671F;font-size:13px;font-weight:600;font-family:var(--antenna);position:relative">
+      <span class="material-symbols-outlined" style="font-size:17.5px;line-height:1;font-family:'Material Symbols Outlined';font-weight:400;font-variation-settings:'wght' 400">layers</span>
+      <span style="position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:#FF671F;border:1.5px solid rgba(28,28,30,0.9)"></span>
+    </button>`,
   },
   {
     id: 'multi-filter', category: 'Filtering & Search', icon: '⚙️',
@@ -1914,6 +1981,11 @@ const GUIDE_FEATURES = [
       'Filters here combine with the category filter and with an active search or spotlight.',
     ],
     selector: '#rh-mf-btn',
+    preview: `<button style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:5px 11px;color:#FF671F;font-size:13px;font-weight:600;font-family:var(--antenna)">
+      Filters
+      <span style="background:#FF671F;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:999px;min-width:14px;text-align:center;display:inline-block">2</span>
+      <span style="font-size:0.8em">▾</span>
+    </button>`,
   },
   {
     id: 'quick-search', category: 'Filtering & Search', icon: '🔎',
@@ -1925,6 +1997,9 @@ const GUIDE_FEATURES = [
       'Click the ✕ to close the search bar and clear the filter.',
     ],
     selector: '#rh-search-btn',
+    preview: `<button style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:5px;color:#FF671F">
+      <span class="material-symbols-outlined" style="font-size:17.5px;line-height:1;font-family:'Material Symbols Outlined';font-weight:400;font-variation-settings:'wght' 400">search</span>
+    </button>`,
   },
   {
     id: 'full-search-modal', category: 'Filtering & Search', icon: '🗂️',
@@ -1935,6 +2010,7 @@ const GUIDE_FEATURES = [
       'Clicking a person opens their profile modal with everything they own or manage.',
     ],
     selector: '#rh-search-advanced',
+    preview: `<button style="background:none;border:1px solid rgba(255,255,255,0.18);border-radius:999px;color:var(--allegion-muted);font-size:11px;font-family:var(--antenna);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:3px 10px">Advanced</button>`,
   },
   {
     id: 'spotlight', category: 'Filtering & Search', icon: '🎯',
@@ -1945,6 +2021,10 @@ const GUIDE_FEATURES = [
       'A small dot on the button shows when a spotlight is currently active.',
     ],
     selector: '#owner-filter-btn',
+    preview: `<button style="display:flex;align-items:center;justify-content:center;position:relative;background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:8px 14px;color:#FF671F">
+      <span class="material-symbols-outlined" style="font-size:17.5px;line-height:1;font-family:'Material Symbols Outlined';font-weight:400;font-variation-settings:'wght' 400">person</span>
+      <span style="position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:#FF671F;border:1.5px solid rgba(28,28,30,0.9)"></span>
+    </button>`,
   },
   {
     id: 'reset-all', category: 'Filtering & Search', icon: '↺',
@@ -1955,6 +2035,10 @@ const GUIDE_FEATURES = [
       'It clears category filters, the Filters dropdown, search, and spotlight all together.',
     ],
     selector: '#reset-all-chip',
+    preview: `<div class="status-chip" style="display:flex;cursor:default;padding:10px 18px;border-color:rgba(229,57,53,0.6);color:#EF5350">
+      <span class="chip-icon" style="font-size:14px">restart_alt</span>
+      <span>Reset All</span>
+    </div>`,
   },
   {
     id: 'opening-risk', category: 'The Risk Modal', icon: '🟦',
@@ -1965,6 +2049,9 @@ const GUIDE_FEATURES = [
       'Press Escape or click outside the modal to close it.',
     ],
     selector: null,
+    preview: `<div style="display:flex;align-items:center;gap:10px;font-family:var(--antenna);color:var(--allegion-text);font-size:14px">
+      <span style="font-size:22px">🖱️</span> Click any dot or list row
+    </div>`,
   },
   {
     id: 'multi-risk-tabs', category: 'The Risk Modal', icon: '🗂️',
@@ -1975,6 +2062,10 @@ const GUIDE_FEATURES = [
       'Use the Left/Right arrow keys to switch tabs without touching the mouse.',
     ],
     selector: null,
+    preview: `<div style="display:flex;gap:3px">
+      <button class="modal-tab active" style="background-color:rgba(224,112,32,0.22);color:#e07020;border-color:rgba(224,112,32,0.5)">R07</button>
+      <button class="modal-tab" style="background-color:rgba(0,122,138,0.22);color:#007A8A;border-color:rgba(0,122,138,0.5)">R12</button>
+    </div>`,
   },
   {
     id: 'page-nav', category: 'The Risk Modal', icon: '📑',
@@ -1985,6 +2076,12 @@ const GUIDE_FEATURES = [
       'The modal automatically widens when you switch to the Tasks page to fit the task cards.',
     ],
     selector: '#modal-page-nav',
+    preview: `<div style="display:flex;gap:2px">
+      <button class="mpn-btn active" style="color:#FF671F">Overview</button>
+      <button class="mpn-btn">Risk Data</button>
+      <button class="mpn-btn">Ownership</button>
+      <button class="mpn-btn">Tasks</button>
+    </div>`,
   },
   {
     id: 'tasks-tab', category: 'Tasks', icon: '✅',
@@ -1995,6 +2092,12 @@ const GUIDE_FEATURES = [
       'Click a card’s expand icon to open its full detail in a separate modal.',
     ],
     selector: null,
+    preview: `<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;width:100%;max-width:280px">
+      <div style="flex:1">
+        <div style="font-size:13px;color:var(--allegion-text);font-weight:600;margin-bottom:4px">Rotate credentials quarterly</div>
+        <div style="height:5px;border-radius:3px;background:rgba(255,255,255,0.12);overflow:hidden"><div style="height:100%;width:65%;background:#FF671F"></div></div>
+      </div>
+    </div>`,
   },
   {
     id: 'sort-bar', category: 'Tasks', icon: '↕️',
@@ -2005,6 +2108,11 @@ const GUIDE_FEATURES = [
       'Sort resets to % Done (completion order) each time you open a new risk’s modal.',
     ],
     selector: '#task-sort-bar',
+    preview: `<div style="display:flex;gap:6px">
+      <button class="sort-btn active">% Done</button>
+      <button class="sort-btn">A – Z</button>
+      <button class="sort-btn">Severity</button>
+    </div>`,
   },
   {
     id: 'task-detail-modal', category: 'Tasks', icon: '↗️',
@@ -2015,6 +2123,9 @@ const GUIDE_FEATURES = [
       'It opens directly above the risk modal, so closing it returns you to exactly where you were.',
     ],
     selector: '.task-expand-btn',
+    preview: `<button class="task-expand-btn" style="position:static">
+      <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">open_in_full</span>
+    </button>`,
   },
   {
     id: 'trend-toggle', category: 'Trend Overlays', icon: '📉',
@@ -2025,6 +2136,9 @@ const GUIDE_FEATURES = [
       'Turning trend off for a risk removes just its trail and ghost dots, leaving other tracked risks untouched.',
     ],
     selector: '#risk-modal-trend-btn',
+    preview: `<button style="display:inline-flex;align-items:center;color:#FF671F;background:none;border:none;cursor:default">
+      <svg width="24" height="18" viewBox="0 0 22 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,14 5,8 8,12 12,6 15,10 19,4"/></svg>
+    </button>`,
   },
   {
     id: 'ghost-dots', category: 'Trend Overlays', icon: '👻',
@@ -2035,6 +2149,12 @@ const GUIDE_FEATURES = [
       'These only exist while trend mode is on for at least one risk — they disappear completely once trend is cleared.',
     ],
     selector: null,
+    preview: `<svg width="120" height="40" viewBox="0 0 120 40">
+      <line x1="10" y1="30" x2="110" y2="10" stroke="#FF671F" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.6"/>
+      <circle cx="10" cy="30" r="4" fill="none" stroke="#FF671F" stroke-width="1.5" opacity="0.5"/>
+      <circle cx="60" cy="20" r="4" fill="none" stroke="#FF671F" stroke-width="1.5" opacity="0.5"/>
+      <circle cx="110" cy="10" r="5" fill="#FF671F"/>
+    </svg>`,
   },
   {
     id: 'hist-card', category: 'Trend Overlays', icon: '🕰️',
@@ -2045,6 +2165,22 @@ const GUIDE_FEATURES = [
       'Click anywhere outside the card, or another ghost dot, to close or switch it.',
     ],
     selector: '#hist-card',
+    preview: `<div style="background:#2D2D2E;border:1px solid var(--allegion-border);border-radius:14px;padding:16px 18px;width:100%;max-width:280px">
+      <div class="hc-header">
+        <span class="hc-badge">R26</span>
+        <div class="hc-title-wrap">
+          <div class="hc-name">Vendor concentration risk</div>
+          <div class="hc-period">Q4 2025 · Historical Snapshot</div>
+        </div>
+      </div>
+      <div class="hc-div"></div>
+      <div class="hc-stats">
+        <div class="hc-stat"><div class="hc-stat-label">Severity</div><div class="hc-stat-val">3.5</div></div>
+        <div class="hc-stat"><div class="hc-stat-label">Likelihood</div><div class="hc-stat-val">3.0</div></div>
+        <div class="hc-stat"><div class="hc-stat-label">Risk Score</div><div class="hc-stat-val">10.5</div></div>
+      </div>
+      <div class="hc-delta hc-worsened">▲ Severity worsened since this snapshot</div>
+    </div>`,
   },
   {
     id: 'person-profile', category: 'People', icon: '👤',
@@ -2055,6 +2191,10 @@ const GUIDE_FEATURES = [
       'Their email is generated automatically from their name and shown at the top.',
     ],
     selector: null,
+    preview: `<div style="display:flex;align-items:center;gap:10px;font-family:var(--antenna);font-size:14px;color:var(--allegion-text)">
+      <span style="width:32px;height:32px;border-radius:50%;background:rgba(255,103,31,0.18);display:flex;align-items:center;justify-content:center;color:#FF671F;font-weight:700">JD</span>
+      Jordan Diaz — Risk Owner on 4 risks
+    </div>`,
   },
   {
     id: 'chart-risks-pill', category: 'Chart Panels', icon: '📊',
@@ -2065,6 +2205,11 @@ const GUIDE_FEATURES = [
       'Click the × in the panel header to close it, or click the other pill to switch straight to that panel instead.',
     ],
     selector: '#pill-top10',
+    preview: `<button class="cp-pill" style="color:var(--allegion-muted)">
+      <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">bar_chart</span>
+      Risks
+      <span class="cp-badge">10</span>
+    </button>`,
   },
   {
     id: 'chart-tasks-pill', category: 'Chart Panels', icon: '✅',
@@ -2075,6 +2220,11 @@ const GUIDE_FEATURES = [
       'Click the × in the panel header to close it, or click the Risks pill to switch straight to that panel instead.',
     ],
     selector: '#pill-tasks',
+    preview: `<button class="cp-pill" style="color:var(--allegion-muted)">
+      <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">task_alt</span>
+      Tasks
+      <span class="cp-badge">10</span>
+    </button>`,
   },
 ];
 
@@ -4695,6 +4845,10 @@ function _renderGuideDetail(id) {
   let h = `<div class="guide-detail-icon">${f.icon}</div>`;
   h += `<div class="guide-detail-title">${f.title}</div>`;
   h += `<div class="guide-detail-desc">${f.description}</div>`;
+  if (f.preview) {
+    h += '<div class="guide-preview-label">Preview</div>';
+    h += `<div class="guide-preview-frame">${f.preview}</div>`;
+  }
   h += '<div class="guide-detail-tips-label">Tips</div>';
   h += '<ul class="guide-detail-tips">';
   f.tips.forEach(t => { h += `<li>${t}</li>`; });
