@@ -2540,6 +2540,57 @@ function shadeColor(hex, percent) {
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
+function _polygonPoints(cx, cy, r, n, rotationDeg) {
+  const pts = [];
+  const rot = (rotationDeg || 0) * Math.PI / 180;
+  for (let i = 0; i < n; i++) {
+    const a = rot + (i / n) * 2 * Math.PI;
+    pts.push(`${(cx + r * Math.sin(a)).toFixed(1)},${(cy - r * Math.cos(a)).toFixed(1)}`);
+  }
+  return pts.join(' ');
+}
+
+function _starPoints(cx, cy, rOuter, rInner) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const r = (i % 2 === 0) ? rOuter : rInner;
+    const a = (i / 10) * 2 * Math.PI - Math.PI / 2;
+    pts.push(`${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`);
+  }
+  return pts.join(' ');
+}
+
+function _crossPoints(cx, cy, r) {
+  const w = r * 0.32;
+  return [
+    [cx - w, cy - r], [cx + w, cy - r], [cx + w, cy - w], [cx + r, cy - w],
+    [cx + r, cy + w], [cx + w, cy + w], [cx + w, cy + r], [cx - w, cy + r],
+    [cx - w, cy + w], [cx - r, cy + w], [cx - r, cy - w], [cx - w, cy - w],
+  ].map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+}
+
+// Draws a shape marker of the given kind, centered at (cx,cy) with nominal
+// radius r. 'circle' draws a real <circle>; every other shape draws a
+// <polygon> sized to have roughly the same visual weight as a circle of
+// radius r. attrs are passed straight through to mk() (fill/stroke/etc).
+function drawShapeMarker(shape, cx, cy, r, attrs, parent) {
+  if (shape === 'circle') {
+    return mk('circle', Object.assign({ cx, cy, r }, attrs), parent);
+  }
+  let points;
+  switch (shape) {
+    case 'square':   points = _polygonPoints(cx, cy, r * 1.1,  4, 45); break;
+    case 'diamond':  points = _polygonPoints(cx, cy, r * 1.25, 4, 0);  break;
+    case 'triangle': points = _polygonPoints(cx, cy, r * 1.3,  3, 0);  break;
+    case 'pentagon': points = _polygonPoints(cx, cy, r * 1.15, 5, 0);  break;
+    case 'hexagon':  points = _polygonPoints(cx, cy, r * 1.1,  6, 0);  break;
+    case 'star':     points = _starPoints(cx, cy, r * 1.4, r * 0.55); break;
+    case 'cross':    points = _crossPoints(cx, cy, r * 1.3); break;
+    default:         return mk('circle', Object.assign({ cx, cy, r }, attrs), parent);
+  }
+  return mk('polygon', Object.assign({ points }, attrs), parent);
+}
+
 // Lookup: risk id → category
 const ID_TO_CAT = {};
 RISKS.forEach(r => { ID_TO_CAT[r.id] = r.category || ''; });
@@ -6168,6 +6219,9 @@ function renderTrendOverlays() {
 
   // Distinct dash patterns so overlapping trails from different risks stay visually separate
   const TRAIL_DASH = ['8 4', '3 5', '12 4', '4 12', '6 2 2 2', '2 6', '10 3 3 3', '5 5'];
+  // Distinct shapes, indexed by the SAME riskIdx as TRAIL_DASH — dash pattern N
+  // and shape N always travel together for a given risk.
+  const TRAIL_SHAPE = ['circle', 'square', 'diamond', 'triangle', 'pentagon', 'star', 'cross', 'hexagon'];
   // Within-category shade steps: % toward white (positive) or black (negative).
   // Only applied when 2+ currently-trended risks share a category (see below) —
   // a risk trended alone always keeps its exact, unmodified catColor() value.
@@ -6186,6 +6240,7 @@ function renderTrendOverlays() {
   let riskIdx = 0;
   _trendRisks.forEach(riskId => {
     const dashPattern = TRAIL_DASH[riskIdx % TRAIL_DASH.length];
+    const shape       = TRAIL_SHAPE[riskIdx % TRAIL_SHAPE.length];
     riskIdx++;
     const history = TREND_HISTORY[riskId];
     if (!history || !history.length) return;
@@ -6223,10 +6278,10 @@ function renderTrendOverlays() {
     pts.forEach((p, ptIdx) => {
       if (p.current) return; // current dot is already rendered in risks-layer
       const g = mk('g', { style: 'cursor:pointer' }, layer);
-      // Solid fill at full opacity
-      mk('circle', { cx: p.x, cy: p.y, r: DOT_R, fill: col }, g);
+      // Solid fill at full opacity, shaped per-risk instead of always a circle
+      drawShapeMarker(shape, p.x, p.y, DOT_R, { fill: col }, g);
       // Dashed stroke ring to distinguish from current-position dot
-      mk('circle', { cx: p.x, cy: p.y, r: DOT_R + 2, fill: 'none',
+      drawShapeMarker(shape, p.x, p.y, DOT_R + 2, { fill: 'none',
                      stroke: col, 'stroke-dasharray': '3 2', 'stroke-width': 1.5 }, g);
       // Period label with dark backing for readability
       const labelG = mk('g', {}, g);
