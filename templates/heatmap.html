@@ -876,8 +876,12 @@
     }
     #fullscreen-btn:hover { background: rgba(255,255,255,0.1); color: var(--allegion-text); border-color: rgba(255,255,255,0.3); }
     /* ── Floating user guide button — same corner slot as #fullscreen-btn ───── */
+    /* z-index 1150: above every other modal/overlay in the app (highest is
+       #task-detail-modal at 1100) so the guide stays reachable no matter what
+       is open, but below #guide-modal itself (1200) so it tucks away once
+       the guide is already showing. */
     #guide-btn {
-      position: fixed; top: 10px; right: 10px; z-index: 900;
+      position: fixed; top: 10px; right: 10px; z-index: 1150;
       background: rgba(22,22,24,0.70); border: 1px solid rgba(255,255,255,0.18);
       border-radius: 20px; padding: 7px 16px; cursor: pointer; color: var(--allegion-muted);
       display: flex; align-items: center; gap: 6px;
@@ -885,7 +889,7 @@
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
-    #guide-btn:hover { background: rgba(255,255,255,0.1); color: var(--allegion-text); border-color: rgba(255,255,255,0.3); }
+    #guide-btn:hover { background: #FF671F; border-color: #FF671F; color: #fff; }
 
     /* ── Controls ───────────────────────────────────────────────────────────── */
     #zoom-ctrl {
