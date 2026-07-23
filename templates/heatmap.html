@@ -1459,7 +1459,7 @@
     }
     #guide-modal-close:hover { color: #E53935; }
     #guide-modal-header {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 10px; position: relative;
       padding: 18px 52px 18px 24px;
       border-bottom: 1px solid rgba(255,255,255,0.1);
       flex-shrink: 0;
@@ -1528,10 +1528,11 @@
     .guide-detail-tips li { font-size: 13px; color: var(--allegion-muted); line-height: 1.5; padding-left: 18px; position: relative; }
     .guide-detail-tips li::before { content: '•'; color: #FF671F; position: absolute; left: 4px; }
     .guide-inspect-btn {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
       background: rgba(255,103,31,0.1); border: 1px solid rgba(255,103,31,0.4);
       border-radius: 20px; color: #FF671F;
-      padding: 9px 18px; font-size: 13px; font-weight: 600; font-family: var(--antenna);
-      cursor: pointer; transition: background 0.15s;
+      padding: 6px 16px; font-size: 12px; font-weight: 600; font-family: var(--antenna);
+      cursor: pointer; transition: background 0.15s; white-space: nowrap;
     }
     .guide-inspect-btn:hover { background: rgba(255,103,31,0.22); }
     body.guide-inspect-active,
@@ -1794,6 +1795,7 @@
   <div id="guide-modal-box">
     <div id="guide-modal-header">
       <span id="guide-modal-title">📖 User Guide</span>
+      <button class="guide-inspect-btn" id="guide-inspect-btn" title="Click something on the page to jump to its guide entry">🎯 Click something on the page</button>
     </div>
     <button id="guide-modal-close" title="Close">✕</button>
     <div id="guide-body">
@@ -4697,10 +4699,7 @@ function _renderGuideDetail(id) {
   h += '<ul class="guide-detail-tips">';
   f.tips.forEach(t => { h += `<li>${t}</li>`; });
   h += '</ul>';
-  h += '<button class="guide-inspect-btn" id="guide-inspect-btn">🎯 Click something on the page</button>';
   detail.innerHTML = h;
-  const inspectBtn = document.getElementById('guide-inspect-btn');
-  if (inspectBtn) inspectBtn.addEventListener('click', _startGuideInspect);
 }
 
 function _selectGuideFeature(id) {
@@ -4805,6 +4804,7 @@ function _closeGuide() {
 document.getElementById('guide-btn').addEventListener('click', _openGuide);
 document.getElementById('guide-modal-close').addEventListener('click', _closeGuide);
 document.getElementById('guide-modal-overlay').addEventListener('click', _closeGuide);
+document.getElementById('guide-inspect-btn').addEventListener('click', _startGuideInspect);
 document.getElementById('guide-nav-list').addEventListener('click', function(e) {
   const item = e.target.closest('.guide-nav-item');
   if (!item) return;
