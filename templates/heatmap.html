@@ -6264,6 +6264,10 @@ function renderTrendOverlays() {
     }));
     if (risk) pts.push({ x: svgX(risk.likelihood), y: svgY(risk.severity), label: 'Now', current: true });
 
+    // Every visual for this risk lives in one group so hover/pin isolation
+    // (Task 4/5) can toggle opacity per-risk with a single class lookup.
+    const riskGroup = mk('g', { class: 'trend-risk-group', 'data-risk-id': riskId }, layer);
+
     // Trail line — each risk gets a unique dash pattern so overlapping trails stay distinct
     if (pts.length >= 2) {
       const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
@@ -6271,13 +6275,25 @@ function renderTrendOverlays() {
         d, fill: 'none', stroke: col,
         'stroke-width': 2.5, 'stroke-dasharray': dashPattern,
         opacity: 0.95, 'stroke-linecap': 'round'
-      }, layer);
+      }, riskGroup);
+    }
+
+    // Halo ring + shape badge on the current-position dot (drawn elsewhere by
+    // drawPieDot, untouched) so it can be matched to this risk's trail/ghost
+    // dots without changing the shared dot renderer.
+    if (risk) {
+      const curX = svgX(risk.likelihood), curY = svgY(risk.severity);
+      const CUR_DOT_R = 10; // matches DOT_R used by drawPieDot for the real dot
+      mk('circle', { cx: curX, cy: curY, r: CUR_DOT_R + 4, fill: 'none',
+                     stroke: col, 'stroke-width': 2 }, riskGroup);
+      drawShapeMarker(shape, curX + CUR_DOT_R + 6, curY - CUR_DOT_R - 6, 5,
+                      { fill: col, stroke: '#111827', 'stroke-width': 1 }, riskGroup);
     }
 
     // Ghost dots and period labels for historical points (not current)
     pts.forEach((p, ptIdx) => {
       if (p.current) return; // current dot is already rendered in risks-layer
-      const g = mk('g', { style: 'cursor:pointer' }, layer);
+      const g = mk('g', { style: 'cursor:pointer' }, riskGroup);
       // Solid fill at full opacity, shaped per-risk instead of always a circle
       drawShapeMarker(shape, p.x, p.y, DOT_R, { fill: col }, g);
       // Dashed stroke ring to distinguish from current-position dot
