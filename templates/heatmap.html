@@ -2526,6 +2526,20 @@ function catColor(cat) {
   return CAT_MAP[k] || '#555';
 }
 
+// Lerps each RGB channel of `hex` toward white (positive percent) or black
+// (negative percent) by that percent. Used to give same-category trended
+// risks distinguishable shades instead of an identical hex value.
+function shadeColor(hex, percent) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  let r = (n >> 16) & 0xFF, g = (n >> 8) & 0xFF, b = n & 0xFF;
+  const target = percent < 0 ? 0 : 255;
+  const p = Math.abs(percent) / 100;
+  r = Math.round(r + (target - r) * p);
+  g = Math.round(g + (target - g) * p);
+  b = Math.round(b + (target - b) * p);
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
 // Lookup: risk id → category
 const ID_TO_CAT = {};
 RISKS.forEach(r => { ID_TO_CAT[r.id] = r.category || ''; });
@@ -6154,6 +6168,20 @@ function renderTrendOverlays() {
 
   // Distinct dash patterns so overlapping trails from different risks stay visually separate
   const TRAIL_DASH = ['8 4', '3 5', '12 4', '4 12', '6 2 2 2', '2 6', '10 3 3 3', '5 5'];
+  // Within-category shade steps: % toward white (positive) or black (negative).
+  // Only applied when 2+ currently-trended risks share a category (see below) —
+  // a risk trended alone always keeps its exact, unmodified catColor() value.
+  const HUE_SHADE_STEPS = [0, 35, 70, -20];
+
+  // Count how many currently-trended risks fall in each category, so shading
+  // only kicks in for categories with 2+ trended risks.
+  const trendCatCounts = {};
+  _trendRisks.forEach(rid => {
+    const rr = RISKS.find(x => x.id === rid);
+    const cat = rr ? (rr.category || '') : '';
+    trendCatCounts[cat] = (trendCatCounts[cat] || 0) + 1;
+  });
+  const catShadeSeen = {}; // per-category counter, separate from the global riskIdx below
 
   let riskIdx = 0;
   _trendRisks.forEach(riskId => {
@@ -6162,7 +6190,16 @@ function renderTrendOverlays() {
     const history = TREND_HISTORY[riskId];
     if (!history || !history.length) return;
     const risk = RISKS.find(r => r.id === riskId);
-    const col  = risk ? catColor(risk.category || '') : '#888';
+    const baseCol = risk ? catColor(risk.category || '') : '#888';
+    let col = baseCol;
+    if (risk) {
+      const cat = risk.category || '';
+      if ((trendCatCounts[cat] || 0) >= 2) {
+        const seen = catShadeSeen[cat] || 0;
+        catShadeSeen[cat] = seen + 1;
+        col = shadeColor(baseCol, HUE_SHADE_STEPS[Math.min(seen, HUE_SHADE_STEPS.length - 1)]);
+      }
+    }
 
     // Build ordered points: all historical + current position
     const pts = history.map(h => ({
