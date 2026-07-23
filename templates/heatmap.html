@@ -879,8 +879,9 @@
     #guide-btn {
       position: fixed; top: 10px; right: 10px; z-index: 900;
       background: rgba(22,22,24,0.70); border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 9px; padding: 7px; cursor: pointer; color: var(--allegion-muted);
-      display: flex; align-items: center; justify-content: center;
+      border-radius: 20px; padding: 7px 16px; cursor: pointer; color: var(--allegion-muted);
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; font-family: var(--antenna); white-space: nowrap;
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
@@ -1604,6 +1605,7 @@
 <!-- ── Floating user guide button — top-right corner ────────────────── -->
 <button id="guide-btn" title="Open the user guide">
   <span class="material-symbols-outlined" style="font-size:16px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">help</span>
+  Guide
 </button>
 
 <!-- ── Chart pill buttons + shared panel ─────────────────────────────── -->
