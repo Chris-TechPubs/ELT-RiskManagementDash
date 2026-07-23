@@ -1519,6 +1519,20 @@
       cursor: pointer; transition: background 0.15s;
     }
     .guide-inspect-btn:hover { background: rgba(255,103,31,0.22); }
+    body.guide-inspect-active,
+    body.guide-inspect-active * { cursor: crosshair !important; }
+    #guide-inspect-indicator {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(30,30,35,0.92); border: 1px solid #FF671F;
+      border-radius: 20px; color: var(--allegion-text); font-size: 13px;
+      font-family: var(--antenna); padding: 8px 18px; z-index: 1300;
+      display: none; align-items: center; gap: 8px;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    #guide-inspect-indicator.visible { display: flex; }
+    #guide-inspect-indicator.no-match {
+      background: rgba(60,20,20,0.92); border-color: #E53935;
+    }
   </style>
 </head>
 <body>
@@ -1774,6 +1788,10 @@
       <div id="guide-detail"></div>
     </div>
   </div>
+</div>
+<div id="guide-inspect-indicator">
+  <span id="guide-inspect-indicator-text">🎯 Click something on the page…</span>
+  <span style="color:var(--allegion-muted)">Esc to cancel</span>
 </div>
 
 <script>
@@ -4675,6 +4693,85 @@ function _selectGuideFeature(id) {
     el.classList.toggle('active', el.dataset.id === id);
   });
   _renderGuideDetail(id);
+}
+
+// Finds the GUIDE_FEATURES entry whose selector matches the nearest ancestor
+// of `target` (including target itself). When multiple selectors match, the
+// one requiring fewest parentElement hops from target wins — this correctly
+// attributes a click on an element inside a broader container to the more
+// specific feature, not the container's own entry.
+function _findGuideMatch(target) {
+  let best = null;
+  let bestDistance = Infinity;
+  GUIDE_FEATURES.forEach(f => {
+    if (!f.selector) return;
+    let matched;
+    try { matched = target.closest(f.selector); } catch (err) { return; }
+    if (!matched) return;
+    let distance = 0;
+    let node = target;
+    while (node && node !== matched) {
+      node = node.parentElement;
+      distance++;
+    }
+    if (node === matched && distance < bestDistance) {
+      bestDistance = distance;
+      best = f;
+    }
+  });
+  return best;
+}
+
+// Briefly swaps the inspect indicator's text/color (used for the no-match
+// case) then reverts — this app has no existing toast system, so the
+// indicator that's already on screen during inspect mode doubles as one.
+function _flashGuideInspectMessage(msg) {
+  const el = document.getElementById('guide-inspect-indicator');
+  const textEl = document.getElementById('guide-inspect-indicator-text');
+  const original = textEl.textContent;
+  textEl.textContent = msg;
+  el.classList.add('no-match');
+  setTimeout(() => {
+    el.classList.remove('no-match');
+    textEl.textContent = original;
+  }, 1800);
+}
+
+function _guideInspectClickHandler(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const match = _findGuideMatch(e.target);
+  if (match) {
+    _guideSelectedId = match.id;
+    _stopGuideInspect();
+  } else {
+    _flashGuideInspectMessage('No guide entry for that yet — try something else');
+  }
+}
+
+function _guideInspectKeyHandler(e) {
+  if (e.key === 'Escape') {
+    e.stopPropagation(); // prevent the app-wide Escape handler from also firing on this keypress
+    _stopGuideInspect();
+  }
+}
+
+function _startGuideInspect() {
+  _guideInspectActive = true;
+  _closeGuide();
+  document.body.classList.add('guide-inspect-active');
+  document.getElementById('guide-inspect-indicator').classList.add('visible');
+  document.addEventListener('click', _guideInspectClickHandler, true);
+  document.addEventListener('keydown', _guideInspectKeyHandler, true);
+}
+
+function _stopGuideInspect() {
+  _guideInspectActive = false;
+  document.body.classList.remove('guide-inspect-active');
+  document.getElementById('guide-inspect-indicator').classList.remove('visible');
+  document.removeEventListener('click', _guideInspectClickHandler, true);
+  document.removeEventListener('keydown', _guideInspectKeyHandler, true);
+  _openGuide();
 }
 
 function _openGuide() {
