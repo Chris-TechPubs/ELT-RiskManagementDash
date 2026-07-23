@@ -6252,6 +6252,19 @@ function _syncModalSearchIfOpen(query) {
   document.getElementById('search-modal-input').value = query;
   _renderSearchModalResults(query);
 }
+
+// ── USER GUIDE — first-visit auto-popup ───────────────────────────────────
+// Versioned key so bumping it (e.g. after a major content rewrite) makes the
+// guide pop up again for everyone, same technique used for other per-browser
+// settings in the sister Compliance Finder app.
+function _maybeAutoOpenGuide() {
+  if (localStorage.getItem('hm_guide_seen_v1')) return;
+  setTimeout(() => {
+    _openGuide();
+    localStorage.setItem('hm_guide_seen_v1', '1');
+  }, 600); // let the initial chart render settle first
+}
+_maybeAutoOpenGuide();
 </script>
 </body>
 </html>
