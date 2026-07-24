@@ -804,7 +804,8 @@
       align-items: center; justify-content: flex-start;
     }
     .cp-pill {
-      display: flex; align-items: center; gap: 7px;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      flex: 1 1 0; min-width: 0;
       padding: 7px 14px; border-radius: 999px; cursor: pointer; border: none;
       font-family: var(--antenna); font-size: 11px; font-weight: 700;
       letter-spacing: 0.07em; text-transform: uppercase;
@@ -813,14 +814,6 @@
     }
     .cp-pill:hover { color: #FF671F; }
     .cp-pill.active { opacity: 0; pointer-events: none; }
-    /* Small "10" badge indicating Top 10 */
-    .cp-badge {
-      font-size: 9px; font-weight: 800; letter-spacing: 0.04em;
-      padding: 1px 5px; border-radius: 4px;
-      background: rgba(255,103,31,0.22); color: #FF671F;
-      line-height: 1.5; flex-shrink: 0;
-    }
-    .cp-pill:hover .cp-badge { background: rgba(255,103,31,0.35); }
     /* Full panel — FLIP-morphed from pill, exactly fills the risk-panel area */
     #cp-panel {
       position: fixed; z-index: 500; display: flex; flex-direction: column;
@@ -1498,11 +1491,19 @@
     #guide-search-input::placeholder { color: var(--allegion-muted); }
     #guide-search-input:focus { outline: none; border-color: #FF671F; }
     .guide-nav-category {
+      display: flex; align-items: center; gap: 5px;
       font-size: 10px; font-weight: 700; color: var(--allegion-muted);
       text-transform: uppercase; letter-spacing: 0.08em;
-      margin: 12px 2px 4px;
+      margin: 12px 2px 4px; padding: 5px 4px; border-radius: 5px;
+      cursor: pointer; transition: color 0.15s, background 0.15s;
     }
+    .guide-nav-category:hover { color: var(--allegion-text); background: rgba(255,255,255,0.05); }
     .guide-nav-category:first-child { margin-top: 0; }
+    .guide-cat-chevron {
+      font-size: 14px !important; line-height: 1; transition: transform 0.18s ease;
+      transform: rotate(0deg);
+    }
+    .guide-nav-category.collapsed .guide-cat-chevron { transform: rotate(-90deg); }
     .guide-nav-item {
       display: flex; align-items: center; gap: 8px;
       padding: 7px 10px; border-radius: 6px;
@@ -1644,13 +1645,11 @@
 <div id="cp-pills">
   <button class="cp-pill" id="pill-top10" onclick="openChartPanel('top10')">
     <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">bar_chart</span>
-    Risks
-    <span class="cp-badge">10</span>
+    Top 10 Risks - Severity
   </button>
   <button class="cp-pill" id="pill-tasks" onclick="openChartPanel('tasks')">
     <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">task_alt</span>
-    Tasks
-    <span class="cp-badge">10</span>
+    Top 10 Tasks - Severity
   </button>
 </div>
 <div id="cp-panel" style="display:none">
@@ -2157,7 +2156,7 @@ const GUIDE_FEATURES = [
       'Ghost dots are clickable — click one to see that exact historical snapshot.',
       'These only exist while trend mode is on for at least one risk — they disappear completely once trend is cleared.',
     ],
-    selector: null,
+    selector: '.trend-ghost-dot',
     preview: `<svg width="120" height="40" viewBox="0 0 120 40" style="width:120px;height:40px;display:block">
       <line x1="10" y1="30" x2="110" y2="10" stroke="#FF671F" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.6"/>
       <circle cx="10" cy="30" r="4" fill="none" stroke="#FF671F" stroke-width="1.5" opacity="0.5"/>
@@ -2192,6 +2191,46 @@ const GUIDE_FEATURES = [
     </div>`,
   },
   {
+    id: 'trend-shapes-hues', category: 'Trend Overlays', icon: '🔷',
+    title: 'Telling multiple trended risks apart',
+    description: 'When you have trend active for more than one risk at once, each one gets its own marker shape — circle, square, diamond, triangle, pentagon, star, cross, or hexagon — used consistently for its ghost dots, its trail, and a small badge next to its current-position dot. If two or more trended risks share the same category, they’re also auto-shaded to different tints of that category’s color instead of an identical hex, so same-colored risks don’t blend together.',
+    tips: [
+      'A risk trended by itself always keeps its exact, unshaded category color — shading only kicks in once a second same-category risk joins trend mode.',
+      'The shape badge floating at the upper-right of a risk’s current dot is the fastest way to match a live position back to its trail.',
+    ],
+    selector: '.trend-shape-badge',
+    preview: `<div style="display:flex;align-items:center;gap:18px;justify-content:center;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+        <svg width="26" height="26" viewBox="0 0 26 26"><rect x="5" y="5" width="16" height="16" fill="#e07020" stroke="#111827" stroke-width="1"/></svg>
+        <span style="font-family:var(--antenna);font-size:10px;color:var(--allegion-muted)">R12</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+        <svg width="26" height="26" viewBox="0 0 26 26"><polygon points="13,3 23,13 13,23 3,13" fill="#EBA26E" stroke="#111827" stroke-width="1"/></svg>
+        <span style="font-family:var(--antenna);font-size:10px;color:var(--allegion-muted)">R18</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+        <svg width="26" height="26" viewBox="0 0 26 26"><polygon points="13,3 23,21 3,21" fill="#F6D4BC" stroke="#111827" stroke-width="1"/></svg>
+        <span style="font-family:var(--antenna);font-size:10px;color:var(--allegion-muted)">R05</span>
+      </div>
+    </div>`,
+  },
+  {
+    id: 'trend-isolate', category: 'Trend Overlays', icon: '📌',
+    title: 'Pinning & isolating a trail',
+    description: 'With trend mode active for two or more risks, hovering a trended row in the legend temporarily dims every other tracked risk’s trail/ghost dots to near-invisible and thickens the one you’re over, so overlapping trails are easy to follow. Click the 📌 pin icon that appears next to a trended row to lock that isolation in place — it stays highlighted even after you move the mouse away.',
+    tips: [
+      'Only rows with trend already turned on show a pin icon.',
+      'Release a pin by clicking it again, clicking anywhere outside the trail or legend list, or pressing Esc.',
+      'Hovering a different trended row while one is pinned previews that row, then falls back to the pinned one once you move away.',
+    ],
+    selector: '.trend-pin-btn',
+    preview: `<div style="display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap">
+      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);border-radius:999px;padding:6px 12px;color:var(--allegion-text);font-family:var(--antenna);font-size:12px;font-weight:600">Hover row → isolate</span>
+      <span style="color:var(--allegion-muted)">→</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,103,31,0.14);border:1px solid rgba(255,103,31,0.4);border-radius:999px;padding:6px 12px;color:#FF671F;font-family:var(--antenna);font-size:12px;font-weight:600">📌 Click pin → lock it</span>
+    </div>`,
+  },
+  {
     id: 'person-profile', category: 'People', icon: '👤',
     title: 'Person profile modal',
     description: 'Clicking a person’s name anywhere in the app — search results, a risk’s Ownership page, anywhere — opens their profile: every risk they own, every risk they’re the ELT Owner for, everything they manage, and every mitigation task assigned to them.',
@@ -2214,10 +2253,9 @@ const GUIDE_FEATURES = [
       'Click the × in the panel header to close it, or click the other pill to switch straight to that panel instead.',
     ],
     selector: '#pill-top10',
-    preview: `<button class="cp-pill" style="color:var(--allegion-muted)">
+    preview: `<button class="cp-pill" style="color:var(--allegion-muted);flex:none;width:auto">
       <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">bar_chart</span>
-      Risks
-      <span class="cp-badge">10</span>
+      Top 10 Risks - Severity
     </button>`,
   },
   {
@@ -2229,10 +2267,9 @@ const GUIDE_FEATURES = [
       'Click the × in the panel header to close it, or click the Risks pill to switch straight to that panel instead.',
     ],
     selector: '#pill-tasks',
-    preview: `<button class="cp-pill" style="color:var(--allegion-muted)">
+    preview: `<button class="cp-pill" style="color:var(--allegion-muted);flex:none;width:auto">
       <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">task_alt</span>
-      Tasks
-      <span class="cp-badge">10</span>
+      Top 10 Tasks - Severity
     </button>`,
   },
 ];
@@ -3783,7 +3820,7 @@ function renderLegend() {
         const pinX  = btnX - btnR * 2 - 8;
         const pinY  = btnY;
         const pinned = _trendPinnedRiskId === _rid;
-        const pinG = mk('g', {}, rowG);
+        const pinG = mk('g', { class: 'trend-pin-btn' }, rowG);
         pinG.style.cursor = 'pointer';
         const pinCircle = mk('circle', { cx: pinX, cy: pinY, r: pinR,
                        fill: pinned ? col : 'rgba(255,255,255,0.07)',
@@ -4937,6 +4974,25 @@ function closeModal() {
 }
 
 // ── USER GUIDE ───────────────────────────────────────────────────────────
+// Category names collapsed by the user — persists across nav re-renders within
+// this page load (search, selection) but not across full page reloads.
+const _guideCollapsedCats = new Set();
+
+function _toggleGuideCategory(cat) {
+  if (_guideCollapsedCats.has(cat)) _guideCollapsedCats.delete(cat);
+  else _guideCollapsedCats.add(cat);
+  _renderGuideNav(document.getElementById('guide-search-input').value);
+}
+
+// Expands the category containing `id`, if collapsed — used whenever a feature
+// is selected programmatically (click-to-inspect, default first item) so it's
+// never left hidden behind a collapsed section. Manual collapse clicks don't
+// call this, so a user can still collapse the section they're currently viewing.
+function _ensureGuideCategoryExpanded(id) {
+  const f = GUIDE_FEATURES.find(x => x.id === id);
+  if (f) _guideCollapsedCats.delete(f.category);
+}
+
 function _renderGuideNav(filterText) {
   const q    = (filterText || '').trim().toLowerCase();
   const list = document.getElementById('guide-nav-list');
@@ -4951,10 +5007,16 @@ function _renderGuideNav(filterText) {
     });
     if (!items.length) return;
     totalMatches += items.length;
-    html += `<div class="guide-nav-category">${cat}</div>`;
-    items.forEach(f => {
-      html += `<div class="guide-nav-item${f.id === _guideSelectedId ? ' active' : ''}" data-id="${f.id}">${f.icon} ${f.title}</div>`;
-    });
+    // Searching always shows every match regardless of collapse state.
+    const collapsed = !q && _guideCollapsedCats.has(cat);
+    html += `<div class="guide-nav-category${collapsed ? ' collapsed' : ''}" data-cat="${cat}">`
+          + `<span class="material-symbols-outlined guide-cat-chevron" style="font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">expand_more</span>`
+          + `${cat}</div>`;
+    if (!collapsed) {
+      items.forEach(f => {
+        html += `<div class="guide-nav-item${f.id === _guideSelectedId ? ' active' : ''}" data-id="${f.id}">${f.icon} ${f.title}</div>`;
+      });
+    }
   });
   if (!totalMatches) {
     html = '<div class="guide-nav-empty">No matching features</div>';
@@ -5070,6 +5132,7 @@ function _stopGuideInspect() {
 function _openGuide() {
   document.getElementById('guide-modal').classList.add('open');
   if (!_guideSelectedId) _guideSelectedId = GUIDE_FEATURES[0].id;
+  _ensureGuideCategoryExpanded(_guideSelectedId);
   document.getElementById('guide-search-input').value = '';
   _renderGuideNav('');
   _selectGuideFeature(_guideSelectedId);
@@ -5084,6 +5147,8 @@ document.getElementById('guide-modal-close').addEventListener('click', _closeGui
 document.getElementById('guide-modal-overlay').addEventListener('click', _closeGuide);
 document.getElementById('guide-inspect-btn').addEventListener('click', _startGuideInspect);
 document.getElementById('guide-nav-list').addEventListener('click', function(e) {
+  const catHeader = e.target.closest('.guide-nav-category');
+  if (catHeader) { _toggleGuideCategory(catHeader.dataset.cat); return; }
   const item = e.target.closest('.guide-nav-item');
   if (!item) return;
   _selectGuideFeature(item.dataset.id);
@@ -6360,13 +6425,13 @@ function renderTrendOverlays() {
       mk('circle', { cx: curX, cy: curY, r: CUR_DOT_R + 4, fill: 'none',
                      stroke: col, 'stroke-width': 2 }, riskGroup);
       drawShapeMarker(shape, curX + CUR_DOT_R + 6, curY - CUR_DOT_R - 6, 5,
-                      { fill: col, stroke: '#111827', 'stroke-width': 1 }, riskGroup);
+                      { fill: col, stroke: '#111827', 'stroke-width': 1, class: 'trend-shape-badge' }, riskGroup);
     }
 
     // Ghost dots and period labels for historical points (not current)
     pts.forEach((p, ptIdx) => {
       if (p.current) return; // current dot is already rendered in risks-layer
-      const g = mk('g', { style: 'cursor:pointer' }, riskGroup);
+      const g = mk('g', { class: 'trend-ghost-dot', style: 'cursor:pointer' }, riskGroup);
       // Solid fill at full opacity, shaped per-risk instead of always a circle
       drawShapeMarker(shape, p.x, p.y, DOT_R, { fill: col }, g);
       // Dashed stroke ring to distinguish from current-position dot
