@@ -1850,6 +1850,7 @@ const TREND_HISTORY = {{ trend_history | tojson }}; // {'R01':[{period,year,quar
 // Trend state — must be defined here (before the renderLegend init block) to avoid temporal dead zone
 const _trendRisks       = new Set();
 const _hasTrendHistory  = Object.keys(TREND_HISTORY).length > 0;
+let _trendPinnedRiskId = null; // risk id whose trend trail is pinned isolated, or null
 const LOGO_SRC     = "{{ url_for('static', filename='AllegionLogo_Official.png') }}";
 const LAST_UPDATED = "{{ last_updated }}";
 const dotGroupByRiskId   = {};
@@ -2273,6 +2274,7 @@ function _isRiskVisible(r) {
   return true;
 }
 const catKeyElByColor   = {};        // color → category key card <g> element
+let _pinCircleByRiskId  = {};        // risk id → { circle, col } for the pin icon, rebuilt each renderLegend()
 let   _panDelay         = null;      // setTimeout ID for 1-second pan delay
 
 let _catFilterAnimating = false;
@@ -3549,6 +3551,11 @@ document.addEventListener('click', e => {
   closeMfDropdown();
   const hc = document.getElementById('hist-card');
   if (hc && hc.classList.contains('hc-visible') && !hc.contains(e.target)) _hideHistCard();
+  if (_trendPinnedRiskId && !e.target.closest('.trend-risk-group') && !e.target.closest('.legend-row')) {
+    _trendPinnedRiskId = null;
+    _clearTrendIsolation();
+    renderLegend();
+  }
 });
 
 function buildCatDropdown() {
@@ -3657,6 +3664,7 @@ function renderLegend() {
   // without this, old detached DOM nodes accumulate on every call
   while (layer.firstChild) layer.removeChild(layer.firstChild);
   Object.keys(legendRowByRiskId).forEach(k => delete legendRowByRiskId[k]);
+  _pinCircleByRiskId = {}; // fresh map for this render pass (Task 5 deviation — see report)
 
   const lx    = LEG_X;
 
@@ -3768,6 +3776,42 @@ function renderLegend() {
       }
       const _rid = r.id;
       tBtn.addEventListener('click', function(e) { e.stopPropagation(); toggleTrendRisk(_rid); });
+
+      // Pin icon — only on already-trended rows, sits just left of the +/- toggle.
+      if (isActive) {
+        const pinR  = btnR * 0.85;
+        const pinX  = btnX - btnR * 2 - 8;
+        const pinY  = btnY;
+        const pinned = _trendPinnedRiskId === _rid;
+        const pinG = mk('g', {}, rowG);
+        pinG.style.cursor = 'pointer';
+        const pinCircle = mk('circle', { cx: pinX, cy: pinY, r: pinR,
+                       fill: pinned ? col : 'rgba(255,255,255,0.07)',
+                       stroke: pinned ? col : 'rgba(255,255,255,0.22)',
+                       'stroke-width': 0.8 }, pinG);
+        const pinGlyph = mk('text', { x: pinX, y: pinY + pinR * 0.4,
+                                   'text-anchor': 'middle', 'font-size': fontSize * 0.85 }, pinG);
+        pinGlyph.textContent = '📌';
+        _pinCircleByRiskId[_rid] = { circle: pinCircle, col };
+        pinG.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const wasPinned = _trendPinnedRiskId === _rid;
+          // Un-highlight whatever was pinned before (if anything)
+          if (_trendPinnedRiskId && _pinCircleByRiskId[_trendPinnedRiskId]) {
+            const prev = _pinCircleByRiskId[_trendPinnedRiskId];
+            prev.circle.setAttribute('fill', 'rgba(255,255,255,0.07)');
+            prev.circle.setAttribute('stroke', 'rgba(255,255,255,0.22)');
+          }
+          _trendPinnedRiskId = wasPinned ? null : _rid;
+          if (_trendPinnedRiskId) {
+            pinCircle.setAttribute('fill', col);
+            pinCircle.setAttribute('stroke', col);
+            _applyTrendIsolation(_trendPinnedRiskId);
+          } else {
+            _clearTrendIsolation();
+          }
+        });
+      }
     }
     rowG.addEventListener('mouseenter', () => {
       if (_trendRisks.size > 0) {
@@ -3784,7 +3828,8 @@ function renderLegend() {
     });
     rowG.addEventListener('mouseleave', () => {
       if (_trendRisks.size > 0) {
-        _clearTrendIsolation(); // Task 5 replaces this with pin-aware logic
+        if (_trendPinnedRiskId) _applyTrendIsolation(_trendPinnedRiskId);
+        else _clearTrendIsolation();
         return;
       }
       _activeLegendRows.delete(r.id);
@@ -5052,6 +5097,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (_fcmOpen) { closeFilterChipMenu(); return; }
     if (_spotlightOwner) { clearSpotlight(); return; }
+    if (_trendPinnedRiskId) { _trendPinnedRiskId = null; _clearTrendIsolation(); renderLegend(); return; }
     // Close all open modals and search at once
     _hideHistCard();
     closeTaskDetail();
