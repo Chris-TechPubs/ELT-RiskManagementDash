@@ -179,6 +179,10 @@
     /* ── Legend row hover ───────────────────────────────────────────────────── */
     .legend-row { cursor: pointer; transition: opacity 0.15s, transform 0.15s; transform-box: fill-box; transform-origin: left center; }
     .legend-row-hl { transform: scale(1.08); }
+    /* ── Trend trail isolation (hover/pin) ──────────────────────────────── */
+    .trend-risk-group { transition: opacity 0.15s; }
+    .trend-risk-group.trend-dimmed { opacity: 0.12; }
+    .trend-risk-group.trend-isolated path { stroke-width: 3.5; }
     .legend-dimmed .legend-row:not(.legend-row-hl) { opacity: 0.25; }
     /* Chevron indicator */
     .legend-chevron { transform-box: fill-box; transform-origin: center; transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1); }
@@ -3766,7 +3770,10 @@ function renderLegend() {
       tBtn.addEventListener('click', function(e) { e.stopPropagation(); toggleTrendRisk(_rid); });
     }
     rowG.addEventListener('mouseenter', () => {
-      if (_trendRisks.size > 0) return; // suppress row hover in trend mode
+      if (_trendRisks.size > 0) {
+        if (_trendRisks.has(r.id)) _applyTrendIsolation(r.id);
+        return;
+      }
       _activeLegendRows.add(r.id);
       rowG.classList.add('legend-row-hl');
       const dg = dotGroupByRiskId[r.id];
@@ -3776,7 +3783,10 @@ function renderLegend() {
       _panDelay = setTimeout(() => panToRisk(r), 500);
     });
     rowG.addEventListener('mouseleave', () => {
-      if (_trendRisks.size > 0) return;
+      if (_trendRisks.size > 0) {
+        _clearTrendIsolation(); // Task 5 replaces this with pin-aware logic
+        return;
+      }
       _activeLegendRows.delete(r.id);
       clearTimeout(_panDelay); _panDelay = null;
       if (_spotlightOwner && _isSpotlightRisk(r)) return;
@@ -6207,6 +6217,23 @@ function _onModalTrendClick() {
   }
   _applyTrendWithAnimation();
   _updateResetBtn();
+}
+
+// Highlights one trended risk's trail/ghost dots/halo/badge to full opacity
+// and dims every other currently-trended risk's group to near-invisible.
+function _applyTrendIsolation(riskId) {
+  document.querySelectorAll('.trend-risk-group').forEach(g => {
+    const isThis = g.dataset.riskId === riskId;
+    g.classList.toggle('trend-isolated', isThis);
+    g.classList.toggle('trend-dimmed', !isThis);
+  });
+}
+
+// Reverts every trended risk's group to normal (no isolation, no dimming).
+function _clearTrendIsolation() {
+  document.querySelectorAll('.trend-risk-group').forEach(g => {
+    g.classList.remove('trend-isolated', 'trend-dimmed');
+  });
 }
 
 function renderTrendOverlays() {
