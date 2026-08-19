@@ -834,7 +834,7 @@
     #cp-panel-body {
       flex: 1; display: flex; flex-direction: row;
       align-items: center; justify-content: space-evenly;
-      padding: 0 8px;
+      padding: 0 8px; overflow-y: auto; min-height: 0;
     }
     /* Individual badge in the expanded top-10 body */
     .t10-item {
@@ -5312,11 +5312,34 @@ function _positionChartPills() {
 
 function _positionOpenPanel() {
   const { legLeft, legWidth, legBottom, navBot } = _cpBounds();
-  const panel = document.getElementById('cp-panel');
-  panel.style.left   = legLeft + 'px';
-  panel.style.width  = legWidth + 'px';
-  panel.style.top    = (legBottom + _CP_GAP) + 'px';
-  panel.style.height = (navBot - legBottom - _CP_GAP) + 'px';
+  const panel  = document.getElementById('cp-panel');
+  const header = document.getElementById('cp-panel-header');
+  const body   = document.getElementById('cp-panel-body');
+  panel.style.left  = legLeft + 'px';
+  panel.style.width = legWidth + 'px';
+
+  // Natural height fills the gap between the legend card and the zoom-ctrl
+  // nav pill — on a short viewport that gap (and the room left below it) can
+  // both be smaller than the header + one row of items actually needs.
+  const firstItem = body.firstElementChild;
+  const minH    = header.offsetHeight + (firstItem ? firstItem.offsetHeight : 60);
+  const natH    = navBot - legBottom - _CP_GAP;
+  const desired = Math.max(natH, minH);
+
+  // Flooring height at `desired` without checking the viewport just moves the
+  // clipping problem: a tall panel anchored at legBottom can run its bottom
+  // edge off the bottom of the window (position:fixed doesn't reposition
+  // itself, and the page doesn't scroll). Pull the top up instead so the
+  // whole panel — not just part of it — stays on-screen; #cp-panel-body's
+  // overflow-y:auto is the last-resort fallback if even that isn't enough.
+  const VIEWPORT_MARGIN = 8;
+  let top = legBottom + _CP_GAP;
+  const avail = window.innerHeight - VIEWPORT_MARGIN - top;
+  if (desired > avail) {
+    top = Math.max(VIEWPORT_MARGIN, window.innerHeight - VIEWPORT_MARGIN - desired);
+  }
+  panel.style.top    = top + 'px';
+  panel.style.height = Math.min(desired, window.innerHeight - VIEWPORT_MARGIN - top) + 'px';
 }
 
 function openChartPanel(pillId) {
@@ -5338,13 +5361,15 @@ function openChartPanel(pillId) {
   if (titleEl) titleEl.textContent = meta.title || 'Top 10';
   // Build content
   if (_cpBuilders[pillId]) _cpBuilders[pillId](body);
+  // Must be display:flex (not display:none) before _positionOpenPanel() below
+  // can measure header/item heights for its minimum-height guard.
+  panel.style.display = 'flex';
 
   // FLIP — First: capture pill rect BEFORE anything changes
   const pR = pill.getBoundingClientRect();
 
   // Position panel at its final size (Last)
   _positionOpenPanel();
-  panel.style.display = 'flex';
   const panR = panel.getBoundingClientRect();
 
   // Invert: start panel looking exactly like the pill (same size, same position, same radius)
