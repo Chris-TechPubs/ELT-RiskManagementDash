@@ -236,8 +236,9 @@ When a task is opened from search results:
 
 ### Owner Filter (dropdown)
 - `_ownerFilter` string; `buildOwnerDropdown()` / `setOwnerFilter()` / `_isOwnerMatch(r)`
-- `_getAllOwners()` splits Risk Owner, ELT Owner, Manager(s) and Other Managers on comma/slash → alphabetical list
-- `_isOwnerMatch` is an **exact** (case-insensitive) name match against any of those four fields, so a person shows up for every risk they own, co-own or manage. It does NOT do "transitive" expansion (selecting A also shows B's items that A co-owns) — see ELT feedback note below.
+- **Currently limited to the Risk Owner column only** (Oct 2026, at the data owner's request — testers had only updated that column). Controlled by `OWNER_FILTER_FIELDS = ['owner']` just above `_getAllOwners()`; to restore the old behavior set it to `['owner', 'elt_owner', 'managers', 'other_managers']`.
+- `_getAllOwners()` splits the configured fields on comma/slash → alphabetical list
+- `_isOwnerMatch` is an **exact** (case-insensitive) name match against the same configured fields (originally all four: Risk Owner, ELT Owner, Manager(s), Other Managers, so a person showed up for every risk they owned, co-owned or managed). It does NOT do "transitive" expansion (selecting A also shows B's items that A co-owns) — see ELT feedback note below.
 - Distinct from **Spotlight** (`activateSpotlight`, dims everything but one person's items, opened from people search)
 
 ---

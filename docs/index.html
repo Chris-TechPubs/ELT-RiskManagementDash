@@ -1855,7 +1855,7 @@ const _trendRisks       = new Set();
 const _hasTrendHistory  = Object.keys(TREND_HISTORY).length > 0;
 let _trendPinnedRiskId = null; // risk id whose trend trail is pinned isolated, or null
 const LOGO_SRC     = "AllegionLogo_Official.png";
-const LAST_UPDATED = "29 Oct 2026, 9:11 AM";
+const LAST_UPDATED = "29 Oct 2026, 9:52 AM";
 const dotGroupByRiskId   = {};
 const legendRowByRiskId  = {};
 const dotRisksGroupById  = {};
@@ -4313,12 +4313,17 @@ let _top10Expanded       = false; // false = show top 5, true = show top 10
 let _top10SectionVisible = true;  // tracks whether top10 section was rendered last time
 
 // ── Owner Filter ──────────────────────────────────────────────────────────────
-let _ownerFilter = null; // currently selected owner name (null = All Owners)
+let _ownerFilter = null; // currently selected owner name (null = All Risk Owners)
+
+// Which risk fields feed the owner dropdown and its filter. Currently Risk Owner only.
+// To widen it again: ['owner', 'elt_owner', 'managers', 'other_managers']
+const OWNER_FILTER_FIELDS = ['owner'];
+const _ownerFieldValues = r => OWNER_FILTER_FIELDS.map(k => r[k]);
 
 function _getAllOwners() {
   const names = new Set();
   RISKS.forEach(r => {
-    [r.owner, r.elt_owner, r.managers, r.other_managers].forEach(field => {
+    _ownerFieldValues(r).forEach(field => {
       if (!field) return;
       field.split(/[,\/]/).map(n => n.trim()).filter(n => n.length > 1)
            .forEach(n => names.add(n));
@@ -4330,7 +4335,7 @@ function _getAllOwners() {
 function _isOwnerMatch(r) {
   if (!_ownerFilter) return true;
   const q = _ownerFilter.toLowerCase();
-  return [r.owner, r.elt_owner, r.managers, r.other_managers]
+  return _ownerFieldValues(r)
     .filter(Boolean)
     .some(field => field.split(/[,\/]/).map(n => n.trim().toLowerCase()).includes(q));
 }
@@ -4338,10 +4343,10 @@ function _isOwnerMatch(r) {
 function buildOwnerDropdown() {
   const dd = document.getElementById('owner-dropdown');
   dd.innerHTML = '';
-  // "All Owners" reset row
+  // "All Risk Owners" reset row
   const allRow = document.createElement('div');
   allRow.className = 'owner-dd-row' + (!_ownerFilter ? ' active' : '');
-  allRow.textContent = 'All Owners';
+  allRow.textContent = 'All Risk Owners';
   allRow.addEventListener('click', e => { e.stopPropagation(); setOwnerFilter(null); });
   dd.appendChild(allRow);
   // One row per unique owner
