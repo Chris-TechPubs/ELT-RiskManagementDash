@@ -155,13 +155,15 @@
       62%  { transform: rotate(360deg); }  /* spin with ease */
       100% { transform: rotate(360deg); }  /* hold ~1s */
     }
-    .dot-spin { transform-box: fill-box; transform-origin: center; }
+    /* Origin = fixed view-box coords of the dot centre (--dot-ox/--dot-oy set in renderRisks), not
+       fill-box: Firefox applies fill-box origins on <g> keyframe animations relative to the wrong box. */
+    .dot-spin { transform-box: view-box; transform-origin: var(--dot-ox, 0px) var(--dot-oy, 0px); }
     .dot-hover:hover .dot-spin,
     .dot-force-highlight .dot-spin {
       animation: dotSpin 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
     }
     .dot-scale-wrapper {
-      transform-box: fill-box; transform-origin: center;
+      transform-box: view-box; transform-origin: var(--dot-ox, 0px) var(--dot-oy, 0px);
       transition: transform 0.15s;
       will-change: transform, opacity;  /* no filter here — keeps compositor path clean */
     }
@@ -177,7 +179,9 @@
     .legend-row-cat-off { opacity: 0.25 !important; pointer-events: none; }
 
     /* ── Legend row hover ───────────────────────────────────────────────────── */
-    .legend-row { cursor: pointer; transition: opacity 0.15s, transform 0.15s; transform-box: fill-box; transform-origin: left center; }
+    /* Origin is a fixed view-box coordinate (--row-ox/--row-oy set in renderLegend), NOT fill-box:
+       fill-box + the rotating chevron child makes Firefox jitter the hit area on hover. */
+    .legend-row { cursor: pointer; transition: opacity 0.15s, transform 0.15s; transform-box: view-box; transform-origin: var(--row-ox, 0px) var(--row-oy, 0px); }
     .legend-row-hl { transform: scale(1.08); }
     /* ── Trend trail isolation (hover/pin) ──────────────────────────────── */
     .trend-risk-group { transition: opacity 0.15s; }
@@ -3148,6 +3152,13 @@ function renderRisks() {
       const scaleG = mk('g', { class: 'dot-scale-wrapper' }, dotG);
       dotG._sw = scaleG;
       const spinG = mk('g', { class: 'dot-spin' }, scaleG);
+      // Pin scale/spin origin to the dot's own centre (consumed by .dot-scale-wrapper/.dot-spin in CSS).
+      // Firefox mis-resolves transform-box:fill-box on <g> for the spin keyframe animation and orbits
+      // the whole dot around the chart corner instead of spinning it in place.
+      [scaleG, spinG].forEach(el => {
+        el.style.setProperty('--dot-ox', cx + 'px');
+        el.style.setProperty('--dot-oy', cy + 'px');
+      });
       drawPieDot(cx, cy, grpRisks.map(r => r.category || ''), spinG);
 
       dotG.addEventListener('mouseenter', e => {
@@ -3766,6 +3777,14 @@ function renderLegend() {
       width: CARD_W,      height: RISK_H,
       fill: 'transparent'
     }, rowG);
+    // Pin the hover-scale origin to a fixed coordinate (left edge, vertical centre of the hit rect).
+    // The old CSS (transform-box: fill-box) derived the origin from the row's bounding box, which
+    // includes the rotating chevron; Firefox re-measures that box mid-animation, the origin jumps, the
+    // hit area slides out from under the pointer and mouseenter/mouseleave ping-pong ("shaking" row).
+    // Stored as custom properties (consumed by .legend-row in CSS) rather than inline transform-origin,
+    // because the entrance animation clears inline transformBox/transformOrigin when it finishes.
+    rowG.style.setProperty('--row-ox', `${lx - CARD_PADX}px`);
+    rowG.style.setProperty('--row-oy', `${y - Math.round(RISK_H * 0.5) + RISK_H / 2}px`);
     const chevR = Math.max(5, Math.round(fontSize * 0.62));
     const chevX = lx - CARD_PADX + chevR + 12;
     const chevCy = y - Math.round(fontSize * 0.3);

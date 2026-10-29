@@ -18,7 +18,7 @@ This project grew out of a meeting between the developer and an IT contact who h
 
 ### Stack
 - **Python 3.13** (Windows Store Python — has Win32 sandbox limitations)
-- **Flask 3.x** — single-file web app with 4 routes
+- **Flask 3.x** — single-file web app (`app.py`): heatmap routes + Looker Studio viz stubs
 - **smartsheet-python-sdk** — read-only access to SmartSheet API
 - **truststore** — injects Windows cert store to fix Netskope SSL proxy issues
 - **python-dotenv** — loads `.env` credentials
@@ -26,42 +26,57 @@ This project grew out of a meeting between the developer and an IT contact who h
 ### File Structure
 ```
 ELT_RiskManagmentDash/
-├── app.py                  # Flask app — routes, two 5-min data caches (risks + tasks)
-├── smartsheet_client.py    # Read-only SmartSheet fetch — two sheets
+├── app.py                  # Flask app — routes, three 5-min data caches (risks + tasks + trend history)
+├── smartsheet_client.py    # Read-only SmartSheet fetch — three sheets
 ├── templates/
-│   └── heatmap.html        # Everything: SVG chart, labels, legend, zoom, all modals
+│   └── heatmap.html        # Everything (~6,700 lines): SVG chart, legend, zoom, modals, guide, trends
 ├── docs/                   # Netlify publish dir; docs/index.html = baked static snapshot
-│   └── AllegionLogo_Official.png
+│   ├── AllegionLogo_Official.png
+│   ├── launch.html         # Old bookmarklet/setup page (from SmartSheet-embed experiments)
+│   └── superpowers/        # specs/ + plans/ — design docs for each feature batch (dated)
+├── viz_files/              # Looker Studio community viz source (index.js/css) — legacy experiment
 ├── .env                    # API token (gitignored!)
-├── .env.example
 ├── requirements.txt        # flask, gunicorn, python-dotenv, smartsheet-python-sdk, truststore
-├── netlify.toml
+├── netlify.toml            # publish = "docs"
+├── render.yaml             # Render.com config (iframe-permissive CSP headers)
 ├── startup.txt             # gunicorn command for Azure App Service
 └── CLAUDE.md               # This file
 ```
+Untracked clutter (safe to ignore or delete): `*.pbix` Power BI experiments, `templates/heatmap.html.bak` and `.pre-guide-backup-*`, `fix_colors.py`/`fix_legend.py`/`fix_template.py` (one-off patch scripts), `test_smartsheet.html`, `heatmap_embed.html`, `Static/`, two empty `New folder*` dirs, `app_run.log`.
 
 ### Routes
 - `/` → redirects to `/heatmap`
-- `/heatmap` → renders the live interactive chart (passes `risks`, `tasks`, `last_updated`)
-- `/refresh` → busts BOTH caches (risks + tasks), redirects to heatmap
+- `/heatmap` → renders the live interactive chart (passes `risks`, `tasks`, `trend_history`, `last_updated`)
+- `/refresh` → busts ALL THREE caches (risks + tasks + trend history), redirects to heatmap
 - `/health` → JSON status + risk count
 - `/api/risks` → CORS-enabled JSON endpoint
+- `/test` → serves `test_smartsheet.html` (dev scratch page)
+- `/viz/manifest.json`, `/viz/index.js`, `/viz/index.css` → Looker Studio community viz that just iframes `https://elt-riskmanagementdash.onrender.com/heatmap` (Looker was explored as a SmartSheet-approved host; not the current path)
 
-### Data Flow — Two Sheets
-1. `app.py` calls `get_risk_data()` AND `get_task_data()` on first request (each cached 5 min separately)
+### Data Flow — Three Sheets
+1. `app.py` calls `get_risk_data()`, `get_task_data()` and `get_trend_history()` on first request (each cached 5 min separately)
 2. `smartsheet_client.py` fetches:
-   - **"Risks Master Sheet"** — risk metadata, ownership, scores
-   - **"Mitigation Tasks"** (sheet ID `797846895808388`) — per-task data linked to risks by Risk ID
-3. Both are JSON-serialized into the template:
+   - **"Risks Master Sheet"** — risk metadata, ownership, scores (found by name; override with `SMARTSHEET_SHEET_NAME`)
+   - **"Mitigation Tasks"** (sheet ID `797846895808388`, found by name) — per-task data linked to risks by Risk ID
+   - **"Risk Trend History"** (hard-coded sheet ID `1794037649461124`) — quarterly snapshots of each risk's severity/likelihood, used for trend ghost dots
+3. All three are JSON-serialized into the template:
    - `const RISKS = {{ risks | tojson }}` — array of risk objects
    - `const TASKS = {{ tasks | tojson }}` — dict keyed by Risk ID → array of task objects
+   - `const TREND_HISTORY` — dict keyed by Risk ID → chronologically sorted array of `{period, year, quarter, severity, likelihood}`
 4. All rendering is pure client-side JavaScript/SVG
 
 ### Columns fetched — Risks Master Sheet
-Risk ID, Risk Name, Overall Likelihood, Overall Severity, Category, Definition, Risk Status, Action Plan Status, Control Effectiveness, Risk Level, Quarter, Risk Score, Residual Likelihood, Residual Impact, Residual Score, Review Date, Recent Reviewed, Review Overdue?, ELT Owner, Risk Owner (+ email), Manager(s) (+ email), Other Managers, Mitigation Health, Mitigation Completion %, Total Mitigation Tasks, Completed Mitigation Tasks
+Risk ID, Risk Name, Overall Likelihood, Overall Severity, Category, Definition, Risk Status, Action Plan Status, Control Effectiveness, Risk Level, Quarter, Risk Score, Residual Likelihood, Residual Impact, Residual Score, Review Date, Recent Reviewed, Review Overdue?, ELT Owner, Risk Owner (+ email), Manager(s) (+ email), Other Managers, Mitigation Health, Mitigation Completion %, Total **Migitation** Tasks (sic — the sheet's column title is misspelled; the code matches it), Completed Mitigation Tasks
+
+Also from SmartSheet row system fields: `date_added` (row `created_at`) and `date_modified` (row `modified_at`), formatted `DD Mon YYYY`.
+
+Some fetched fields (Risk Score, Residual *) are no longer displayed — see "ELT Feedback Status" below. They are still in the payload.
 
 ### Columns fetched — Mitigation Tasks sheet
-Risk ID, Mitigation Task, Task Status, Risk Manager(s), Responsible, Status, Progress % (0.0–1.0 decimal), Start Date, Target Date, Trend Towards Target (emoji: 👁▶⚠️), Trend Analysis, Mitigation Strategy, Definition, Severity, Likelihood, Mitigation Type, Governance/Compliance Risk
+Risk ID, Mitigation Task, Task Status, Risk Manager(s), Responsible, Status, Progress % (0.0–1.0 decimal), Start Date, Target Date, Trend Towards Target (emoji: 👁▶⚠️), Trend Analysis, Mitigation Strategy, Definition, Severity, Likelihood, Mitigation Type, Governance/Compliance Risk, plus `date_added` (row `created_at`)
+
+### Columns fetched — Risk Trend History sheet
+Risk ID, Period Key (e.g. `2025-Q4`), Year, Quarter, Severity, Likelihood. Rows missing any of ID/period/severity/likelihood are skipped; duplicates per (Risk ID, Period Key) are collapsed (last row wins). **How/when this sheet gets populated is outside this app** — confirm the process with the data owner before relying on it for the ELT's "rolling log" ask.
 
 ---
 
@@ -219,6 +234,67 @@ When a task is opened from search results:
 
 ---
 
+### Owner Filter (dropdown)
+- `_ownerFilter` string; `buildOwnerDropdown()` / `setOwnerFilter()` / `_isOwnerMatch(r)`
+- `_getAllOwners()` splits Risk Owner, ELT Owner, Manager(s) and Other Managers on comma/slash → alphabetical list
+- `_isOwnerMatch` is an **exact** (case-insensitive) name match against any of those four fields, so a person shows up for every risk they own, co-own or manage. It does NOT do "transitive" expansion (selecting A also shows B's items that A co-owns) — see ELT feedback note below.
+- Distinct from **Spotlight** (`activateSpotlight`, dims everything but one person's items, opened from people search)
+
+---
+
+## Chart Panels (Top 10)
+
+- Two pills on the chart: **Top 10 Risks – Severity** and **Top 10 Tasks – Severity** (`openChartPanel('top10' | 'tasks')`, `CHART_PANEL_META`, builders keyed `top10` / `tasks`)
+- Sorted by severity desc, then likelihood desc; **respects active filters** (`_isRiskVisible`), so it re-ranks as filters change
+- Items click through to the risk modal (tasks open straight to the Tasks tab with the task pulse-highlighted)
+- A separate always-visible `#top10-panel` (`buildTop10`/`positionTop10`) also exists below the risk list; it is clamped to stay on-screen on short viewports (commit ab8033a)
+
+---
+
+## Trend Overlays (historical movement)
+
+Data source: `TREND_HISTORY` (Risk Trend History sheet, quarterly). Code: `renderTrendOverlays()`, `toggleTrendRisk`, `activateTrend`, `clearAllTrends`, `_applyTrendWithAnimation`, all in `heatmap.html`.
+
+- **Entry points**: a trend button in the risk modal header (`_onModalTrendClick`, closes the modal and trends that risk) and a `+`/`−` toggle on trended legend rows. `_trendRisks` Set holds the trended risk IDs. Trend mode hides non-trended risks (and suppresses normal legend hover/dim/auto-pan while active).
+- **Rendering**: dashed trail through each quarter's (likelihood, severity) → ghost dots (`#trend-layer`) with period labels. Clicking a ghost dot opens the **historical snapshot card** (`_showHistCard`) with the quarter, L/S values and a worsened/improved delta.
+- **Disambiguation when several risks are trended** (spec: `docs/superpowers/specs/2026-07-23-trend-disambiguation-design.md`):
+  1. Each risk's visuals are wrapped in `<g class="trend-risk-group" data-risk-id>`; hovering a trended legend row isolates it (`.trend-isolated` / `.trend-dimmed`); a pin icon locks it (`_trendPinnedRiskId`, cleared by background click or pin re-click)
+  2. Per-risk **shape** (`TRAIL_SHAPE`, `drawShapeMarker`) and **dash** pattern (`TRAIL_DASH`) indexed by insertion order (`riskIdx`); current dot gets a halo ring + shape badge — `drawPieDot` is untouched
+  3. **Same-category hue shading** (`shadeColor`, `HUE_SHADE_STEPS = [0,35,70,-20]`) via a per-category counter; 5th+ same-category trend reuses the last shade and relies on shape+dash
+- Isolation does NOT call `dimLegend()`.
+
+---
+
+## User Guide
+
+- Modal with two panes (grouped nav + detail), live nav search, ~24 entries in 8 categories defined in `GUIDE_FEATURES` (Getting Started, Reading the Chart, Filtering & Search, The Risk Modal, Tasks, Trend Overlays, People, Chart Panels). Each entry has a small SVG preview mockup. Nav categories are collapsible.
+- **Click-to-inspect**: persistent header button; click any UI element → `_findGuideMatch` (nearest-element matching) selects its entry; Esc cancels; flashes a message when nothing matches.
+- Auto-opens on first visit per browser (`localStorage` key `hm_guide_seen_v1`; bump the suffix to re-show it to everyone). The guide button sits in the corner slot of the (hidden) fullscreen button, z-index above all modals.
+- **When you add or change a user-facing feature, add/update its `GUIDE_FEATURES` entry** — and keep curly quotes in guide strings (straight apostrophes broke the JS once, commit 7da0995).
+- Guide SVG previews need explicit pixel `width/height` — the global `svg{width:100%}` rule otherwise blows them up.
+
+---
+
+## ELT Feedback Status
+
+Source: `Heatmap feedback from ELT.txt` (8 Jul 2026, untracked). Status verified against code on 19 Oct 2026:
+
+| ELT ask | Status |
+|---|---|
+| Risk Data tab: drop risk score and residual section | Done — Risk Data tab shows L/S, Review, and Record only (`residual = ''`, score computed but unused) |
+| Hover tooltip: remove risk score | Done — tooltip shows only L/S + overdue/health alerts |
+| Reword "At Risk" status | Done in UI — `_displayStatus()` maps "At Risk" → "Needs Attention". Wording may still need sign-off ("might be up to Cody") |
+| Date risk added / date task added | Done — row `created_at` → Risk "Date Added" + "Last Modified", Task "Task Added". (These are SmartSheet row-creation dates, not a dedicated "date identified" column.) |
+| Keep Risk Status in background, not displayed | Partial — verify where Risk Status is still shown |
+| Risk **end date** | **Not done** — no field fetched or shown; needs a column in SmartSheet first |
+| Owner dropdown for per-person view | Done (exact-name match; see Owner Filter) |
+| …co-owner expansion (Dave Ilardi → also Tim Eckersly's items he co-owns) | **Unclear / not implemented as described** — current filter shows risks where the person appears in any owner/manager field, but does not pull in the *other* co-owner's wider portfolio. Clarify intended behavior with ELT |
+| Top 10 severity list that updates | Done (Top 10 Risks/Tasks pills; re-ranks with filters) |
+| Trends button per risk + rolling historical log + ghost-line | Done on the front end (trend button, ghost dots, snapshot card, multi-risk disambiguation). **Back-end dependency**: the Risk Trend History sheet must be kept populated, and the ELT's "go back to months and years of choice" ask is not met — history is quarterly and there is no date picker |
+| Snapshot button → printable report | **Not done** — no print stylesheet or `window.print` anywhere |
+
+---
+
 ## Zoom / Pan
 
 ### Approach: Data Range (`VR`)
@@ -294,6 +370,13 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
   ```
 - Then: `git add docs/index.html && git commit -m "chore: bake..." && git push origin master`
 - Data is snapshot from bake time — not live. Must rebake + push to update.
+- Last bake: 19 Aug 2026 (commit 7bd8591). **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
+- The baked file is ~480 KB; the live `/heatmap` render takes ~5 s on a cold cache (3 SmartSheet calls).
+
+### Other hosts tried
+- **Render.com** (`render.yaml`, `elt-riskmanagementdash.onrender.com`) — still hard-coded in the `/viz/*` Looker stubs in `app.py`
+- **Looker Studio community viz** (`/viz/*`, `viz_files/`) — iframe wrapper experiment; not the current path
+- **Power BI** (`*.pbix`) — early experiments, untracked
 
 ### SmartSheet Web Content widget embedding
 - SmartSheet dashboard → Web Content widget → URL: `https://delicate-florentine-c73974.netlify.app`
@@ -318,6 +401,7 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
 - **`overflow: hidden` kills child scrolling** — use `overflow-x: hidden; overflow-y: auto` when you need to clip one axis and scroll the other.
 - **`scrollbar-gutter: stable` causes reflow** — reserving 5px for scrollbar makes content 5px narrower, which can reflow text and push it over the container height by 1-2px, triggering a spurious scrollbar. Use JS tolerance check (`scrollHeight > clientHeight + 4`) instead.
 - **`max-width` transitions work** — animating between two `max-width` values is smooth if both are concrete px values (not `auto`). Use this for expand/collapse animations.
+- **Firefox: `transform-box: fill-box` on a `<g>` is unreliable for hover/animated transforms.** Chrome resolves it fine; Firefox re-measures the group's box mid-animation or applies the origin against the wrong box. Two real symptoms, both fixed Oct 2026: (1) legend rows "shook" on hover — row scale origin came from a bbox that included the rotating chevron, so the hit area slid out from under the pointer and `mouseenter`/`mouseleave` ping-ponged (46–72 events per hover vs 3 in Chrome); (2) hovered dots orbited the chart because the `dotSpin` keyframe rotated around the wrong origin (dot centre drifted up to ~520 px). **Fix pattern:** `transform-box: view-box; transform-origin: var(--x, 0px) var(--y, 0px)` in CSS, with the element's own user-space centre/edge set as custom properties in JS at creation (`--row-ox/--row-oy` on `.legend-row`, `--dot-ox/--dot-oy` on `.dot-scale-wrapper` + `.dot-spin`). Use custom properties, not inline `transform-origin` — the entrance animation clears inline `transformBox`/`transformOrigin` on rows when it finishes, which silently undid the first attempt. Plain `fill-box` is still used by `.status-ring`, `.legend-chevron` and `.dot-hover`; those measured fine in Firefox, so leave them unless they misbehave. Always test hover/animation changes in Firefox as well as Chrome.
 - **Indicator timing** — `getBoundingClientRect()` returns zeros inside `display:none` modals. Even after `.add('open')`, CSS transitions may still be mid-flight. Use `setTimeout(100ms)` (not `rAF`) with `_updateIndicator(false)` (animated, not instant) to let layout settle.
 - **`scrollbar-gutter: stable` + `overflow-y: auto`** = the scrollbar space is always reserved. Use `overflow-y: hidden` by default + JS check to selectively enable scroll, avoiding the feedback loop.
 
@@ -342,7 +426,9 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
 ---
 
 ## Future Work
-1. **Azure App Service** — needs IT; startup.txt configured
-2. **Scheduled rebake** — GitHub Action to auto-rebake on a schedule (e.g., nightly)
-3. **Client-side SmartSheet API** — JS fetch eliminates Flask; token in code acceptable for internal read-only
-4. **Render.com** ($7/mo) — render.yaml configured, alternative to Azure
+1. **Outstanding ELT asks** (see "ELT Feedback Status"): printable snapshot report, risk end date, co-owner expansion clarification, date-range trend history
+2. **Azure App Service** — needs IT; startup.txt configured
+3. **Scheduled rebake** — GitHub Action to auto-rebake on a schedule (e.g., nightly). Note: a Flask server with SmartSheet access is needed at bake time, so this needs a runner that can reach SmartSheet
+4. **Client-side SmartSheet API** — JS fetch eliminates Flask; token in code acceptable for internal read-only
+5. **Render.com** ($7/mo) — render.yaml configured, alternative to Azure
+6. **Housekeeping** — delete untracked clutter listed under File Structure; split `heatmap.html` (6.7k lines) if it gets harder to work in
