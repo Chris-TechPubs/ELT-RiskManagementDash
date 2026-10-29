@@ -353,7 +353,7 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
 - Use PowerShell to kill (see Server Restart note above)
 
 ### Netlify static deployment (CURRENT)
-- **Live URL**: `https://delicate-florentine-c73974.netlify.app`
+- **Live URL**: `https://allegion-risk-heatmap.netlify.app`
 - `netlify.app` domain whitelisted by Allegion SmartSheet System Admin ✅
 - Publishes `docs/` folder; `docs/index.html` = baked static HTML
 - **Bake command** (Flask must be running on 5001):
@@ -370,7 +370,7 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
   ```
 - Then: `git add docs/index.html && git commit -m "chore: bake..." && git push origin master`
 - Data is snapshot from bake time — not live. Must rebake + push to update.
-- Last bake: 19 Aug 2026 (commit 7bd8591). **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
+- Last bake: 29 Oct 2026 (commit dcd22b9); Netlify auto-deploys from GitHub master on push. **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
 - The baked file is ~480 KB; the live `/heatmap` render takes ~5 s on a cold cache (3 SmartSheet calls).
 
 ### Other hosts tried
@@ -379,7 +379,7 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
 - **Power BI** (`*.pbix`) — early experiments, untracked
 
 ### SmartSheet Web Content widget embedding
-- SmartSheet dashboard → Web Content widget → URL: `https://delicate-florentine-c73974.netlify.app`
+- SmartSheet dashboard → Web Content widget → URL: `https://allegion-risk-heatmap.netlify.app`
 - No form workaround needed with whitelisted domain
 
 ### Azure App Service (long-term — needs IT)
