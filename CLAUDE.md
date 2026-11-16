@@ -373,7 +373,7 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
   ```
 - Then: `git add docs/index.html && git commit -m "chore: bake..." && git push origin master`
 - Data is snapshot from bake time — not live. Must rebake + push to update.
-- Last bake: 16 Nov 2026; Netlify auto-deploys from GitHub master on push. **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
+- Last bake: 16 Nov 2026 (commit 217b02d); Netlify auto-deploys from GitHub master on push. **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
 - The baked file is ~480 KB; the live `/heatmap` render takes ~5 s on a cold cache (3 SmartSheet calls).
 
 ### Other hosts tried
@@ -427,6 +427,14 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
 - **`flex: 0 0 Npx` cards** in a horizontal scroll row — fixed width, don't grow or shrink. Essential for consistent card appearance.
 
 ---
+
+## Open Questions (as of 16 Nov 2026 — resolve with the ELT / data owners)
+- **Third Top 10 pill ranking**: `_cpBuilders.combo` ranks by severity **+** likelihood (sum, ties → severity). The historical snapshot card and the History tab use **severity × likelihood** as "Score". Confirm which the ELT means and make them consistent.
+- **Risk Trend History sheet data**: each risk has exactly 3 snapshots (2025-Q4, 2026-Q2, 2026-Q4). The 2026-Q4 row does not match live values for at least R04 (history S2/L5 vs live S1/L2) — the current-quarter row may be a placeholder or stale. Also unknown: who/what populates this sheet each quarter.
+- **Owner dropdown** is limited to the Risk Owner column (`OWNER_FILTER_FIELDS`); decide whether/when to widen it again, and what the ELT's "co-owner expansion" ask actually means.
+- **"Needs Attention"** wording (was "At Risk") may still need sign-off.
+- **Home view 0.5–5.5**: ELT hasn't been asked whether the axis no longer starting at 0 matters (assumed fine).
+- SmartSheet Web Content widget URL on the ELT dashboard should point at `https://allegion-risk-heatmap.netlify.app` — never confirmed.
 
 ## Future Work
 1. **Outstanding ELT asks** (see "ELT Feedback Status"): printable snapshot report, risk end date, co-owner expansion clarification, date-range trend history
