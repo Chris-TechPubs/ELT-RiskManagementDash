@@ -112,7 +112,7 @@ Python code changes (`.py` files) require a server restart. Flask `TEMPLATES_AUT
 - SVG viewBox: `0 0 1300 780`
 - Plot area: `P = { x: 130, y: 20, w: 600, h: 680 }`
 - Legend starts at `LEG_X = P.x + P.w + 30 = 760`
-- Data range controlled by `VR = { xMin, xMax, yMin, yMax }` (defaults 0–5 each axis)
+- Data range controlled by `VR = { xMin, xMax, yMin, yMax }`. **Default/home view is `VR_HOME` = 0.5–5.5 on both axes** (Nov 2026): scores run 1–5, and the old exact 0–5 window clipped dots/labels sitting on 5.0 (and trend ghost labels) in half at the plot edge. Span is still 5 units so scale/spacing didn't change. `VR_HOME` is also the pan/zoom bound and Reset target — don't hard-code 0/5 anywhere. Axis labels stop at 5.0; the 2.5 quadrant crosshair is intentionally no longer at the plot centre. The Allegion logo watermark is centred on the plot *rectangle* (pixels), not the data crosshair.
 - `svgX(v)` and `svgY(v)` map data → SVG pixels
 
 ### Gradient
@@ -147,7 +147,8 @@ Pie-chart dots using `stroke-dasharray` trick. Each category gets one arc. `tran
 ### Risk Modal
 - Glass overlay (z-index 1000) with frosted backdrop-filter
 - Multi-risk tabs at top (when a dot contains multiple risks)
-- 4-page nav: Overview / Risk Data / Ownership / **Tasks**
+- 5-page nav: Overview / Risk Data / Ownership / **Tasks** / **History** (History added Nov 2026 as page index 4 — deliberately LAST so Tasks stays `page === 3` in the width/tasks-mode/sort-bar checks). The sort bar sits between Tasks and History; `_updateIndicator` compensates for the bar's width animation for tabs that follow it
+- **History tab** (`_buildHistoryPage`): data view of `TREND_HISTORY` for that risk — verdict badge (Worsened/Improved/Mixed/Unchanged since the first snapshot), Severity/Likelihood/Score(S×L) cells with delta from first snapshot, a two-line SVG chart (x positioned by quarter), and a newest-first quarter table with change vs previous. Adds a live "Now" point only when today's values differ from the last snapshot. Red ▲ = went up (worse), green ▼ = better. "Show on graph" reuses `_onModalTrendClick`. Risks with no history show an empty-state message
 - Animated sliding indicator line under active page tab
 - Indicator snaps via `setTimeout(100ms)` after open (not rAF — rAF fires before CSS transitions settle)
 - Width dynamically expands on Tasks tab: `taskCount * 354 + 100`, MIN_W = 808px, capped at `window.innerWidth - 48`

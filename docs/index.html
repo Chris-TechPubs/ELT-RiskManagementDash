@@ -359,6 +359,36 @@
     }
     .modal-data-cell .modal-label { margin-bottom: 4px; }
     .modal-data-cell .modal-value { font-size: 22px; font-weight: 700; color: #fff; }
+    /* ── History tab (page 4) ────────────────────────────────────────────────── */
+    .hist-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .hist-top .modal-badge { font-size: 13px; padding: 4px 12px; }
+    .hist-graph-btn {
+      background: rgba(255,103,31,0.16); border: 1px solid rgba(255,103,31,0.4); color: #FF671F;
+      font-family: var(--antenna); font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+      text-transform: uppercase; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .hist-graph-btn:hover { background: rgba(255,103,31,0.3); border-color: rgba(255,103,31,0.7); }
+    .hist-sub { font-size: 12px; font-weight: 600; margin-top: 3px; color: var(--allegion-muted); white-space: nowrap; }
+    .hist-chart { background: rgba(255,255,255,0.04); border-radius: 10px; padding: 8px 10px 4px; margin-bottom: 4px; }
+    .hist-chart svg { width: 100%; height: auto; display: block; }
+    .hist-legend { display: flex; gap: 16px; justify-content: flex-end; font-size: 11px; color: var(--allegion-muted);
+                   letter-spacing: 0.05em; text-transform: uppercase; padding: 0 4px 6px; }
+    .hist-legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+    .hist-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .hist-table th { text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+                     color: var(--allegion-muted); padding: 4px 10px 6px; border-bottom: 1px solid var(--allegion-border);
+                     position: sticky; top: 0; background: var(--allegion-grey); }
+    .hist-table td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); color: var(--allegion-text); white-space: nowrap; }
+    .hist-table td b { font-size: 16px; color: #fff; margin-right: 6px; }
+    .hist-table tr.hist-now td { background: rgba(255,255,255,0.06); }
+    .hist-table tr.hist-now td:first-child { box-shadow: inset 3px 0 0 var(--mpn-color, #FF671F); }
+    .hist-tag { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 1px 6px;
+                border-radius: 999px; margin-left: 6px; background: rgba(255,255,255,0.12); color: var(--allegion-muted); vertical-align: middle; }
+    .hist-scroll { max-height: 210px; overflow-y: auto; border-radius: 8px; }
+    .hist-scroll::-webkit-scrollbar { width: 4px; }
+    .hist-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 999px; }
     /* ── Section subheader ───────────────────────────────────────────────────── */
     .modal-section-head {
       font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
@@ -1760,11 +1790,13 @@
         <button class="mpn-btn"        data-page="1">Risk Data</button>
         <button class="mpn-btn"        data-page="2">Ownership</button>
         <button class="mpn-btn"        data-page="3">Tasks</button>
+        <!-- Sort bar sits BETWEEN Tasks and History: it slides out from behind Tasks and pushes History right -->
         <div id="task-sort-bar">
           <button class="sort-btn active" data-sort="completion">% Done</button>
           <button class="sort-btn"        data-sort="alpha">A – Z</button>
           <button class="sort-btn"        data-sort="severity">Severity</button>
         </div>
+        <button class="mpn-btn"        data-page="4">History</button>
         <div id="mpn-indicator"></div>
       </div>
       <div id="modal-page-area"></div>
@@ -1864,7 +1896,7 @@ const _trendRisks       = new Set();
 const _hasTrendHistory  = Object.keys(TREND_HISTORY).length > 0;
 let _trendPinnedRiskId = null; // risk id whose trend trail is pinned isolated, or null
 const LOGO_SRC     = "AllegionLogo_Official.png";
-const LAST_UPDATED = "16 Nov 2026, 8:29 AM";
+const LAST_UPDATED = "16 Nov 2026, 8:59 AM";
 const dotGroupByRiskId   = {};
 const legendRowByRiskId  = {};
 const dotRisksGroupById  = {};
@@ -2090,8 +2122,8 @@ const GUIDE_FEATURES = [
   },
   {
     id: 'page-nav', category: 'The Risk Modal', icon: '📑',
-    title: 'Overview / Risk Data / Ownership / Tasks',
-    description: 'Every risk modal has four pages you can switch between: Overview (summary + definition), Risk Data (scores, category, status), Ownership (owners and managers), and Tasks (mitigation tasks for that risk).',
+    title: 'Overview / Risk Data / Ownership / Tasks / History',
+    description: 'Every risk modal has five pages you can switch between: Overview (summary + definition), Risk Data (scores, category, status), Ownership (owners and managers), Tasks (mitigation tasks for that risk), and History (how its severity and likelihood have changed over time).',
     tips: [
       'The underline slides to whichever page is active.',
       'The modal automatically widens when you switch to the Tasks page to fit the task cards.',
@@ -2102,6 +2134,25 @@ const GUIDE_FEATURES = [
       <button class="mpn-btn">Risk Data</button>
       <button class="mpn-btn">Ownership</button>
       <button class="mpn-btn">Tasks</button>
+      <button class="mpn-btn">History</button>
+    </div>`,
+  },
+  {
+    id: 'history-tab', category: 'Trend Overlays', icon: '📋',
+    title: 'History tab',
+    description: 'The last page of a risk modal is the data view of that risk’s trend: a headline showing whether it has worsened or improved, its current severity, likelihood and score with the change since the first snapshot, a small chart of both values over time, and a quarter-by-quarter table.',
+    tips: [
+      'Red ▲ means the value went up (worse); green ▼ means it came down (better).',
+      'The Current row is today’s live value. Use “Show on graph” to see the same history as dotted trails on the chart.',
+      'Risks with no recorded history show a short message instead.',
+    ],
+    selector: null,
+    preview: `<div style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:300px">
+      <span class="modal-badge red" style="align-self:flex-start">Worsened since Q4 2025</span>
+      <div style="display:flex;gap:8px">
+        <div class="modal-data-cell" style="flex:1"><div class="modal-label" style="font-size:10px">Severity</div><div class="modal-value" style="font-size:18px">4.0</div><div class="hist-sub">▲ +1.0</div></div>
+        <div class="modal-data-cell" style="flex:1"><div class="modal-label" style="font-size:10px">Likelihood</div><div class="modal-value" style="font-size:18px">3.0</div><div class="hist-sub">→ 0.0</div></div>
+      </div>
     </div>`,
   },
   {
@@ -2512,8 +2563,8 @@ function panToRisk(risk) {
   const pad = 0.15;
   if (tx > VR.xMin + pad && tx < VR.xMax - pad && ty > VR.yMin + pad && ty < VR.yMax - pad) return;
   const rW = VR.xMax - VR.xMin, rH = VR.yMax - VR.yMin;
-  const tXMin = Math.max(0, Math.min(5 - rW, tx - rW / 2));
-  const tYMin = Math.max(0, Math.min(5 - rH, ty - rH / 2));
+  const tXMin = Math.max(VR_HOME.xMin, Math.min(VR_HOME.xMax - rW, tx - rW / 2));
+  const tYMin = Math.max(VR_HOME.yMin, Math.min(VR_HOME.yMax - rH, ty - rH / 2));
   const tXMax = tXMin + rW, tYMax = tYMin + rH;
   if (Math.abs(tXMin - VR.xMin) < 0.01 && Math.abs(tYMin - VR.yMin) < 0.01) return;
   const sXMin = VR.xMin, sXMax = VR.xMax, sYMin = VR.yMin, sYMax = VR.yMax;
@@ -2541,7 +2592,11 @@ const LEG_X = P.x + P.w + 40;  // card left = P.x+P.w (flush with graph right ed
 let _graphAllRounded = true;   // true only during entrance animation phase 1
 
 // Data view range — changes on zoom/pan; svgX/svgY map data into the fixed plot square
-let VR = { xMin: 0, xMax: 5, yMin: 0, yMax: 5 };
+// Default view AND pan/zoom bounds. Scores run 1–5, so the window is shifted half a unit
+// (0.5–5.5) to leave a margin at the top/right: dots and labels sitting on 5.0 were being
+// clipped in half by the plot edge. Span stays 5 units so spacing/scale are unchanged.
+const VR_HOME = { xMin: 0.5, xMax: 5.5, yMin: 0.5, yMax: 5.5 };
+let VR = { ...VR_HOME };
 
 function svgX(v) { return P.x + (v - VR.xMin) / (VR.xMax - VR.xMin) * P.w; }
 function svgY(v) { return P.y + (1 - (v - VR.yMin) / (VR.yMax - VR.yMin)) * P.h; }
@@ -3025,7 +3080,9 @@ function renderStatic() {
     mk('path', { d: roundedRectPath(x,y,w,h, 20,rRight,rRight,20), fill: 'rgba(10,10,14,0.45)' }, layer);
   }
 
-  // Allegion logo watermark — 80% of plot size, centred, above gradient, below grid lines
+  // Allegion logo watermark — 80% of plot size, centred on the plot rectangle (NOT on the
+  // data crosshair, which is off-centre now that the home view is 0.5–5.5), above the
+  // gradient and below the grid lines. Fixed in pixels — it does not move on zoom/pan.
   const logoW = w * 0.8, logoH = h * 0.8;
   mk('image', {
     href: LOGO_SRC,
@@ -3047,14 +3104,14 @@ function renderStatic() {
     const sx = svgX(v);
     if (sx < x-1 || sx > x+w+1) return;
     mk('line',{x1:sx,y1:y,x2:sx,y2:y+h,stroke:gcol,'stroke-width':v===Math.round(v)?1.0:0.4},layer);
-    if (v >= 0.99 && v < VR.xMax - 0.01) // skip rightmost tick (space used by panel pills)
+    if (v >= 0.99 && v <= 5.001 && v < VR.xMax - 0.01) // no labels past 5 (the 0.5 margin) or at the rightmost edge
       mktxt(v.toFixed(1),{x:sx,y:y+h+16,'text-anchor':'middle','font-size':10,fill:'#444','font-family':AXIS_FONT},layer);
   });
   rangeTicks(VR.yMin, VR.yMax).forEach(v => {
     const sy = svgY(v);
     if (sy < y-1 || sy > y+h+1) return;
     mk('line',{x1:x,y1:sy,x2:x+w,y2:sy,stroke:gcol,'stroke-width':v===Math.round(v)?1.0:0.4},layer);
-    if (v >= 0.99)
+    if (v >= 0.99 && v <= 5.001) // no label for the 5.5 margin line
       mktxt(v.toFixed(1),{x:x-8,y:sy+4,'text-anchor':'end','font-size':10,fill:'#444','font-family':AXIS_FONT},layer);
   });
   if (VR.xMin<=2.5 && VR.xMax>=2.5)
@@ -4710,7 +4767,135 @@ function _buildPageContent(r, page) {
     return _buildTasksPage(r);
   }
 
+  if (page === 4) {
+    return _buildHistoryPage(r);
+  }
+
   return '';
+}
+
+// ── History tab ───────────────────────────────────────────────────────────────
+// Data-driven companion to the trend overlay: same TREND_HISTORY source (quarterly
+// severity/likelihood snapshots), shown as summary cells + a two-line chart + a table.
+// Higher severity/likelihood = worse, so increases are red ▲ and decreases green ▼
+// (same convention as the historical snapshot card).
+const _HIST_SEV_COL = '#FF671F', _HIST_LIK_COL = '#74B8F5';
+
+function _histDelta(d, fmt) {
+  if (d == null) return `<span style="color:var(--allegion-muted)">—</span>`;
+  if (d > 0.04)  return `<span style="color:#ef9a9a">▲ +${d.toFixed(1)}</span>`;
+  if (d < -0.04) return `<span style="color:#81c784">▼ −${Math.abs(d).toFixed(1)}</span>`;
+  return `<span style="color:var(--allegion-muted)">→ 0.0</span>`;
+}
+
+function _buildHistoryPage(r) {
+  const hist = TREND_HISTORY[r.id] || [];
+  if (!hist.length) {
+    return `<div class="task-no-data">No historical data has been recorded for this risk yet.</div>`;
+  }
+  const curS = parseFloat(r.severity), curL = parseFloat(r.likelihood);
+  // Points oldest → newest. Add a live "Now" point only if today's values differ from the last snapshot.
+  const pts = hist.map(h => {
+    const m = /^(\d{4})-Q([1-4])$/.exec(h.period || '');
+    return { label: h.quarter ? `${h.quarter} ${h.year}` : h.period, s: +h.severity, l: +h.likelihood,
+             ord: m ? (+m[1]) * 4 + (+m[2] - 1) : null };
+  });
+  const last = pts[pts.length - 1];
+  const differs = Math.abs(last.s - curS) >= 0.05 || Math.abs(last.l - curL) >= 0.05;
+  if (differs && !isNaN(curS) && !isNaN(curL)) {
+    const d = new Date();
+    pts.push({ label: 'Now', s: curS, l: curL,
+               ord: last.ord != null ? Math.max(last.ord + 0.4, d.getFullYear() * 4 + d.getMonth() / 3) : null });
+  }
+  pts[pts.length - 1].now = true;
+  const first = pts[0], cur = pts[pts.length - 1];
+
+  // ── Summary ───────────────────────────────────────────────────────────────
+  const dS = cur.s - first.s, dL = cur.l - first.l;
+  const up = (dS > 0.04) + (dL > 0.04), down = (dS < -0.04) + (dL < -0.04);
+  const verdict = pts.length < 2 ? ['grey',  'Single snapshot']
+                : up && !down    ? ['red',   `Worsened since ${first.label}`]
+                : down && !up    ? ['green', `Improved since ${first.label}`]
+                : up && down     ? ['yellow', `Mixed since ${first.label}`]
+                :                  ['grey',  `Unchanged since ${first.label}`];
+  const cell = (label, now, was, d) => `
+    <div class="modal-data-cell">
+      <div class="modal-label">${label}</div>
+      <div class="modal-value">${now.toFixed(1)}</div>
+      <div class="hist-sub">${pts.length > 1 ? `${_histDelta(d)} <span>from ${was.toFixed(1)}</span>` : '&nbsp;'}</div>
+    </div>`;
+  const trended = _trendRisks.has(r.id);
+  const top = `
+    <div class="hist-top">
+      <span class="modal-badge ${verdict[0]}">${verdict[1]}</span>
+      <button class="hist-graph-btn" onclick="_onModalTrendClick()">
+        <svg width="16" height="12" viewBox="0 0 22 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,14 5,8 8,12 12,6 15,10 19,4"/></svg>
+        ${trended ? 'Hide from graph' : 'Show on graph'}
+      </button>
+    </div>
+    <div class="modal-data-grid">
+      ${cell('Severity',   cur.s, first.s, dS)}
+      ${cell('Likelihood', cur.l, first.l, dL)}
+      ${cell('Score (S × L)', cur.s * cur.l, first.s * first.l, cur.s * cur.l - first.s * first.l)}
+    </div>`;
+
+  // ── Chart: severity + likelihood over time (1–5), x positioned by quarter when known ──
+  const W = 680, H = 160, PL = 30, PR = 14, PT = 20, PB = 40, XIN = 26; // XIN keeps end points clear of the axis numbers
+  const ords = pts.map(p => p.ord);
+  const timed = ords.every(o => o != null);
+  const lo = timed ? Math.min(...ords) : 0, hi = timed ? Math.max(...ords) : pts.length - 1;
+  const px = (p, i) => pts.length === 1 ? (PL + W - PR) / 2
+                     : PL + XIN + ((timed ? p.ord - lo : i) / (hi - lo || 1)) * (W - PL - PR - 2 * XIN);
+  const py = v => PT + (1 - (Math.min(5, Math.max(1, v)) - 1) / 4) * (H - PT - PB);
+  const grid = [1, 2, 3, 4, 5].map(v =>
+    `<line x1="${PL}" x2="${W - PR}" y1="${py(v)}" y2="${py(v)}" stroke="rgba(255,255,255,0.08)"/>
+     <text x="${PL - 8}" y="${py(v) + 4}" text-anchor="end" font-size="10" fill="#8a8a8c">${v}</text>`).join('');
+  const line = (key, col, dash) => {
+    const d = pts.map((p, i) => `${i ? 'L' : 'M'}${px(p, i).toFixed(1)},${py(p[key]).toFixed(1)}`).join(' ');
+    const dots = pts.map((p, i) => `<circle cx="${px(p, i).toFixed(1)}" cy="${py(p[key]).toFixed(1)}" r="${p.now ? 5 : 3.5}"
+        fill="${p.now ? col : '#2D2D2E'}" stroke="${col}" stroke-width="2"/>`).join('');
+    // Higher of the two series labels above its dot, lower one below — so equal/close values never collide
+    const vals = pts.map((p, i) => `<text x="${px(p, i).toFixed(1)}" y="${(py(p[key]) + (((key === 's') === (p.s >= p.l)) ? -9 : 16)).toFixed(1)}"
+        text-anchor="middle" font-size="10" font-weight="700" fill="${col}">${p[key].toFixed(1)}</text>`).join('');
+    return `<path d="${d}" fill="none" stroke="${col}" stroke-width="2" ${dash ? 'stroke-dasharray="5 4"' : ''} stroke-linejoin="round"/>${dots}${vals}`;
+  };
+  const skip = pts.length > 8 ? Math.ceil(pts.length / 8) : 1;
+  const xl = pts.map((p, i) => (i % skip && !p.now) ? '' :
+    `<text x="${px(p, i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="${p.now ? '#E8EAED' : '#8a8a8c'}"
+       font-weight="${p.now ? 700 : 400}">${p.label}</text>`).join('');
+  const chart = `
+    <div class="modal-section-head">Trend</div>
+    <div class="hist-chart">
+      <div class="hist-legend">
+        <span><i style="background:${_HIST_SEV_COL}"></i>Severity</span>
+        <span><i style="background:${_HIST_LIK_COL}"></i>Likelihood</span>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Severity and likelihood over time">
+        ${grid}${line('l', _HIST_LIK_COL, true)}${line('s', _HIST_SEV_COL, false)}${xl}
+      </svg>
+    </div>`;
+
+  // ── Table: newest first, change vs the previous snapshot ───────────────────
+  const rows = pts.map((p, i) => {
+    const prev = i ? pts[i - 1] : null;
+    const sc = p.s * p.l;
+    return `<tr class="${p.now ? 'hist-now' : ''}">
+      <td>${p.label}${p.now ? '<span class="hist-tag">Current</span>' : ''}</td>
+      <td><b>${p.s.toFixed(1)}</b>${_histDelta(prev ? p.s - prev.s : null)}</td>
+      <td><b>${p.l.toFixed(1)}</b>${_histDelta(prev ? p.l - prev.l : null)}</td>
+      <td><b>${sc.toFixed(1)}</b>${_histDelta(prev ? sc - prev.s * prev.l : null)}</td>
+    </tr>`;
+  }).reverse().join('');
+  const table = `
+    <div class="modal-section-head">Quarter by quarter</div>
+    <div class="hist-scroll">
+      <table class="hist-table">
+        <thead><tr><th>Period</th><th>Severity</th><th>Likelihood</th><th>Score</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  return top + chart + table;
 }
 
 function _taskStatusClass(status) {
@@ -4826,8 +5011,15 @@ function _updateIndicator(instant) {
   if (!activeBtn || !indicator) return;
   const navRect = nav.getBoundingClientRect();
   const btnRect = activeBtn.getBoundingClientRect();
-  const left  = btnRect.left - navRect.left;
+  let left  = btnRect.left - navRect.left;
   const width = btnRect.width;
+  // The sort bar (between Tasks and History) animates its width. For a tab that sits AFTER it,
+  // aim at the position the tab will have once the bar settles, not where it is mid-transition.
+  const bar = document.getElementById('task-sort-bar');
+  if (bar && (bar.compareDocumentPosition(activeBtn) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+    const finalW = bar.classList.contains('visible') ? bar.scrollWidth + 10 : 0; // +10 = padding-left when visible
+    left += finalW - bar.getBoundingClientRect().width;
+  }
   if (instant) {
     indicator.classList.add('instant');
     indicator.style.left  = left + 'px';
@@ -5589,10 +5781,10 @@ function doZoom(factor, pivDX, pivDY, dur = 300) {
 
   let tXMin = nxMin, tXMax = nxMax, tYMin = nyMin, tYMax = nyMax;
   const _xrz = tXMax - tXMin, _yrz = tYMax - tYMin;
-  if (tXMin < 0) { tXMin = 0; tXMax = _xrz; }
-  if (tXMax > 5) { tXMax = 5; tXMin = 5 - _xrz; }
-  if (tYMin < 0) { tYMin = 0; tYMax = _yrz; }
-  if (tYMax > 5) { tYMax = 5; tYMin = 5 - _yrz; }
+  if (tXMin < VR_HOME.xMin) { tXMin = VR_HOME.xMin; tXMax = tXMin + _xrz; }
+  if (tXMax > VR_HOME.xMax) { tXMax = VR_HOME.xMax; tXMin = tXMax - _xrz; }
+  if (tYMin < VR_HOME.yMin) { tYMin = VR_HOME.yMin; tYMax = tYMin + _yrz; }
+  if (tYMax > VR_HOME.yMax) { tYMax = VR_HOME.yMax; tYMin = tYMax - _yrz; }
 
   _zoomRL().classList.add('zooming');  // labels start fading out (CSS transition)
   clearTimeout(_zoomFadeIn);           // cancel any pending fade-in
@@ -5620,7 +5812,7 @@ function resetView() {
   _zoomRL().classList.add('zooming');
   clearTimeout(_zoomFadeIn);
   const aXMin=VR.xMin, aXMax=VR.xMax, aYMin=VR.yMin, aYMax=VR.yMax;
-  const tXMin=0, tXMax=5, tYMin=0, tYMax=5;
+  const tXMin=VR_HOME.xMin, tXMax=VR_HOME.xMax, tYMin=VR_HOME.yMin, tYMax=VR_HOME.yMax;
   const dur = 420; const t0 = performance.now();
   if (_panAnim) { cancelAnimationFrame(_panAnim); _panAnim = null; }
   function step(now) {
@@ -5631,7 +5823,7 @@ function resetView() {
     _fastRerender();
     if (p < 1) { _panAnim = requestAnimationFrame(step); }
     else {
-      VR={xMin:0,xMax:5,yMin:0,yMax:5}; rerender(); _panAnim=null;
+      VR={...VR_HOME}; rerender(); _panAnim=null;
       _zoomFadeIn = setTimeout(() => _zoomRL().classList.remove('zooming'), 50);
     }
   }
@@ -5690,16 +5882,16 @@ window.addEventListener('mousemove', e => {
   // Data-space delta
   const dDataX = -(e.clientX - panState.clientX) / r.width  * (panState.vr.xMax - panState.vr.xMin);
   const dDataY =  (e.clientY - panState.clientY) / r.height * (panState.vr.yMax - panState.vr.yMin);
-  // Update VR then clamp to default 0–5 bounds
+  // Update VR then clamp to the default (VR_HOME) bounds
   VR.xMin = panState.vr.xMin + dDataX;
   VR.xMax = panState.vr.xMax + dDataX;
   VR.yMin = panState.vr.yMin + dDataY;
   VR.yMax = panState.vr.yMax + dDataY;
   const _xr = VR.xMax - VR.xMin, _yr = VR.yMax - VR.yMin;
-  if (VR.xMin < 0) { VR.xMin = 0; VR.xMax = _xr; }
-  if (VR.xMax > 5) { VR.xMax = 5; VR.xMin = 5 - _xr; }
-  if (VR.yMin < 0) { VR.yMin = 0; VR.yMax = _yr; }
-  if (VR.yMax > 5) { VR.yMax = 5; VR.yMin = 5 - _yr; }
+  if (VR.xMin < VR_HOME.xMin) { VR.xMin = VR_HOME.xMin; VR.xMax = VR.xMin + _xr; }
+  if (VR.xMax > VR_HOME.xMax) { VR.xMax = VR_HOME.xMax; VR.xMin = VR.xMax - _xr; }
+  if (VR.yMin < VR_HOME.yMin) { VR.yMin = VR_HOME.yMin; VR.yMax = VR.yMin + _yr; }
+  if (VR.yMax > VR_HOME.yMax) { VR.yMax = VR_HOME.yMax; VR.yMin = VR.yMax - _yr; }
   panState.moved = true;
 
   // SVG-pixel offset using clamped VR (not raw delta)
