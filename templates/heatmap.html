@@ -810,12 +810,17 @@
     .cp-pill {
       display: flex; align-items: center; justify-content: center; gap: 7px;
       flex: 1 1 0; min-width: 0;
-      padding: 7px 14px; border-radius: 999px; cursor: pointer; border: none;
-      font-family: var(--antenna); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.07em; text-transform: uppercase;
+      /* --cp-k (set in _positionChartPills) shrinks text/padding when the chart is scaled down */
+      padding: 6px calc(10px * var(--cp-k, 1)); border-radius: 999px; cursor: pointer; border: none;
+      font-family: var(--antenna); font-size: calc(10px * var(--cp-k, 1)); font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
       color: var(--allegion-muted); /* explicit text color so it shows on dark bg */
       white-space: nowrap; transition: color 0.15s, background 0.15s, box-shadow 0.15s;
     }
+    /* Two-line label (title + smaller subtitle) so three pills fit in the card width */
+    .cp-pill-label { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; min-width: 0; }
+    #pill-combo { flex-grow: 1.45; } /* longest label gets proportionally more room */
+    .cp-pill-label small { font-size: calc(8.5px * var(--cp-k, 1)); font-weight: 600; letter-spacing: 0.04em; opacity: 0.75; }
     .cp-pill:hover { color: #FF671F; }
     .cp-pill.active { opacity: 0; pointer-events: none; }
     /* Full panel — FLIP-morphed from pill, exactly fills the risk-panel area */
@@ -1649,11 +1654,15 @@
 <div id="cp-pills">
   <button class="cp-pill" id="pill-top10" onclick="openChartPanel('top10')">
     <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">bar_chart</span>
-    Top 10 Risks - Severity
+    <span class="cp-pill-label">Top 10 Risks<small>Severity</small></span>
+  </button>
+  <button class="cp-pill" id="pill-combo" onclick="openChartPanel('combo')">
+    <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">stacked_bar_chart</span>
+    <span class="cp-pill-label">Top 10 Risks<small>Severity + Likelihood</small></span>
   </button>
   <button class="cp-pill" id="pill-tasks" onclick="openChartPanel('tasks')">
     <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">task_alt</span>
-    Top 10 Tasks - Severity
+    <span class="cp-pill-label">Top 10 Tasks<small>Severity</small></span>
   </button>
 </div>
 <div id="cp-panel" style="display:none">
@@ -2259,7 +2268,22 @@ const GUIDE_FEATURES = [
     selector: '#pill-top10',
     preview: `<button class="cp-pill" style="color:var(--allegion-muted);flex:none;width:auto">
       <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">bar_chart</span>
-      Top 10 Risks - Severity
+      <span class="cp-pill-label">Top 10 Risks<small>Severity</small></span>
+    </button>`,
+  },
+  {
+    id: 'chart-combo-pill', category: 'Chart Panels', icon: '📈',
+    title: 'Risks panel (severity + likelihood)',
+    description: 'Ranks the Top 10 risks by severity and likelihood added together, so a risk that is both likely and severe rises above one that is only high on one axis. The number under each risk ID is that combined score.',
+    tips: [
+      'Hover a risk in the panel to see its separate severity (S) and likelihood (L) values.',
+      'This respects whatever filters are currently active, same as the main chart.',
+      'Ties on the combined score are broken by severity.',
+    ],
+    selector: '#pill-combo',
+    preview: `<button class="cp-pill" style="color:var(--allegion-muted);flex:none;width:auto">
+      <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">stacked_bar_chart</span>
+      <span class="cp-pill-label">Top 10 Risks<small>Severity + Likelihood</small></span>
     </button>`,
   },
   {
@@ -2273,7 +2297,7 @@ const GUIDE_FEATURES = [
     selector: '#pill-tasks',
     preview: `<button class="cp-pill" style="color:var(--allegion-muted);flex:none;width:auto">
       <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">task_alt</span>
-      Top 10 Tasks - Severity
+      <span class="cp-pill-label">Top 10 Tasks<small>Severity</small></span>
     </button>`,
   },
 ];
@@ -5249,6 +5273,7 @@ let _pillsRevealed = false; // false until entrance animation completes
 // Panel metadata — title + icon shown in open state
 const _cpMeta = {
   top10: { icon: 'bar_chart', title: 'Top 10 Risks — Highest Severity' },
+  combo: { icon: 'stacked_bar_chart', title: 'Top 10 Risks — Severity + Likelihood' },
   tasks: { icon: 'task_alt',  title: 'Top 10 Tasks — Highest Severity' },
 };
 
@@ -5266,6 +5291,26 @@ const _cpBuilders = {
         <span class="t10-rank">#${i+1}</span>
         <span class="t10-id" style="color:${col}">${r.id}</span>
         ${sev ? `<span class="t10-sev">${sev}</span>` : ''}
+      </div>`;
+    }).join('');
+  },
+
+  // Ranked by severity + likelihood (sum); ties broken by severity. Shows the
+  // combined score under the ID, with the S / L split in the hover title.
+  combo: function(body) {
+    const score = r => (r.severity||0) + (r.likelihood||0);
+    const top = [...RISKS]
+      .filter(r => _isRiskVisible(r))
+      .sort((a, b) => score(b) - score(a) || (b.severity||0)-(a.severity||0))
+      .slice(0, 10);
+    body.innerHTML = top.map((r, i) => {
+      const col = catColor(r.category||'') || '#666';
+      const tot = score(r).toFixed(1);
+      const sl  = `S ${parseFloat(r.severity||0).toFixed(1)} · L ${parseFloat(r.likelihood||0).toFixed(1)}`;
+      return `<div class="t10-item" onclick="openModal([RISKS.find(x=>x.id==='${r.id}')],0)" title="${r.name} (${sl})">
+        <span class="t10-rank">#${i+1}</span>
+        <span class="t10-id" style="color:${col}">${r.id}</span>
+        <span class="t10-sev">${tot}</span>
       </div>`;
     }).join('');
   },
@@ -5322,6 +5367,7 @@ function _positionChartPills() {
   const pillH    = pillsBar.offsetHeight || 34;
   pillsBar.style.left  = legLeft + 'px';
   pillsBar.style.width = legWidth + 'px';
+  pillsBar.style.setProperty('--cp-k', Math.max(0.65, Math.min(1, legWidth / 460)).toFixed(3));
   pillsBar.style.right = 'auto';
   pillsBar.style.bottom = 'auto';
   if (_pillsRevealed) {

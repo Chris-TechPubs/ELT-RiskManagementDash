@@ -245,8 +245,9 @@ When a task is opened from search results:
 
 ## Chart Panels (Top 10)
 
-- Two pills on the chart: **Top 10 Risks – Severity** and **Top 10 Tasks – Severity** (`openChartPanel('top10' | 'tasks')`, `CHART_PANEL_META`, builders keyed `top10` / `tasks`)
-- Sorted by severity desc, then likelihood desc; **respects active filters** (`_isRiskVisible`), so it re-ranks as filters change
+- Three pills on the chart: **Top 10 Risks – Severity**, **Top 10 Risks – Severity + Likelihood** (added Nov 2026) and **Top 10 Tasks – Severity** (`openChartPanel('top10' | 'combo' | 'tasks')`, `_cpMeta`, builders in `_cpBuilders` keyed the same)
+- `top10` / `tasks` sort by severity desc, then likelihood desc. `combo` ranks by **severity + likelihood (sum)**, ties broken by severity; it shows the sum under each ID and S/L in the hover title. If the ELT meant product (the classic risk score) rather than sum, change `score` in `_cpBuilders.combo`. All **respect active filters** (`_isRiskVisible`), so they re-rank as filters change
+- Pills are two-line labels (title + small subtitle) so three fit the card width; `--cp-k` (set in `_positionChartPills` from card width) scales text/padding down on small viewports, and `#pill-combo` gets extra `flex-grow` for its longer subtitle. Verified no overflow from 1100 to 1600 px wide in Chrome and Firefox
 - Items click through to the risk modal (tasks open straight to the Tasks tab with the task pulse-highlighted)
 - A separate always-visible `#top10-panel` (`buildTop10`/`positionTop10`) also exists below the risk list; it is clamped to stay on-screen on short viewports (commit ab8033a)
 
@@ -371,7 +372,7 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
   ```
 - Then: `git add docs/index.html && git commit -m "chore: bake..." && git push origin master`
 - Data is snapshot from bake time — not live. Must rebake + push to update.
-- Last bake: 29 Oct 2026 (commit dcd22b9); Netlify auto-deploys from GitHub master on push. **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
+- Last bake: 16 Nov 2026; Netlify auto-deploys from GitHub master on push. **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
 - The baked file is ~480 KB; the live `/heatmap` render takes ~5 s on a cold cache (3 SmartSheet calls).
 
 ### Other hosts tried
