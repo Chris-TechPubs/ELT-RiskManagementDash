@@ -632,6 +632,17 @@
     }
     #risk-modal-trend-btn:hover   { color: #FF671F; }
     #risk-modal-trend-btn.active  { color: #FF671F; }
+    #risk-modal-trend-btn.no-history { opacity: 0.35; }
+    #risk-modal-trend-btn.no-history:hover { color: var(--allegion-muted); }
+    /* Small transient message (no other toast system exists in the app) */
+    #hm-toast {
+      position: fixed; left: 50%; top: 22px; z-index: 2000; transform: translate(-50%, -12px);
+      background: #2D2D2E; color: var(--allegion-text); border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5); border-radius: 999px; padding: 9px 18px;
+      font-family: var(--antenna); font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.25s cubic-bezier(0.16,1,0.3,1);
+    }
+    #hm-toast.visible { opacity: 1; transform: translate(-50%, 0); }
     /* Task card highlight pulse (from search result click) ─────────────── */
     /* outline is used for the main stroke because it bypasses overflow:hidden
        clipping on ancestor containers; box-shadow provides the inner glow. */
@@ -1845,6 +1856,7 @@
 <div id="tooltip"></div>
 
 <!-- Historical snapshot card — appears on ghost dot click -->
+<div id="hm-toast" role="status" aria-live="polite"></div>
 <div id="hist-card">
   <button class="hc-close" onclick="_hideHistCard()">✕</button>
   <div class="hc-header">
@@ -3912,6 +3924,7 @@ function renderLegend() {
         });
       }
       const _rid = r.id;
+      if (!isActive && !_riskHasHistory(_rid)) tBtn.style.opacity = '0.3'; // nothing to trend yet
       tBtn.addEventListener('click', function(e) { e.stopPropagation(); toggleTrendRisk(_rid); });
 
       // Pin icon — only on already-trended rows, sits just left of the +/- toggle.
@@ -6577,10 +6590,30 @@ function _applyTrendWithAnimation() {
   }, toExit.length > 0 ? 600 : 0);
 }
 
+// Trend mode hides every non-trended risk, so trending a risk with no recorded
+// history would just leave a lone dot and no trail. Block that and say why instead.
+function _riskHasHistory(riskId) {
+  return !!(TREND_HISTORY[riskId] && TREND_HISTORY[riskId].length);
+}
+
+let _toastTimer = null;
+function _showToast(msg) {
+  const el = document.getElementById('hm-toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('visible');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('visible'), 2800);
+}
+function _toastNoHistory(riskId) {
+  _showToast(`No trend history has been recorded for ${riskId} yet.`);
+}
+
 function toggleTrendRisk(riskId) {
   if (_trendRisks.has(riskId)) {
     _trendRisks.delete(riskId);
   } else {
+    if (!_riskHasHistory(riskId)) { _toastNoHistory(riskId); return; }
     _trendRisks.add(riskId);
   }
   _applyTrendWithAnimation();
@@ -6589,6 +6622,7 @@ function toggleTrendRisk(riskId) {
 
 function activateTrend(riskId) {
   // Called from modal trend button — close modal and activate trend for this risk
+  if (!_trendRisks.has(riskId) && !_riskHasHistory(riskId)) { _toastNoHistory(riskId); return; }
   closeModal();
   if (!_trendRisks.has(riskId)) _trendRisks.add(riskId);
   _applyTrendWithAnimation();
@@ -6609,6 +6643,7 @@ function _onModalTrendClick() {
     _trendRisks.delete(r.id);
     btn.classList.remove('active');
   } else {
+    if (!_riskHasHistory(r.id)) { _toastNoHistory(r.id); return; }
     _trendRisks.add(r.id);
     btn.classList.add('active');
     closeModal();
@@ -6756,6 +6791,9 @@ function _updateTrendBtn() {
   if (!btn) return;
   const r = _modalRisks && _modalRisks[_activeTabIdx ?? 0];
   btn.classList.toggle('active', !!(r && _trendRisks.has(r.id)));
+  const none = !!(r && !_riskHasHistory(r.id));
+  btn.classList.toggle('no-history', none);
+  btn.title = none ? 'No trend history recorded yet' : 'Show trend history on chart';
 }
 
 // ── Historical snapshot card ──────────────────────────────────────────────────

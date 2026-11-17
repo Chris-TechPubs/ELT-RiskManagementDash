@@ -265,6 +265,7 @@ Data source: `TREND_HISTORY` (Risk Trend History sheet, quarterly). Code: `rende
   2. Per-risk **shape** (`TRAIL_SHAPE`, `drawShapeMarker`) and **dash** pattern (`TRAIL_DASH`) indexed by insertion order (`riskIdx`); current dot gets a halo ring + shape badge — `drawPieDot` is untouched
   3. **Same-category hue shading** (`shadeColor`, `HUE_SHADE_STEPS = [0,35,70,-20]`) via a per-category counter; 5th+ same-category trend reuses the last shade and relies on shape+dash
 - Isolation does NOT call `dimLegend()`.
+- **No-history guard** (Nov 2026): trend mode hides every non-trended risk, so trending a risk with no `TREND_HISTORY` rows used to leave a lone dot. `_riskHasHistory(id)` now gates `toggleTrendRisk`, `activateTrend` and `_onModalTrendClick`: it shows a toast (`_showToast`, `#hm-toast`, top-centre — the app's only toast) and does not enter trend mode; the modal trend button gets `.no-history` (dimmed) and legend "+" buttons dim to 30%. Note the older `const _hasTrendHistory` (any history at all) is a different thing — don't reuse that name.
 
 ---
 
@@ -373,7 +374,7 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
   ```
 - Then: `git add docs/index.html && git commit -m "chore: bake..." && git push origin master`
 - Data is snapshot from bake time — not live. Must rebake + push to update.
-- Last bake: 16 Nov 2026 (commit 217b02d); Netlify auto-deploys from GitHub master on push. **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
+- Last bake: 17 Nov 2026; Netlify auto-deploys from GitHub master on push. **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
 - The baked file is ~480 KB; the live `/heatmap` render takes ~5 s on a cold cache (3 SmartSheet calls).
 
 ### Other hosts tried
@@ -430,7 +431,7 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
 
 ## Open Questions (as of 16 Nov 2026 — resolve with the ELT / data owners)
 - **Third Top 10 pill ranking**: `_cpBuilders.combo` ranks by severity **+** likelihood (sum, ties → severity). The historical snapshot card and the History tab use **severity × likelihood** as "Score". Confirm which the ELT means and make them consistent.
-- **Risk Trend History sheet data**: each risk has exactly 3 snapshots (2025-Q4, 2026-Q2, 2026-Q4). The 2026-Q4 row does not match live values for at least R04 (history S2/L5 vs live S1/L2) — the current-quarter row may be a placeholder or stale. Also unknown: who/what populates this sheet each quarter.
+- **Risk Trend History sheet data**: verified 17 Nov 2026 that `_TREND_HISTORY_SHEET_ID` 1794037649461124 is the sheet named "Risk Trend History" (other similarly named sheets — "Risk Trend - Quarterly", "2025 - Risk Trends", etc. — are NOT used). The data owners **cleared it on 17 Nov**: it has 155 rows (31 risks × 2025-Q4 / 2026-Q4, plus 93 rows for 2026-Q2) but Severity/Likelihood are blank everywhere, so `get_trend_history()` returns `{}` and the trend features show nothing. The sheet is meant to be **populated automatically over time** by SmartSheet automation (it has Snapshot/Create Snapshot/Period Key helper columns, some showing `#BLOCKED`/`#INVALID REF` while empty). Before the clear, history was 3 snapshots/risk and the 2026-Q4 row disagreed with live values (e.g. R04 S2/L5 vs live S1/L2). Re-check once it refills: the loader keeps the last filled row per (risk, period), and 2026-Q2 had 3 rows per risk.
 - **Owner dropdown** is limited to the Risk Owner column (`OWNER_FILTER_FIELDS`); decide whether/when to widen it again, and what the ELT's "co-owner expansion" ask actually means.
 - **"Needs Attention"** wording (was "At Risk") may still need sign-off.
 - **Home view 0.5–5.5**: ELT hasn't been asked whether the axis no longer starting at 0 matters (assumed fine).
