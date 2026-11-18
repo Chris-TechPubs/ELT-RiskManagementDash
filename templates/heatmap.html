@@ -1701,9 +1701,9 @@
     <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">stacked_bar_chart</span>
     <span class="cp-pill-label">Top 10 Risks<small>Severity + Likelihood</small></span>
   </button>
-  <button class="cp-pill" id="pill-tasks" onclick="openChartPanel('tasks')">
-    <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">task_alt</span>
-    <span class="cp-pill-label">Top 10 Tasks<small>Severity</small></span>
+  <button class="cp-pill" id="pill-likelihood" onclick="openChartPanel('likelihood')">
+    <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">trending_up</span>
+    <span class="cp-pill-label">Top 10 Risks<small>Likelihood</small></span>
   </button>
 </div>
 <div id="cp-panel" style="display:none">
@@ -2350,17 +2350,18 @@ const GUIDE_FEATURES = [
     </button>`,
   },
   {
-    id: 'chart-tasks-pill', category: 'Chart Panels', icon: '✅',
-    title: 'Tasks panel',
-    description: 'Opens a side panel summarizing mitigation tasks across all visible risks — a quick way to see overall task status without opening each risk individually.',
+    id: 'chart-likelihood-pill', category: 'Chart Panels', icon: '🎲',
+    title: 'Risks panel (likelihood)',
+    description: 'Opens a side panel listing the Top 10 risks most likely to occur — ranked by likelihood alone. The number under each risk ID is its likelihood score.',
     tips: [
+      'Ties on likelihood are broken by severity.',
       'This also respects whatever filters are currently active.',
-      'Click the × in the panel header to close it, or click the Risks pill to switch straight to that panel instead.',
+      'Click the × in the panel header to close it, or click another pill to switch straight to that panel instead.',
     ],
-    selector: '#pill-tasks',
+    selector: '#pill-likelihood',
     preview: `<button class="cp-pill" style="color:var(--allegion-muted);flex:none;width:auto">
-      <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">task_alt</span>
-      <span class="cp-pill-label">Top 10 Tasks<small>Severity</small></span>
+      <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">trending_up</span>
+      <span class="cp-pill-label">Top 10 Risks<small>Likelihood</small></span>
     </button>`,
   },
 ];
@@ -5479,7 +5480,7 @@ let _pillsRevealed = false; // false until entrance animation completes
 const _cpMeta = {
   top10: { icon: 'bar_chart', title: 'Top 10 Risks — Highest Severity' },
   combo: { icon: 'stacked_bar_chart', title: 'Top 10 Risks — Severity + Likelihood' },
-  tasks: { icon: 'task_alt',  title: 'Top 10 Tasks — Highest Severity' },
+  likelihood: { icon: 'trending_up', title: 'Top 10 Risks — Highest Likelihood' },
 };
 
 // Content builders — add entries here for future pill types
@@ -5520,31 +5521,20 @@ const _cpBuilders = {
     }).join('');
   },
 
-  tasks: function(body) {
-    // Flatten all visible tasks, sort by severity, take top 10
-    const allTasks = [];
-    Object.entries(TASKS).forEach(([riskId, tasks]) => {
-      const risk = RISKS.find(r => r.id === riskId);
-      if (risk && !_isRiskVisible(risk)) return; // respect active filters
-      tasks.forEach(t => {
-        if (t.task && t.severity != null)
-          allTasks.push({ ...t, riskId });
-      });
-    });
-    const top = allTasks
-      .sort((a, b) => (b.severity||0) - (a.severity||0) || (b.likelihood||0) - (a.likelihood||0))
+  // Ranked by likelihood alone; ties broken by severity. Shows the likelihood
+  // under the ID. (Replaced the old "Top 10 Tasks — Severity" pill, Nov 2026.)
+  likelihood: function(body) {
+    const top = [...RISKS]
+      .filter(r => _isRiskVisible(r))
+      .sort((a, b) => (b.likelihood||0)-(a.likelihood||0) || (b.severity||0)-(a.severity||0))
       .slice(0, 10);
-    body.innerHTML = top.map((t, i) => {
-      const risk = RISKS.find(r => r.id === t.riskId);
-      const col  = risk ? catColor(risk.category||'') : '#666';
-      const sev  = t.severity != null ? parseFloat(t.severity).toFixed(1) : '';
-      const name = t.task.length > 20 ? t.task.slice(0, 19) + '…' : t.task;
-      const _st = (t.task||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div class="t10-item" onclick="openModal([RISKS.find(x=>x.id==='${t.riskId}')],0,3,'${_st}')"
-              title="${t.task} (${t.riskId})">
+    body.innerHTML = top.map((r, i) => {
+      const col = catColor(r.category||'') || '#666';
+      const lik = r.likelihood != null ? parseFloat(r.likelihood).toFixed(1) : '';
+      return `<div class="t10-item" onclick="openModal([RISKS.find(x=>x.id==='${r.id}')],0)" title="${r.name}">
         <span class="t10-rank">#${i+1}</span>
-        <span class="t10-id" style="color:${col}">${t.riskId}</span>
-        ${sev ? `<span class="t10-sev">${sev}</span>` : ''}
+        <span class="t10-id" style="color:${col}">${r.id}</span>
+        ${lik ? `<span class="t10-sev">${lik}</span>` : ''}
       </div>`;
     }).join('');
   }

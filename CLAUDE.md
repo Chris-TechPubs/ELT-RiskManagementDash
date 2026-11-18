@@ -246,10 +246,10 @@ When a task is opened from search results:
 
 ## Chart Panels (Top 10)
 
-- Three pills on the chart: **Top 10 Risks – Severity**, **Top 10 Risks – Severity + Likelihood** (added Nov 2026) and **Top 10 Tasks – Severity** (`openChartPanel('top10' | 'combo' | 'tasks')`, `_cpMeta`, builders in `_cpBuilders` keyed the same)
-- `top10` / `tasks` sort by severity desc, then likelihood desc. `combo` ranks by **severity + likelihood (sum)**, ties broken by severity; it shows the sum under each ID and S/L in the hover title. If the ELT meant product (the classic risk score) rather than sum, change `score` in `_cpBuilders.combo`. All **respect active filters** (`_isRiskVisible`), so they re-rank as filters change
+- Three pills on the chart: **Top 10 Risks – Severity** (`top10`), **Top 10 Risks – Severity + Likelihood** (`combo`, added Nov 2026) and **Top 10 Risks – Likelihood** (`likelihood`, id `#pill-likelihood`; replaced the old "Top 10 Tasks – Severity" pill on 18 Nov 2026 at the ELT's request — the task-ranking builder was removed, restore from git history (pre-18 Nov) if ever wanted). `openChartPanel('top10' | 'combo' | 'likelihood')`, `_cpMeta`, builders in `_cpBuilders` keyed the same
+- `top10` sorts by severity desc, then likelihood desc. `likelihood` sorts by likelihood desc, ties by severity, and shows the likelihood under each ID. `combo` ranks by **severity + likelihood (sum)**, ties broken by severity; it shows the sum under each ID and S/L in the hover title. If the ELT meant product (the classic risk score) rather than sum, change `score` in `_cpBuilders.combo`. All **respect active filters** (`_isRiskVisible`), so they re-rank as filters change
 - Pills are two-line labels (title + small subtitle) so three fit the card width; `--cp-k` (set in `_positionChartPills` from card width) scales text/padding down on small viewports, and `#pill-combo` gets extra `flex-grow` for its longer subtitle. Verified no overflow from 1100 to 1600 px wide in Chrome and Firefox
-- Items click through to the risk modal (tasks open straight to the Tasks tab with the task pulse-highlighted)
+- Items click through to the risk modal
 - A separate always-visible `#top10-panel` (`buildTop10`/`positionTop10`) also exists below the risk list; it is clamped to stay on-screen on short viewports (commit ab8033a)
 
 ---
@@ -293,7 +293,7 @@ Source: `Heatmap feedback from ELT.txt` (8 Jul 2026, untracked). Status verified
 | Risk **end date** | **Not done** — no field fetched or shown; needs a column in SmartSheet first |
 | Owner dropdown for per-person view | Done (exact-name match; see Owner Filter) |
 | …co-owner expansion (Dave Ilardi → also Tim Eckersly's items he co-owns) | **Unclear / not implemented as described** — current filter shows risks where the person appears in any owner/manager field, but does not pull in the *other* co-owner's wider portfolio. Clarify intended behavior with ELT |
-| Top 10 severity list that updates | Done (Top 10 Risks/Tasks pills; re-ranks with filters) |
+| Top 10 severity list that updates | Done (three Top 10 Risks pills — Severity, Severity + Likelihood, Likelihood; re-ranks with filters) |
 | Trends button per risk + rolling historical log + ghost-line | Done on the front end (trend button, ghost dots, snapshot card, multi-risk disambiguation). **Back-end dependency**: the Risk Trend History sheet must be kept populated, and the ELT's "go back to months and years of choice" ask is not met — history is quarterly and there is no date picker |
 | Snapshot button → printable report | **Not done** — no print stylesheet or `window.print` anywhere |
 
@@ -374,7 +374,7 @@ During drag: `static-layer` re-renders (fast), `risks-layer` gets GPU-accelerate
   ```
 - Then: `git add docs/index.html && git commit -m "chore: bake..." && git push origin master`
 - Data is snapshot from bake time — not live. Must rebake + push to update.
-- Last bake: 17 Nov 2026; Netlify auto-deploys from GitHub master on push. **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
+- Last bake: 18 Nov 2026; Netlify auto-deploys from GitHub master on push. **Any change to `heatmap.html` is invisible on Netlify until rebaked.** Trend history, Top 10, guide etc. are all in the baked file.
 - The baked file is ~480 KB; the live `/heatmap` render takes ~5 s on a cold cache (3 SmartSheet calls).
 
 ### Other hosts tried
