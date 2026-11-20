@@ -876,8 +876,18 @@
       font-family: var(--antenna); font-size: 11px; font-weight: 700;
       letter-spacing: 0.08em; text-transform: uppercase; color: #FF671F;
     }
+    #cp-panel-pin {
+      margin-left: auto; display: flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
+      background: transparent; color: var(--allegion-muted);
+      transition: color 0.15s, background 0.15s, transform 0.15s;
+    }
+    #cp-panel-pin:hover { color: #FF671F; }
+    #cp-panel-pin.pinned { color: #FF671F; background: rgba(255,103,31,0.2); transform: rotate(-35deg); }
+    /* A pill whose list is currently pinned to the graph */
+    .cp-pill.pinned { color: #FF671F; box-shadow: 0 4px 20px rgba(0,0,0,0.5), inset 0 0 0 1.5px rgba(255,103,31,0.65); }
     #cp-panel-close {
-      margin-left: auto; background: none; border: none; color: var(--allegion-muted);
+      background: none; border: none; color: var(--allegion-muted);
       font-size: 20px; cursor: pointer; line-height: 1; transition: color 0.15s; flex-shrink: 0;
     }
     #cp-panel-close:hover { color: #E53935; }
@@ -1710,6 +1720,9 @@
   <div id="cp-panel-header">
     <span class="material-symbols-outlined" style="font-size:13px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300" id="cp-panel-icon">bar_chart</span>
     <span id="cp-panel-title">Top 10 — Highest Severity</span>
+    <button id="cp-panel-pin" onclick="togglePillPin()" title="Pin — show only these risks on the graph (pin more panels to add theirs)">
+      <span class="material-symbols-outlined" style="font-size:16px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300">push_pin</span>
+    </button>
     <button id="cp-panel-close" onclick="closeChartPanel()">&#215;</button>
   </div>
   <div id="cp-panel-body"></div>
@@ -2364,6 +2377,18 @@ const GUIDE_FEATURES = [
       <span class="cp-pill-label">Top 10 Risks<small>Likelihood</small></span>
     </button>`,
   },
+  {
+    id: 'chart-pin', category: 'Chart Panels', icon: '📌',
+    title: 'Pin a Top 10 list to the graph',
+    description: 'Open any Top 10 panel and click the pin in its header to make the graph (and risk list) show only the risks on that panel. It works like a filter, but the filter is “whatever this list shows”.',
+    tips: [
+      'Pin more than one panel and the graph shows every risk from all of the pinned panels together.',
+      'A pinned pill glows orange. Re-open its panel and click the pin again to unpin it, or use Reset All to clear everything.',
+      'The pinned list is fixed at the moment you pin it, and it still combines with the other filters (category, status, owner…).',
+    ],
+    selector: '#cp-panel-pin',
+    preview: `<span class="material-symbols-outlined" style="font-size:22px;line-height:1;font-family:'Material Symbols Outlined';font-weight:300;font-variation-settings:'wght' 300;color:#FF671F;background:rgba(255,103,31,0.2);border-radius:50%;padding:6px;transform:rotate(-35deg)">push_pin</span>`,
+  },
 ];
 
 let _dimCount = 0;
@@ -2393,7 +2418,17 @@ function parseResidualVal(v) {
   return m[String(v).toLowerCase().trim()] ?? null;
 }
 
-function _isRiskVisible(r) {
+// Chart-panel pins (Nov 2026): pillId → Set of risk IDs that panel listed when it was
+// pinned. While any pin is active the graph/list show only the UNION of the pinned sets
+// (still intersected with the normal filters). Snapshotted at pin time so a pin stays
+// stable while other filters change.
+const _pinnedIds = {};
+const _hasPins = () => Object.keys(_pinnedIds).length > 0;
+
+// Normal filters only (category / status / health / quarter / overdue / owner) — NO pins.
+// The Top 10 panels rank from this so you can pin several of them: if they ranked from
+// the pin-filtered set, pinning one panel would shrink what every other panel could show.
+function _passesFilters(r) {
   if (_hiddenCatColors.has(catColor(r.category || ''))) return false;
   if (_activeFilters.status.size > 0 && !_activeFilters.status.has(r.status || '')) return false;
   if (_activeFilters.health.size > 0 && !_activeFilters.health.has(r.mitigation_health || '')) return false;
@@ -2402,6 +2437,22 @@ function _isRiskVisible(r) {
   if (_ownerFilter && !_isOwnerMatch(r)) return false;
   return true;
 }
+
+function _isRiskVisible(r) {
+  if (!_passesFilters(r)) return false;
+  if (_hasPins() && !Object.values(_pinnedIds).some(s => s.has(r.id))) return false;
+  return true;
+}
+
+// ── Risk ranking (shared by the list's "Sort By" and the Top 10 panels) ───────
+// Risk Score = Severity + Likelihood (the ELT confirmed the Severity + Likelihood panel is
+// the correct ranking, Nov 2026). Ties → higher severity → lower risk number, so the list
+// order always matches the panel order.
+const _riskScore = r => (r.severity || 0) + (r.likelihood || 0);
+const _idNum     = r => parseInt(String(r.id).replace(/\D/g, ''), 10) || 0;
+const _cmpSev    = (a, b) => (b.severity||0) - (a.severity||0) || (b.likelihood||0) - (a.likelihood||0) || _idNum(a) - _idNum(b);
+const _cmpLik    = (a, b) => (b.likelihood||0) - (a.likelihood||0) || (b.severity||0) - (a.severity||0) || _idNum(a) - _idNum(b);
+const _cmpScore  = (a, b) => _riskScore(b) - _riskScore(a) || (b.severity||0) - (a.severity||0) || _idNum(a) - _idNum(b);
 const catKeyElByColor   = {};        // color → category key card <g> element
 let _pinCircleByRiskId  = {};        // risk id → { circle, col } for the pin icon, rebuilt each renderLegend()
 let   _panDelay         = null;      // setTimeout ID for 1-second pan delay
@@ -3812,10 +3863,10 @@ function renderLegend() {
 
   const sorted = [...RISKS].filter(r => _isRiskVisible(r)).sort((a, b) => {
     switch (_listSort) {
-      case 'score':      return (b.likelihood * b.severity) - (a.likelihood * a.severity);
-      case 'severity':   return b.severity   - a.severity;
-      case 'likelihood': return b.likelihood - a.likelihood;
-      default:           return parseInt(a.id.replace(/\D/g,''),10) - parseInt(b.id.replace(/\D/g,''),10);
+      case 'score':      return _cmpScore(a, b);   // severity + likelihood — same as the Top 10 pill
+      case 'severity':   return _cmpSev(a, b);
+      case 'likelihood': return _cmpLik(a, b);
+      default:           return _idNum(a) - _idNum(b);
     }
   });
 
@@ -4378,7 +4429,7 @@ function _updateResetBtn() {
   const multiActive =
     _hiddenCatColors.size > 0 || _activeFilters.status.size > 0 ||
     _activeFilters.health.size > 0 || _activeFilters.quarter.size > 0 ||
-    _activeFilters.overdue || !!_spotlightOwner;
+    _activeFilters.overdue || !!_spotlightOwner || _hasPins();
   const anyActive  = multiActive || !!_ownerFilter || _trendRisks.size > 0;
   const chip       = document.getElementById('reset-all-chip');
   chip.classList.toggle('visible', anyActive);
@@ -4532,6 +4583,9 @@ function resetAllFilters() {
   // Clear owner filter
   _ownerFilter = null;
   updateOwnerBtn();
+  // Clear chart-panel pins
+  Object.keys(_pinnedIds).forEach(k => delete _pinnedIds[k]);
+  _updatePinUI();
   // Clear search, spotlight, and trend overlays
   if (_searchActive) closeSearch();
   if (_spotlightOwner) clearSpotlight();
@@ -5483,14 +5537,21 @@ const _cpMeta = {
   likelihood: { icon: 'trending_up', title: 'Top 10 Risks — Highest Likelihood' },
 };
 
-// Content builders — add entries here for future pill types
+// Content builders — add entries here for future pill types.
+// Each panel's list comes from _cpTopRisks(), which ranks from the NORMAL filters only
+// (not the pins) — see _passesFilters. The pin button snapshots that same list.
+const _cpRankers = {
+  top10:      _cmpSev,    // severity, ties → likelihood
+  combo:      _cmpScore,  // severity + likelihood, ties → severity (same as list "Risk Score" sort)
+  likelihood: _cmpLik,    // likelihood, ties → severity
+};
+function _cpTopRisks(pillId) {
+  return [...RISKS].filter(r => _passesFilters(r)).sort(_cpRankers[pillId]).slice(0, 10);
+}
+
 const _cpBuilders = {
   top10: function(body) {
-    const top = [...RISKS]
-      .filter(r => _isRiskVisible(r))
-      .sort((a, b) => (b.severity||0)-(a.severity||0) || (b.likelihood||0)-(a.likelihood||0))
-      .slice(0, 10);
-    body.innerHTML = top.map((r, i) => {
+    body.innerHTML = _cpTopRisks('top10').map((r, i) => {
       const col = catColor(r.category||'') || '#666';
       const sev = r.severity != null ? parseFloat(r.severity).toFixed(1) : '';
       return `<div class="t10-item" onclick="openModal([RISKS.find(x=>x.id==='${r.id}')],0)" title="${r.name}">
@@ -5504,14 +5565,9 @@ const _cpBuilders = {
   // Ranked by severity + likelihood (sum); ties broken by severity. Shows the
   // combined score under the ID, with the S / L split in the hover title.
   combo: function(body) {
-    const score = r => (r.severity||0) + (r.likelihood||0);
-    const top = [...RISKS]
-      .filter(r => _isRiskVisible(r))
-      .sort((a, b) => score(b) - score(a) || (b.severity||0)-(a.severity||0))
-      .slice(0, 10);
-    body.innerHTML = top.map((r, i) => {
+    body.innerHTML = _cpTopRisks('combo').map((r, i) => {
       const col = catColor(r.category||'') || '#666';
-      const tot = score(r).toFixed(1);
+      const tot = _riskScore(r).toFixed(1);
       const sl  = `S ${parseFloat(r.severity||0).toFixed(1)} · L ${parseFloat(r.likelihood||0).toFixed(1)}`;
       return `<div class="t10-item" onclick="openModal([RISKS.find(x=>x.id==='${r.id}')],0)" title="${r.name} (${sl})">
         <span class="t10-rank">#${i+1}</span>
@@ -5524,11 +5580,7 @@ const _cpBuilders = {
   // Ranked by likelihood alone; ties broken by severity. Shows the likelihood
   // under the ID. (Replaced the old "Top 10 Tasks — Severity" pill, Nov 2026.)
   likelihood: function(body) {
-    const top = [...RISKS]
-      .filter(r => _isRiskVisible(r))
-      .sort((a, b) => (b.likelihood||0)-(a.likelihood||0) || (b.severity||0)-(a.severity||0))
-      .slice(0, 10);
-    body.innerHTML = top.map((r, i) => {
+    body.innerHTML = _cpTopRisks('likelihood').map((r, i) => {
       const col = catColor(r.category||'') || '#666';
       const lik = r.likelihood != null ? parseFloat(r.likelihood).toFixed(1) : '';
       return `<div class="t10-item" onclick="openModal([RISKS.find(x=>x.id==='${r.id}')],0)" title="${r.name}">
@@ -5539,6 +5591,33 @@ const _cpBuilders = {
     }).join('');
   }
 };
+
+// ── Pin: make the graph show only what a Top 10 panel lists ───────────────────
+// Pins stack — pin several panels and the graph shows the union of their risks.
+function _updatePinUI() {
+  Object.keys(_cpMeta).forEach(id => {
+    const pill = document.getElementById('pill-' + id);
+    if (pill) pill.classList.toggle('pinned', !!_pinnedIds[id]);
+  });
+  const btn = document.getElementById('cp-panel-pin');
+  if (btn) {
+    const on = !!(_cpActivePill && _pinnedIds[_cpActivePill]);
+    btn.classList.toggle('pinned', on);
+    btn.title = on ? 'Unpin — stop limiting the graph to this list'
+                   : 'Pin — show only these risks on the graph (pin more panels to add theirs)';
+  }
+}
+
+function togglePillPin(pillId) {
+  pillId = pillId || _cpActivePill;
+  if (!pillId || !_cpRankers[pillId]) return;
+  const prev = new Set(RISKS.filter(r => _isRiskVisible(r)).map(r => r.id));
+  if (_pinnedIds[pillId]) delete _pinnedIds[pillId];
+  else _pinnedIds[pillId] = new Set(_cpTopRisks(pillId).map(r => r.id));
+  _updatePinUI();
+  _applyFilterWithAnimation(prev);
+  _updateResetBtn();
+}
 
 function _cpBounds() {
   const r       = hm.getBoundingClientRect();
@@ -5626,6 +5705,7 @@ function openChartPanel(pillId) {
   if (titleEl) titleEl.textContent = meta.title || 'Top 10';
   // Build content
   if (_cpBuilders[pillId]) _cpBuilders[pillId](body);
+  _updatePinUI();
   // Must be display:flex (not display:none) before _positionOpenPanel() below
   // can measure header/item heights for its minimum-height guard.
   panel.style.display = 'flex';
